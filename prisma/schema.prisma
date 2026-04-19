@@ -39,6 +39,7 @@ model Workout {
   mixedHeats       Boolean          @default(true)
   tiebreakEnabled    Boolean          @default(false)
   heatStartOverrides String           @default("{}")
+  completedHeats     String           @default("[]")
   assignments        HeatAssignment[]
   scores           Score[]
 }

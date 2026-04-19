@@ -26,23 +26,24 @@ export async function GET() {
     return Response.json({ workout: null, schedule: [], showBib })
   }
 
-  const schedule = workout.assignments.map((a) => {
-    const heatStartMs = calcHeatStartMs(
-      a.heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides
-    )
+  const completedHeats: number[] = JSON.parse(workout.completedHeats || '[]')
 
-    return {
-      athleteId: a.athleteId,
-      athleteName: a.athlete.name,
-      bibNumber: a.athlete.bibNumber,
-      divisionName: a.athlete.division?.name ?? null,
-      heatNumber: a.heatNumber,
-      lane: a.lane,
-      heatTime: heatStartMs != null ? new Date(heatStartMs).toISOString() : null,
-      corralTime: heatStartMs != null ? new Date(heatStartMs - workout.callTimeSecs * 1000).toISOString() : null,
-      walkoutTime: heatStartMs != null ? new Date(heatStartMs - workout.walkoutTimeSecs * 1000).toISOString() : null,
-    }
-  })
+  const schedule = workout.assignments
+    .filter((a) => !completedHeats.includes(a.heatNumber))
+    .map((a) => {
+      const heatStartMs = calcHeatStartMs(a.heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+      return {
+        athleteId: a.athleteId,
+        athleteName: a.athlete.name,
+        bibNumber: a.athlete.bibNumber,
+        divisionName: a.athlete.division?.name ?? null,
+        heatNumber: a.heatNumber,
+        lane: a.lane,
+        heatTime: heatStartMs != null ? new Date(heatStartMs).toISOString() : null,
+        corralTime: heatStartMs != null ? new Date(heatStartMs - workout.callTimeSecs * 1000).toISOString() : null,
+        walkoutTime: heatStartMs != null ? new Date(heatStartMs - workout.walkoutTimeSecs * 1000).toISOString() : null,
+      }
+    })
 
   return Response.json({
     workout: { id: workout.id, number: workout.number, name: workout.name },

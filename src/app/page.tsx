@@ -23,7 +23,7 @@ type ScheduleData = {
 
 function fmtTime(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function PublicSchedule() {
@@ -114,6 +114,8 @@ export default function PublicSchedule() {
                   {entries[0]?.corralTime && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       Corral: <span className="text-yellow-400 font-mono">{fmtTime(entries[0].corralTime)}</span>
+                      {' · '}
+                      Walk Out: <span className="text-blue-400 font-mono">{fmtTime(entries[0].walkoutTime)}</span>
                       {' · '}
                       Start: <span className="text-white font-mono">{fmtTime(entries[0].heatTime)}</span>
                     </p>

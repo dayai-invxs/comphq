@@ -24,6 +24,7 @@ type Workout = {
   mixedHeats: boolean
   tiebreakEnabled: boolean
   heatStartOverrides: string
+  completedHeats: string
   assignments: Assignment[]
   scores: Score[]
 }
@@ -306,6 +307,25 @@ export default function WorkoutDetailPage() {
     setMsg(`Heat ${heatNum} scores saved.`)
   }
 
+  async function completeHeat(heatNum: number) {
+    setLoading(true)
+    // Save scores first, then mark complete
+    const athleteIds = workout?.assignments.filter((a) => a.heatNumber === heatNum).map((a) => a.athlete.id) ?? []
+    await Promise.all(athleteIds.map(saveScore))
+    await fetch(`/api/workouts/${id}/heats/${heatNum}/complete`, { method: 'POST' })
+    setMsg(`Heat ${heatNum} completed. Rankings updated.`)
+    await load()
+    setLoading(false)
+  }
+
+  async function undoHeat(heatNum: number) {
+    setLoading(true)
+    await fetch(`/api/workouts/${id}/heats/${heatNum}/complete`, { method: 'DELETE' })
+    setMsg(`Heat ${heatNum} reopened.`)
+    await load()
+    setLoading(false)
+  }
+
   async function clearScores() {
     if (!confirm('Clear all scores for this workout? This will also reset the workout to active.')) return
     setLoading(true)
@@ -342,6 +362,7 @@ export default function WorkoutDetailPage() {
   const scoredCount = workout.scores.filter((s) => s.rawScore != null).length
   const totalAthletes = workout.assignments.length
   const someScored = scoredCount > 0
+  const completedHeatNums: number[] = JSON.parse(workout.completedHeats || '[]')
 
   function heatStartTime(heatNumber: number): string | null {
     if (!workout?.startTime) return null
@@ -600,18 +621,44 @@ export default function WorkoutDetailPage() {
           {heatNums.map((heatNum) => {
             const entries = (byHeat[heatNum] ?? []).sort((a, b) => a.lane - b.lane)
             const startTime = heatStartTime(heatNum)
+            const isHeatComplete = completedHeatNums.includes(heatNum)
             return (
-              <div key={heatNum} className="bg-gray-900 rounded-xl overflow-hidden">
-                <div className="bg-gray-800 px-5 py-3 flex items-center justify-between">
+              <div key={heatNum} className={`rounded-xl overflow-hidden ${isHeatComplete ? 'opacity-60' : 'bg-gray-900'}`}>
+                <div className={`px-5 py-3 flex items-center justify-between ${isHeatComplete ? 'bg-gray-700' : 'bg-gray-800'}`}>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-semibold text-orange-400">Heat {heatNum}</span>
-                    <button
-                      onClick={() => saveHeatScores(heatNum)}
-                      disabled={loading}
-                      className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-medium rounded px-2.5 py-1 transition-colors"
-                    >
-                      Save Heat
-                    </button>
+                    <span className={`font-semibold ${isHeatComplete ? 'text-gray-400' : 'text-orange-400'}`}>
+                      Heat {heatNum}
+                    </span>
+                    {isHeatComplete && (
+                      <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded-full font-medium">Completed</span>
+                    )}
+                    {!isHeatComplete && (
+                      <button
+                        onClick={() => saveHeatScores(heatNum)}
+                        disabled={loading}
+                        className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-medium rounded px-2.5 py-1 transition-colors"
+                      >
+                        Save Heat
+                      </button>
+                    )}
+                    {!isHeatComplete && (
+                      <button
+                        onClick={() => completeHeat(heatNum)}
+                        disabled={loading}
+                        className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-medium rounded px-2.5 py-1 transition-colors"
+                      >
+                        Complete Heat
+                      </button>
+                    )}
+                    {isHeatComplete && (
+                      <button
+                        onClick={() => undoHeat(heatNum)}
+                        disabled={loading}
+                        className="text-xs text-gray-400 hover:text-white transition-colors"
+                      >
+                        Undo
+                      </button>
+                    )}
                     {editingHeatTime === heatNum ? (
                       <div className="flex items-center gap-2">
                         <input
@@ -652,6 +699,7 @@ export default function WorkoutDetailPage() {
                     )}
                   </div>
                 </div>
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800/50">
                     <tr>
@@ -795,6 +843,7 @@ export default function WorkoutDetailPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )
           })}
