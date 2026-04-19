@@ -1,30 +1,14 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import fs from 'fs'
-import path from 'path'
+import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
-const SETTINGS_PATH = path.join(process.cwd(), 'data', 'settings.json')
-const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads')
-
-function readSettings(): Record<string, string> {
-  try {
-    return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'))
-  } catch {
-    return {}
-  }
-}
-
-function writeSettings(data: Record<string, string>) {
-  fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true })
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2))
-}
+const BUCKET = 'logos'
+const LOGO_KEY = 'logoUrl'
 
 export async function GET() {
-  const settings = readSettings()
-  if (!settings.logoFile) return Response.json({ url: null })
-  const filePath = path.join(UPLOADS_DIR, settings.logoFile)
-  if (!fs.existsSync(filePath)) return Response.json({ url: null })
-  return Response.json({ url: `/uploads/${settings.logoFile}` })
+  const row = await prisma.setting.findUnique({ where: { key: LOGO_KEY } })
+  return Response.json({ url: row?.value ?? null })
 }
 
 export async function POST(req: Request) {
@@ -42,34 +26,35 @@ export async function POST(req: Request) {
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png'
   const filename = `competition-logo.${ext}`
-
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true })
-
-  // Remove any old logo files with different extensions
-  const settings = readSettings()
-  if (settings.logoFile && settings.logoFile !== filename) {
-    const oldPath = path.join(UPLOADS_DIR, settings.logoFile)
-    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath)
-  }
-
   const buffer = Buffer.from(await file.arrayBuffer())
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer)
 
-  writeSettings({ ...settings, logoFile: filename })
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(filename, buffer, { contentType: file.type, upsert: true })
 
-  return Response.json({ url: `/uploads/${filename}` })
+  if (error) return new Response(error.message, { status: 500 })
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename)
+
+  await prisma.setting.upsert({
+    where: { key: LOGO_KEY },
+    update: { value: data.publicUrl },
+    create: { key: LOGO_KEY, value: data.publicUrl },
+  })
+
+  return Response.json({ url: data.publicUrl })
 }
 
 export async function DELETE(_req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const settings = readSettings()
-  if (settings.logoFile) {
-    const filePath = path.join(UPLOADS_DIR, settings.logoFile)
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-    const { logoFile: _, ...rest } = settings
-    writeSettings(rest)
+  const row = await prisma.setting.findUnique({ where: { key: LOGO_KEY } })
+  if (row) {
+    const filename = row.value.split('/').pop()!
+    await supabase.storage.from(BUCKET).remove([filename])
+    await prisma.setting.delete({ where: { key: LOGO_KEY } })
   }
+
   return Response.json({ url: null })
 }

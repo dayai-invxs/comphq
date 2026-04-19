@@ -1,16 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { calcHeatStartMs } from '@/lib/heatTime'
-import fs from 'fs'
-import path from 'path'
-
-const SETTINGS_PATH = path.join(process.cwd(), 'data', 'settings.json')
-function readSettings(): Record<string, unknown> {
-  try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')) } catch { return {} }
-}
 
 export async function GET() {
-  const settings = readSettings()
-  const showBib = settings.showBib !== false
+  const showBibSetting = await prisma.setting.findUnique({ where: { key: 'showBib' } })
+  const showBib = showBibSetting?.value !== 'false'
 
   const workouts = await prisma.workout.findMany({
     orderBy: { number: 'asc' },

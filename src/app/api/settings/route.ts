@@ -1,28 +1,15 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import fs from 'fs'
-import path from 'path'
+import { prisma } from '@/lib/prisma'
 
-const SETTINGS_PATH = path.join(process.cwd(), 'data', 'settings.json')
-
-function readSettings(): Record<string, unknown> {
-  try {
-    return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'))
-  } catch {
-    return {}
-  }
-}
-
-function writeSettings(data: Record<string, unknown>) {
-  fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true })
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2))
+async function getSetting(key: string, defaultValue: string): Promise<string> {
+  const row = await prisma.setting.findUnique({ where: { key } })
+  return row?.value ?? defaultValue
 }
 
 export async function GET() {
-  const settings = readSettings()
-  return Response.json({
-    showBib: settings.showBib !== false, // default true
-  })
+  const showBib = await getSetting('showBib', 'true')
+  return Response.json({ showBib: showBib !== 'false' })
 }
 
 export async function PATCH(req: Request) {
@@ -30,10 +17,15 @@ export async function PATCH(req: Request) {
   if (!session) return new Response('Unauthorized', { status: 401 })
 
   const body = await req.json()
-  const settings = readSettings()
 
-  if (body.showBib !== undefined) settings.showBib = Boolean(body.showBib)
+  if (body.showBib !== undefined) {
+    await prisma.setting.upsert({
+      where: { key: 'showBib' },
+      update: { value: String(Boolean(body.showBib)) },
+      create: { key: 'showBib', value: String(Boolean(body.showBib)) },
+    })
+  }
 
-  writeSettings(settings)
-  return Response.json({ showBib: settings.showBib })
+  const showBib = await getSetting('showBib', 'true')
+  return Response.json({ showBib: showBib !== 'false' })
 }
