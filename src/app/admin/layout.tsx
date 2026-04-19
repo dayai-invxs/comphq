@@ -28,10 +28,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navLinks = [
     { href: '/admin', label: 'Dashboard' },
+    { href: '/admin/leaderboard', label: 'Leaderboard' },
     { href: '/admin/athletes', label: 'Athletes' },
     { href: '/admin/workouts', label: 'Workouts' },
     { href: '/admin/divisions', label: 'Divisions' },
-    { href: '/admin/leaderboard', label: 'Leaderboard' },
     { href: '/admin/users', label: 'Users' },
   ]
 

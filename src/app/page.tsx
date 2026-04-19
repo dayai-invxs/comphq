@@ -98,43 +98,43 @@ export default function PublicSchedule() {
       )}
 
       {data?.workout && byHeat && (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Object.entries(byHeat)
             .sort(([a], [b]) => Number(a) - Number(b))
             .map(([heatNum, entries]) => (
               <div key={heatNum} className="bg-gray-900 rounded-xl overflow-hidden">
-                <div className="bg-gray-800 px-5 py-3">
-                  <h2 className="text-lg font-semibold text-orange-400">
-                    Heat {heatNum}
+                <div className="bg-gray-800 px-4 py-2.5">
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="text-base font-semibold text-orange-400">Heat {heatNum}</h2>
                     {(() => {
                       const divs = [...new Set(entries.map((e) => e.divisionName).filter(Boolean))]
-                      return divs.length > 0 ? <span className="text-gray-400 font-normal text-sm ml-2">— {divs.join(' / ')}</span> : null
+                      return divs.length > 0 ? <span className="text-gray-400 text-xs truncate">{divs.join(' / ')}</span> : null
                     })()}
-                  </h2>
+                  </div>
                   {entries[0]?.corralTime && (
-                    <p className="text-sm text-gray-400 mt-0.5">
+                    <p className="text-xs text-gray-400 mt-0.5">
                       Corral: <span className="text-yellow-400 font-mono">{fmtTime(entries[0].corralTime)}</span>
                       {' · '}
-                      Heat Start: <span className="text-white font-mono">{fmtTime(entries[0].heatTime)}</span>
+                      Start: <span className="text-white font-mono">{fmtTime(entries[0].heatTime)}</span>
                     </p>
                   )}
                 </div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800/50">
                     <tr>
-                      <th className="text-left px-5 py-2 text-gray-400 font-medium">Lane</th>
-                      <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
-                      {data.showBib && <th className="text-left px-5 py-2 text-gray-400 font-medium">Bib</th>}
+                      <th className="text-left px-3 py-1.5 text-gray-400 font-medium text-xs w-10">Lane</th>
+                      <th className="text-left px-3 py-1.5 text-gray-400 font-medium text-xs">Athlete</th>
+                      {data.showBib && <th className="text-left px-3 py-1.5 text-gray-400 font-medium text-xs">Bib</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {entries
                       .sort((a, b) => a.lane - b.lane)
                       .map((e) => (
-                        <tr key={e.athleteId} className="border-t border-gray-800 hover:bg-gray-800/40">
-                          <td className="px-5 py-3 font-bold text-orange-400 text-lg">{e.lane}</td>
-                          <td className="px-5 py-3 font-semibold text-white">{e.athleteName}</td>
-                          {data.showBib && <td className="px-5 py-3 text-gray-400">{e.bibNumber ?? '—'}</td>}
+                        <tr key={e.athleteId} className="border-t border-gray-800">
+                          <td className="px-3 py-2 font-bold text-orange-400">{e.lane}</td>
+                          <td className="px-3 py-2 font-medium text-white">{e.athleteName}</td>
+                          {data.showBib && <td className="px-3 py-2 text-gray-400 text-xs">{e.bibNumber ?? '—'}</td>}
                         </tr>
                       ))}
                   </tbody>
