@@ -219,7 +219,7 @@ export default function WorkoutDetailPage() {
 
   function startEditHeatTime(heatNum: number) {
     if (!workout?.startTime) return
-    const ms = calcHeatStartMs(heatNum, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+    const ms = calcHeatStartMs(heatNum, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
     if (ms == null) return
     const d = new Date(ms)
     setHeatTimeInput(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
@@ -229,7 +229,7 @@ export default function WorkoutDetailPage() {
   async function saveHeatTime(heatNum: number) {
     if (!workout?.startTime || !heatTimeInput) return
     // Determine the date from the current calculated time for this heat
-    const currentMs = calcHeatStartMs(heatNum, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+    const currentMs = calcHeatStartMs(heatNum, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
     const baseDate = currentMs != null ? new Date(currentMs) : new Date(workout.startTime)
     const [hh, mm] = heatTimeInput.split(':').map(Number)
     const newHeatDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hh, mm, 0, 0)
@@ -366,13 +366,13 @@ export default function WorkoutDetailPage() {
 
   function heatStartTime(heatNumber: number): string | null {
     if (!workout?.startTime) return null
-    const ms = calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+    const ms = calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
     return ms != null ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
   }
 
   function heatMs(heatNumber: number): number | null {
     if (!workout?.startTime) return null
-    return calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+    return calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
   }
 
   return (

@@ -27,7 +27,7 @@ export async function GET() {
     const heatNums = [...new Set(workout.assignments.map((a) => a.heatNumber))].sort((a, b) => a - b)
 
     const heats = heatNums.map((heatNumber) => {
-      const heatStartMs = calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+      const heatStartMs = calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
       const entries = workout.assignments
         .filter((a) => a.heatNumber === heatNumber)
         .map((a) => ({

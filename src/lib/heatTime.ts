@@ -12,7 +12,8 @@ export function calcHeatStartMs(
   heatNumber: number,
   workoutStartTime: string | Date | null,
   heatIntervalSecs: number,
-  overridesJson: string
+  overridesJson: string,
+  timeBetweenHeatsSecs = 0
 ): number | null {
   if (!workoutStartTime) return null
 
@@ -30,5 +31,5 @@ export function calcHeatStartMs(
     }
   }
 
-  return bestMs + (heatNumber - bestHeat) * heatIntervalSecs * 1000
+  return bestMs + (heatNumber - bestHeat) * (heatIntervalSecs + timeBetweenHeatsSecs) * 1000
 }

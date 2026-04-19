@@ -31,7 +31,7 @@ export async function GET() {
   const schedule = workout.assignments
     .filter((a) => !completedHeats.includes(a.heatNumber))
     .map((a) => {
-      const heatStartMs = calcHeatStartMs(a.heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides)
+      const heatStartMs = calcHeatStartMs(a.heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
       return {
         athleteId: a.athleteId,
         athleteName: a.athlete.name,
