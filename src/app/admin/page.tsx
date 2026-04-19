@@ -1,0 +1,195 @@
+'use client'
+
+import { useEffect, useState, useRef } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+
+type Workout = {
+  id: number
+  number: number
+  name: string
+  status: string
+  lanes: number
+}
+
+const statusColor: Record<string, string> = {
+  draft: 'bg-gray-700 text-gray-300',
+  active: 'bg-green-900 text-green-300',
+  completed: 'bg-blue-900 text-blue-300',
+}
+
+export default function AdminDashboard() {
+  const [workouts, setWorkouts] = useState<Workout[]>([])
+  const [athleteCount, setAthleteCount] = useState(0)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoLoading, setLogoLoading] = useState(false)
+  const [showBib, setShowBib] = useState(true)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetch('/api/workouts').then((r) => r.json()).then(setWorkouts)
+    fetch('/api/athletes').then((r) => r.json()).then((a) => setAthleteCount(a.length))
+    fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
+    fetch('/api/settings').then((r) => r.json()).then((d) => setShowBib(d.showBib))
+  }, [])
+
+  async function toggleShowBib() {
+    const next = !showBib
+    setShowBib(next)
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showBib: next }),
+    })
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoLoading(true)
+    const fd = new FormData()
+    fd.append('logo', file)
+    const res = await fetch('/api/logo', { method: 'POST', body: fd })
+    if (res.ok) {
+      const { url } = await res.json()
+      setLogoUrl(url + '?t=' + Date.now())
+    }
+    setLogoLoading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function removeLogo() {
+    setLogoLoading(true)
+    await fetch('/api/logo', { method: 'DELETE' })
+    setLogoUrl(null)
+    setLogoLoading(false)
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <p className="text-gray-400 mt-1">Competition overview</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 max-w-sm">
+        <div className="bg-gray-900 rounded-xl p-4">
+          <div className="text-3xl font-bold text-orange-400">{athleteCount}</div>
+          <div className="text-sm text-gray-400 mt-1">Athletes</div>
+        </div>
+        <div className="bg-gray-900 rounded-xl p-4">
+          <div className="text-3xl font-bold text-orange-400">{workouts.length}</div>
+          <div className="text-sm text-gray-400 mt-1">Workouts</div>
+        </div>
+      </div>
+
+      {workouts.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-3">Workouts</h2>
+          <div className="space-y-2">
+            {workouts.map((w) => (
+              <Link
+                key={w.id}
+                href={`/admin/workouts/${w.id}`}
+                className="flex items-center justify-between bg-gray-900 hover:bg-gray-800 rounded-xl px-5 py-4 transition-colors"
+              >
+                <div>
+                  <span className="font-semibold text-white">
+                    WOD {w.number}: {w.name}
+                  </span>
+                  <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes</span>
+                </div>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[w.status] ?? 'bg-gray-700 text-gray-300'}`}>
+                  {w.status}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-4">
+        <Link
+          href="/admin/athletes"
+          className="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
+        >
+          Manage Athletes
+        </Link>
+        <Link
+          href="/admin/workouts"
+          className="bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
+        >
+          Manage Workouts
+        </Link>
+      </div>
+
+      {/* Public view settings */}
+      <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
+        <h2 className="text-lg font-semibold text-white mb-4">Public View Settings</h2>
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div
+            onClick={toggleShowBib}
+            className={`relative w-10 h-6 rounded-full transition-colors ${showBib ? 'bg-orange-500' : 'bg-gray-700'}`}
+          >
+            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${showBib ? 'translate-x-5' : 'translate-x-1'}`} />
+          </div>
+          <div>
+            <span className="text-sm text-white font-medium">Show Bib Numbers</span>
+            <p className="text-xs text-gray-500">Display bib numbers on the public schedule</p>
+          </div>
+        </label>
+      </div>
+
+      {/* Logo upload */}
+      <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
+        <h2 className="text-lg font-semibold text-white mb-4">Competition Logo</h2>
+        {logoUrl ? (
+          <div className="space-y-3">
+            <div className="bg-gray-800 rounded-lg p-3 flex items-center justify-center h-24">
+              <Image
+                src={logoUrl}
+                alt="Competition logo"
+                width={160}
+                height={80}
+                className="max-h-20 w-auto object-contain"
+                unoptimized
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={logoLoading}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              >
+                Replace
+              </button>
+              <button
+                onClick={removeLogo}
+                disabled={logoLoading}
+                className="bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={logoLoading}
+            className="w-full border-2 border-dashed border-gray-700 hover:border-orange-500 disabled:opacity-50 rounded-xl p-6 text-gray-400 hover:text-orange-400 text-sm transition-colors text-center"
+          >
+            {logoLoading ? 'Uploading...' : 'Click to upload logo'}
+            <div className="text-xs text-gray-600 mt-1">PNG, JPG, SVG, WebP</div>
+          </button>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+          className="hidden"
+          onChange={handleLogoUpload}
+        />
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Division {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  order    Int
+  athletes Athlete[]
+}
+
+model Athlete {
+  id          Int              @id @default(autoincrement())
+  name        String
+  bibNumber   String?
+  divisionId  Int?
+  division    Division?        @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+  assignments HeatAssignment[]
+  scores      Score[]
+}
+
+model Workout {
+  id               Int              @id @default(autoincrement())
+  number           Int              @unique
+  name             String
+  scoreType        String
+  lanes            Int
+  heatIntervalSecs     Int
+  timeBetweenHeatsSecs Int     @default(120)
+  callTimeSecs         Int
+  walkoutTimeSecs      Int
+  startTime        DateTime?
+  status           String           @default("draft")
+  mixedHeats       Boolean          @default(true)
+  tiebreakEnabled    Boolean          @default(false)
+  heatStartOverrides String           @default("{}")
+  assignments        HeatAssignment[]
+  scores           Score[]
+}
+
+model HeatAssignment {
+  id         Int     @id @default(autoincrement())
+  workoutId  Int
+  workout    Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  athleteId  Int
+  athlete    Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  heatNumber Int
+  lane       Int
+
+  @@unique([workoutId, athleteId])
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+}
+
+model Score {
+  id        Int     @id @default(autoincrement())
+  athleteId Int
+  athlete   Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  workoutId Int
+  workout   Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  rawScore         Float
+  tiebreakRawScore Float?
+  points           Int?
+
+  @@unique([athleteId, workoutId])
+}
