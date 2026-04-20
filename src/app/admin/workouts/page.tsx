@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 type Workout = {
@@ -24,11 +24,26 @@ const SCORE_TYPE_LABELS: Record<string, string> = {
   weight: 'Weight',
 }
 
-function mmssToSecs(mins: string, secs: string) {
-  return Number(mins) * 60 + Number(secs)
+// Parses "M:SS" or "MM:SS" → total seconds
+function parseMinSec(val: string): number {
+  const [m = '0', s = '0'] = val.split(':')
+  return (parseInt(m) || 0) * 60 + (parseInt(s) || 0)
 }
 
-type TimeField = { mins: string; secs: string }
+function TimeInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-400 mb-1">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0:00"
+        className="w-24 bg-gray-800 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+      />
+    </div>
+  )
+}
 
 export default function WorkoutsPage() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
@@ -36,14 +51,27 @@ export default function WorkoutsPage() {
   const [name, setName] = useState('')
   const [scoreType, setScoreType] = useState('time')
   const [lanes, setLanes] = useState('5')
-  const [heatInterval, setHeatInterval] = useState<TimeField>({ mins: '10', secs: '0' })
-  const [timeBetweenHeats, setTimeBetweenHeats] = useState<TimeField>({ mins: '2', secs: '0' })
-  const [callTime, setCallTime] = useState<TimeField>({ mins: '10', secs: '0' })
-  const [walkoutTime, setWalkoutTime] = useState<TimeField>({ mins: '2', secs: '0' })
+  const [heatInterval, setHeatInterval] = useState('10:00')
+  const [timeBetweenHeats, setTimeBetweenHeats] = useState('2:00')
+  const [callTime, setCallTime] = useState('10:00')
+  const [walkoutTime, setWalkoutTime] = useState('2:00')
   const [startTime, setStartTime] = useState('')
   const [mixedHeats, setMixedHeats] = useState(true)
   const [tiebreakEnabled, setTiebreakEnabled] = useState(false)
+  const [partBEnabled, setPartBEnabled] = useState(false)
+  const [partBScoreType, setPartBScoreType] = useState('time')
   const [loading, setLoading] = useState(false)
+
+  // CSV import state
+  const [importCsv, setImportCsv] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    imported: number
+    workoutsAffected: number[]
+    errors: { line: number; message: string }[]
+    warnings: { message: string }[]
+  } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
     const res = await fetch('/api/workouts')
@@ -63,57 +91,59 @@ export default function WorkoutsPage() {
         name: name.trim(),
         scoreType,
         lanes: Number(lanes),
-        heatIntervalSecs: mmssToSecs(heatInterval.mins, heatInterval.secs),
-        timeBetweenHeatsSecs: mmssToSecs(timeBetweenHeats.mins, timeBetweenHeats.secs),
-        callTimeSecs: mmssToSecs(callTime.mins, callTime.secs),
-        walkoutTimeSecs: mmssToSecs(walkoutTime.mins, walkoutTime.secs),
+        heatIntervalSecs: parseMinSec(heatInterval),
+        timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
+        callTimeSecs: parseMinSec(callTime),
+        walkoutTimeSecs: parseMinSec(walkoutTime),
         startTime: startTime || null,
         mixedHeats,
         tiebreakEnabled,
+        partBEnabled,
+        partBScoreType,
       }),
     })
     setNumber('')
     setName('')
     setScoreType('time')
     setLanes('5')
-    setHeatInterval({ mins: '10', secs: '0' })
-    setTimeBetweenHeats({ mins: '2', secs: '0' })
-    setCallTime({ mins: '10', secs: '0' })
-    setWalkoutTime({ mins: '2', secs: '0' })
+    setHeatInterval('10:00')
+    setTimeBetweenHeats('2:00')
+    setCallTime('10:00')
+    setWalkoutTime('2:00')
     setStartTime('')
     setMixedHeats(true)
     setTiebreakEnabled(false)
+    setPartBEnabled(false)
+    setPartBScoreType('time')
     await load()
     setLoading(false)
   }
 
-  function TimeInput({ label, value, onChange }: { label: string; value: TimeField; onChange: (v: TimeField) => void }) {
-    return (
-      <div>
-        <label className="block text-xs text-gray-400 mb-1">{label}</label>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            min="0"
-            value={value.mins}
-            onChange={(e) => onChange({ ...value, mins: e.target.value })}
-            className="w-16 bg-gray-800 text-white rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
-            placeholder="0"
-          />
-          <span className="text-gray-500 text-sm font-mono">m</span>
-          <input
-            type="number"
-            min="0"
-            max="59"
-            value={value.secs}
-            onChange={(e) => onChange({ ...value, secs: e.target.value })}
-            className="w-16 bg-gray-800 text-white rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
-            placeholder="0"
-          />
-          <span className="text-gray-500 text-sm font-mono">s</span>
-        </div>
-      </div>
-    )
+  async function handleImport() {
+    if (!importCsv.trim()) return
+    setImportLoading(true)
+    setImportResult(null)
+    const res = await fetch('/api/import/heats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csv: importCsv }),
+    })
+    const data = await res.json()
+    setImportResult(data)
+    setImportLoading(false)
+    if (data.imported > 0) await load()
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setImportCsv(ev.target?.result as string ?? '')
+      setImportResult(null)
+    }
+    reader.readAsText(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   return (
@@ -211,6 +241,34 @@ export default function WorkoutsPage() {
             </div>
           )}
           <div className="col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                onClick={() => setPartBEnabled((v) => !v)}
+                className={`relative w-10 h-6 rounded-full transition-colors ${partBEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${partBEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+              </div>
+              <div>
+                <span className="text-sm text-white font-medium">Part A / Part B</span>
+                <p className="text-xs text-gray-500">Add a second score (Part B) to each athlete</p>
+              </div>
+            </label>
+          </div>
+          {partBEnabled && (
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-400 mb-1">Part B Score Type</label>
+              <select
+                value={partBScoreType}
+                onChange={(e) => setPartBScoreType(e.target.value)}
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="time">Time (lower is better)</option>
+                <option value="rounds_reps">Rounds + Reps (higher is better)</option>
+                <option value="weight">Weight (higher is better)</option>
+              </select>
+            </div>
+          )}
+          <div className="col-span-2">
             <button
               type="submit"
               disabled={loading || !number || !name}
@@ -243,6 +301,79 @@ export default function WorkoutsPage() {
           ))}
         </div>
       )}
+
+      {/* CSV Heat Import */}
+      <div className="bg-gray-900 rounded-xl p-6 max-w-2xl">
+        <h2 className="text-lg font-semibold text-white mb-1">Import Heat Assignments</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          CSV columns: <span className="font-mono text-gray-400">workout_number, heat_number, lane_number, athlete_name</span>
+          <br />Overwrites existing assignments for any workout included in the file.
+        </p>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+            >
+              Choose File
+            </button>
+            <span className="text-xs text-gray-500">or paste CSV below</span>
+            <input ref={fileInputRef} type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={handleFileSelect} />
+          </div>
+
+          <textarea
+            value={importCsv}
+            onChange={(e) => { setImportCsv(e.target.value); setImportResult(null) }}
+            placeholder={`workout_number,heat_number,lane_number,athlete_name\n1,1,1,Jane Smith\n1,1,2,John Doe\n1,2,1,Alice Johnson`}
+            rows={8}
+            className="w-full bg-gray-800 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-600"
+          />
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleImport}
+              disabled={importLoading || !importCsv.trim()}
+              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-5 py-2 text-sm transition-colors"
+            >
+              {importLoading ? 'Importing…' : 'Import'}
+            </button>
+            {importCsv && (
+              <button
+                onClick={() => { setImportCsv(''); setImportResult(null) }}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {importResult && (
+          <div className="mt-4 space-y-3">
+            {importResult.imported > 0 && (
+              <div className="bg-green-900/40 border border-green-700 rounded-lg px-4 py-3 text-sm text-green-300">
+                Imported {importResult.imported} assignment{importResult.imported !== 1 ? 's' : ''} across
+                workout{importResult.workoutsAffected.length !== 1 ? 's' : ''}{' '}
+                {importResult.workoutsAffected.map((n) => `#${n}`).join(', ')}.
+              </div>
+            )}
+            {importResult.errors.length > 0 && (
+              <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-3 text-sm space-y-1">
+                <p className="text-red-300 font-medium mb-2">{importResult.errors.length} error{importResult.errors.length !== 1 ? 's' : ''}:</p>
+                {importResult.errors.map((e, i) => (
+                  <p key={i} className="text-red-400">
+                    <span className="text-red-600 font-mono text-xs mr-2">Line {e.line}</span>{e.message}
+                  </p>
+                ))}
+              </div>
+            )}
+            {importResult.imported === 0 && importResult.errors.length === 0 && (
+              <div className="bg-gray-800 rounded-lg px-4 py-3 text-sm text-gray-400">Nothing was imported.</div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

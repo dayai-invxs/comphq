@@ -2,11 +2,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function PUT(req: Request, ctx: RouteContext<'/api/workouts/[id]/heat-times'>) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id } = await ctx.params
+  const { id } = await params
   const workoutId = Number(id)
   const { heatNumber, isoTime } = await req.json() as { heatNumber: number; isoTime: string }
 
@@ -15,8 +15,6 @@ export async function PUT(req: Request, ctx: RouteContext<'/api/workouts/[id]/he
 
   const overrides: Record<string, string> = JSON.parse(workout.heatStartOverrides || '{}')
 
-  // Set this heat's override and remove all overrides for later heats
-  // (later heats will cascade from this new anchor)
   for (const key of Object.keys(overrides)) {
     if (Number(key) >= heatNumber) delete overrides[key]
   }

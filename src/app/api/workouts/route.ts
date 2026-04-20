@@ -38,6 +38,8 @@ export async function POST(req: Request) {
       status: 'draft',
       mixedHeats: mixedHeats !== false,
       tiebreakEnabled: body.tiebreakEnabled === true,
+      partBEnabled: body.partBEnabled === true,
+      partBScoreType: body.partBScoreType ?? 'time',
     },
   })
   return Response.json(workout, { status: 201 })

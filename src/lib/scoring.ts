@@ -84,7 +84,14 @@ export function assignHeats(
   }
 
   if (mixedHeats) {
-    return assignBlock(athletes, 0)
+    const sorted = useSeeding
+      ? athletes
+      : [...athletes].sort((a, b) => {
+          const oa = a.divisionId === null ? Infinity : (divisionOrder.get(a.divisionId) ?? Infinity)
+          const ob = b.divisionId === null ? Infinity : (divisionOrder.get(b.divisionId) ?? Infinity)
+          return oa - ob
+        })
+    return assignBlock(sorted, 0)
   }
 
   // Separate by division: group athletes, then run each division's block in order

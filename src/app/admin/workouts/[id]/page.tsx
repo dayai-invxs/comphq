@@ -8,7 +8,7 @@ import { calcHeatStartMs } from '@/lib/heatTime'
 type Division = { id: number; name: string; order: number }
 type Athlete = { id: number; name: string; bibNumber: string | null; division: Division | null }
 type Assignment = { id: number; heatNumber: number; lane: number; athlete: Athlete }
-type Score = { id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null; points: number | null; athlete: Athlete }
+type Score = { id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null; points: number | null; partBRawScore: number | null; partBPoints: number | null; athlete: Athlete }
 type Workout = {
   id: number
   number: number
@@ -23,14 +23,35 @@ type Workout = {
   status: string
   mixedHeats: boolean
   tiebreakEnabled: boolean
+  partBEnabled: boolean
+  partBScoreType: string
   heatStartOverrides: string
   completedHeats: string
   assignments: Assignment[]
   scores: Score[]
 }
-type MsField = { mins: string; secs: string; ms: string }
 type RRField = { rounds: string; reps: string }
-type TimeField = { mins: string; secs: string }
+type TimeField = string
+
+// Parses "M:SS", "M:SS.mmm", or "M:SS:mmm" → milliseconds
+function parseTimeInput(str: string): number {
+  const s = str.trim()
+  if (!s) return 0
+  const m = s.match(/^(\d+):(\d{1,2})(?:[.:](\d{1,3}))?$/)
+  if (!m) return 0
+  const mins = parseInt(m[1]) || 0
+  const secs = parseInt(m[2]) || 0
+  const ms = m[3] ? parseInt(m[3].padEnd(3, '0')) : 0
+  return timeToMs(mins, secs, ms)
+}
+
+// Formats milliseconds → "M:SS.mmm" (or "M:SS" if no ms) for input fields
+function formatTimeInput(ms: number): string {
+  const { mins, secs, ms: millis } = msToTimeParts(ms)
+  const ss = String(secs).padStart(2, '0')
+  if (millis > 0) return `${mins}:${ss}.${String(millis).padStart(3, '0')}`
+  return `${mins}:${ss}`
+}
 
 const statusColor: Record<string, string> = {
   draft: 'bg-gray-700 text-gray-300',
@@ -46,12 +67,15 @@ const SCORE_TYPE_LABELS: Record<string, string> = {
   higher_is_better: 'Reps / Weight',
 }
 
-function secsToField(secs: number): TimeField {
-  return { mins: String(Math.floor(secs / 60)), secs: String(secs % 60) }
+function secsToField(secs: number): string {
+  const m = Math.floor(secs / 60)
+  const s = String(secs % 60).padStart(2, '0')
+  return `${m}:${s}`
 }
 
-function fieldToSecs(f: TimeField): number {
-  return Number(f.mins) * 60 + Number(f.secs)
+function fieldToSecs(val: string): number {
+  const [m = '0', s = '0'] = val.split(':')
+  return (parseInt(m) || 0) * 60 + (parseInt(s) || 0)
 }
 
 function toLocalDatetime(iso: string | null): string {
@@ -61,29 +85,17 @@ function toLocalDatetime(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function TimeInput({ label, value, onChange }: { label: string; value: TimeField; onChange: (v: TimeField) => void }) {
+function TimeInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
       <label className="block text-xs text-gray-400 mb-1">{label}</label>
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          min="0"
-          value={value.mins}
-          onChange={(e) => onChange({ ...value, mins: e.target.value })}
-          className="w-16 bg-gray-800 text-white rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
-        />
-        <span className="text-gray-500 text-sm font-mono">m</span>
-        <input
-          type="number"
-          min="0"
-          max="59"
-          value={value.secs}
-          onChange={(e) => onChange({ ...value, secs: e.target.value })}
-          className="w-16 bg-gray-800 text-white rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
-        />
-        <span className="text-gray-500 text-sm font-mono">s</span>
-      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0:00"
+        className="w-24 bg-gray-800 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+      />
     </div>
   )
 }
@@ -94,9 +106,13 @@ export default function WorkoutDetailPage() {
   const [workout, setWorkout] = useState<Workout | null>(null)
   // score inputs keyed by athleteId
   const [weightInputs, setWeightInputs] = useState<Record<number, string>>({})
-  const [timeInputs, setTimeInputs] = useState<Record<number, MsField>>({})
+  const [timeInputs, setTimeInputs] = useState<Record<number, string>>({})
   const [rrInputs, setRrInputs] = useState<Record<number, RRField>>({})
-  const [tiebreakInputs, setTiebreakInputs] = useState<Record<number, MsField>>({})
+  const [tiebreakInputs, setTiebreakInputs] = useState<Record<number, string>>({})
+  // Part B inputs
+  const [partBTimeInputs, setPartBTimeInputs] = useState<Record<number, string>>({})
+  const [partBWeightInputs, setPartBWeightInputs] = useState<Record<number, string>>({})
+  const [partBRrInputs, setPartBRrInputs] = useState<Record<number, RRField>>({})
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [editing, setEditing] = useState(false)
@@ -113,43 +129,60 @@ export default function WorkoutDetailPage() {
   const [editNumber, setEditNumber] = useState('')
   const [editScoreType, setEditScoreType] = useState('time')
   const [editLanes, setEditLanes] = useState('')
-  const [editHeatInterval, setEditHeatInterval] = useState<TimeField>({ mins: '10', secs: '0' })
-  const [editTimeBetweenHeats, setEditTimeBetweenHeats] = useState<TimeField>({ mins: '2', secs: '0' })
-  const [editCallTime, setEditCallTime] = useState<TimeField>({ mins: '5', secs: '0' })
-  const [editWalkoutTime, setEditWalkoutTime] = useState<TimeField>({ mins: '1', secs: '0' })
+  const [editHeatInterval, setEditHeatInterval] = useState<TimeField>('10:00')
+  const [editTimeBetweenHeats, setEditTimeBetweenHeats] = useState<TimeField>('2:00')
+  const [editCallTime, setEditCallTime] = useState<TimeField>('5:00')
+  const [editWalkoutTime, setEditWalkoutTime] = useState<TimeField>('1:00')
   const [editStartTime, setEditStartTime] = useState('')
   const [editMixedHeats, setEditMixedHeats] = useState(true)
   const [editTiebreakEnabled, setEditTiebreakEnabled] = useState(false)
+  const [editPartBEnabled, setEditPartBEnabled] = useState(false)
+  const [editPartBScoreType, setEditPartBScoreType] = useState('time')
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/workouts/${id}`)
+    const res = await fetch(`/api/workouts/${id}`, { cache: 'no-store' })
     if (!res.ok) return router.push('/admin/workouts')
     const data: Workout = await res.json()
     setWorkout(data)
     const wI: Record<number, string> = {}
-    const tI: Record<number, MsField> = {}
+    const tI: Record<number, string> = {}
     const rI: Record<number, RRField> = {}
-    const tbI: Record<number, MsField> = {}
+    const tbI: Record<number, string> = {}
+    const bTI: Record<number, string> = {}
+    const bWI: Record<number, string> = {}
+    const bRI: Record<number, RRField> = {}
     for (const s of data.scores) {
       if (data.scoreType === 'time') {
-        const p = msToTimeParts(s.rawScore)
-        tI[s.athleteId] = { mins: String(p.mins), secs: String(p.secs), ms: String(p.ms) }
+        tI[s.athleteId] = formatTimeInput(s.rawScore)
       } else if (data.scoreType === 'rounds_reps') {
         const rr = scoreToRoundsReps(s.rawScore)
         rI[s.athleteId] = { rounds: String(rr.rounds), reps: String(rr.reps) }
         if (s.tiebreakRawScore != null) {
-          const p = msToTimeParts(s.tiebreakRawScore)
-          tbI[s.athleteId] = { mins: String(p.mins), secs: String(p.secs), ms: String(p.ms) }
+          tbI[s.athleteId] = formatTimeInput(s.tiebreakRawScore)
         }
       } else {
         wI[s.athleteId] = String(s.rawScore)
+      }
+      if (s.partBRawScore != null) {
+        if (data.partBScoreType === 'time') {
+          bTI[s.athleteId] = formatTimeInput(s.partBRawScore)
+        } else if (data.partBScoreType === 'rounds_reps') {
+          const rr = scoreToRoundsReps(s.partBRawScore)
+          bRI[s.athleteId] = { rounds: String(rr.rounds), reps: String(rr.reps) }
+        } else {
+          bWI[s.athleteId] = String(s.partBRawScore)
+        }
       }
     }
     setWeightInputs(wI)
     setTimeInputs(tI)
     setRrInputs(rI)
     setTiebreakInputs(tbI)
-  }, [id, router])
+    setPartBTimeInputs(bTI)
+    setPartBWeightInputs(bWI)
+    setPartBRrInputs(bRI)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   useEffect(() => { load() }, [load])
 
@@ -166,13 +199,15 @@ export default function WorkoutDetailPage() {
     setEditStartTime(toLocalDatetime(workout.startTime))
     setEditMixedHeats(workout.mixedHeats)
     setEditTiebreakEnabled(workout.tiebreakEnabled)
+    setEditPartBEnabled(workout.partBEnabled)
+    setEditPartBScoreType(workout.partBScoreType)
     setEditing(true)
   }
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    await fetch(`/api/workouts/${id}`, {
+    const res = await fetch(`/api/workouts/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -187,8 +222,18 @@ export default function WorkoutDetailPage() {
         startTime: editStartTime || null,
         mixedHeats: editMixedHeats,
         tiebreakEnabled: editTiebreakEnabled,
+        partBEnabled: editPartBEnabled,
+        partBScoreType: editPartBScoreType,
       }),
     })
+    if (!res.ok) {
+      setMsg('Error saving settings.')
+      setLoading(false)
+      return
+    }
+    const updated = await res.json()
+    // Merge updated scalar fields directly into workout state so UI reflects changes immediately
+    setWorkout((prev) => prev ? { ...prev, ...updated } : prev)
     setEditing(false)
     setMsg('Settings saved.')
     await load()
@@ -262,11 +307,10 @@ export default function WorkoutDetailPage() {
     if (!workout) return
     let rawScore: number
     let tiebreakRawScore: number | null = null
+    let partBRawScore: number | null = null
 
     if (workout.scoreType === 'time') {
-      const t = timeInputs[athleteId]
-      if (!t) return
-      rawScore = timeToMs(Number(t.mins) || 0, Number(t.secs) || 0, Number(t.ms) || 0)
+      rawScore = parseTimeInput(timeInputs[athleteId] ?? '')
       if (rawScore === 0) return
     } else if (workout.scoreType === 'rounds_reps') {
       const r = rrInputs[athleteId]
@@ -274,7 +318,7 @@ export default function WorkoutDetailPage() {
       rawScore = roundsRepsToScore(Number(r.rounds) || 0, Number(r.reps) || 0)
       if (workout.tiebreakEnabled) {
         const tb = tiebreakInputs[athleteId]
-        if (tb) tiebreakRawScore = timeToMs(Number(tb.mins) || 0, Number(tb.secs) || 0, Number(tb.ms) || 0) || null
+        if (tb) tiebreakRawScore = parseTimeInput(tb) || null
       }
     } else {
       const raw = weightInputs[athleteId]
@@ -282,10 +326,22 @@ export default function WorkoutDetailPage() {
       rawScore = Number(raw)
     }
 
+    if (workout.partBEnabled) {
+      if (workout.partBScoreType === 'time') {
+        partBRawScore = parseTimeInput(partBTimeInputs[athleteId] ?? '') || null
+      } else if (workout.partBScoreType === 'rounds_reps') {
+        const r = partBRrInputs[athleteId]
+        if (r) partBRawScore = roundsRepsToScore(Number(r.rounds) || 0, Number(r.reps) || 0) || null
+      } else {
+        const raw = partBWeightInputs[athleteId]
+        if (raw !== undefined && raw !== '') partBRawScore = Number(raw)
+      }
+    }
+
     await fetch(`/api/workouts/${id}/scores`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ athleteId, rawScore, tiebreakRawScore }),
+      body: JSON.stringify({ athleteId, rawScore, tiebreakRawScore, partBRawScore }),
     })
   }
 
@@ -534,6 +590,34 @@ export default function WorkoutDetailPage() {
                 </label>
               </div>
             )}
+            <div className="col-span-2">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => setEditPartBEnabled((v) => !v)}
+                  className={`relative w-10 h-6 rounded-full transition-colors ${editPartBEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${editPartBEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+                <div>
+                  <span className="text-sm text-white font-medium">Part A / Part B</span>
+                  <p className="text-xs text-gray-500">Add a second score (Part B) to each athlete</p>
+                </div>
+              </label>
+            </div>
+            {editPartBEnabled && (
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-400 mb-1">Part B Score Type</label>
+                <select
+                  value={editPartBScoreType}
+                  onChange={(e) => setEditPartBScoreType(e.target.value)}
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="time">Time (lower is better)</option>
+                  <option value="rounds_reps">Rounds + Reps (higher is better)</option>
+                  <option value="weight">Weight (higher is better)</option>
+                </select>
+              </div>
+            )}
             <div className="col-span-2 flex gap-3">
               <button
                 type="submit"
@@ -569,7 +653,7 @@ export default function WorkoutDetailPage() {
             disabled={loading}
             className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
           >
-            Generate (Random / Registration Order)
+            Generate (Random / Division Order)
           </button>
           <button
             onClick={() => generateAssignments(true)}
@@ -630,7 +714,14 @@ export default function WorkoutDetailPage() {
                       Heat {heatNum}
                     </span>
                     {isHeatComplete && (
-                      <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded-full font-medium">Completed</span>
+                      <button
+                        onClick={() => undoHeat(heatNum)}
+                        disabled={loading}
+                        className="text-xs bg-green-900 hover:bg-red-900 text-green-400 hover:text-red-400 px-2 py-0.5 rounded-full font-medium transition-colors"
+                        title="Click to un-complete"
+                      >
+                        Completed
+                      </button>
                     )}
                     {!isHeatComplete && (
                       <button
@@ -648,15 +739,6 @@ export default function WorkoutDetailPage() {
                         className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-medium rounded px-2.5 py-1 transition-colors"
                       >
                         Complete Heat
-                      </button>
-                    )}
-                    {isHeatComplete && (
-                      <button
-                        onClick={() => undoHeat(heatNum)}
-                        disabled={loading}
-                        className="text-xs text-gray-400 hover:text-white transition-colors"
-                      >
-                        Undo
                       </button>
                     )}
                     {editingHeatTime === heatNum ? (
@@ -707,7 +789,8 @@ export default function WorkoutDetailPage() {
                       <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Heat</th>
                       <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
                       <th className="text-left px-5 py-2 text-gray-400 font-medium">Division</th>
-                      <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">Score</th>
+                      <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
+                      {workout.partBEnabled && <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">Part B</th>}
                       <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Points</th>
                       <th className="px-5 py-2 w-20" />
                     </tr>
@@ -749,20 +832,13 @@ export default function WorkoutDetailPage() {
                           <td className="px-5 py-3 text-gray-400 text-xs">{a.athlete.division?.name ?? '—'}</td>
                           <td className="px-3 py-2">
                             {workout.scoreType === 'time' && (
-                              <div className="flex items-center gap-1">
-                                {(['mins','secs','ms'] as const).map((part, i) => (
-                                  <span key={part} className="flex items-center gap-0.5">
-                                    <input
-                                      type="number" min="0" max={part === 'secs' ? 59 : part === 'ms' ? 999 : undefined}
-                                      value={timeInputs[a.athlete.id]?.[part] ?? ''}
-                                      onChange={(e) => setTimeInputs((p) => ({ ...p, [a.athlete.id]: { ...p[a.athlete.id], [part]: e.target.value } }))}
-                                      placeholder="0"
-                                      className="w-14 bg-gray-800 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                    />
-                                    <span className="text-gray-500 text-xs">{['m','s','ms'][i]}</span>
-                                  </span>
-                                ))}
-                              </div>
+                              <input
+                                type="text"
+                                value={timeInputs[a.athlete.id] ?? ''}
+                                onChange={(e) => setTimeInputs((p) => ({ ...p, [a.athlete.id]: e.target.value }))}
+                                placeholder="0:00.000"
+                                className="w-28 bg-gray-800 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              />
                             )}
                             {workout.scoreType === 'rounds_reps' && (
                               <div className="space-y-1">
@@ -787,18 +863,13 @@ export default function WorkoutDetailPage() {
                                 {workout.tiebreakEnabled && (
                                   <div className="flex items-center gap-1">
                                     <span className="text-gray-500 text-xs w-12">TB:</span>
-                                    {(['mins','secs','ms'] as const).map((part, i) => (
-                                      <span key={part} className="flex items-center gap-0.5">
-                                        <input
-                                          type="number" min="0" max={part === 'secs' ? 59 : part === 'ms' ? 999 : undefined}
-                                          value={tiebreakInputs[a.athlete.id]?.[part] ?? ''}
-                                          onChange={(e) => setTiebreakInputs((p) => ({ ...p, [a.athlete.id]: { ...p[a.athlete.id], [part]: e.target.value } }))}
-                                          placeholder="0"
-                                          className="w-12 bg-gray-800 text-white rounded px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                        />
-                                        <span className="text-gray-600 text-xs">{['m','s','ms'][i]}</span>
-                                      </span>
-                                    ))}
+                                    <input
+                                      type="text"
+                                      value={tiebreakInputs[a.athlete.id] ?? ''}
+                                      onChange={(e) => setTiebreakInputs((p) => ({ ...p, [a.athlete.id]: e.target.value }))}
+                                      placeholder="0:00.000"
+                                      className="w-24 bg-gray-800 text-white rounded px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -813,11 +884,56 @@ export default function WorkoutDetailPage() {
                               />
                             )}
                           </td>
+                          {workout.partBEnabled && (
+                            <td className="px-3 py-2">
+                              {workout.partBScoreType === 'time' && (
+                                <input
+                                  type="text"
+                                  value={partBTimeInputs[a.athlete.id] ?? ''}
+                                  onChange={(e) => setPartBTimeInputs((p) => ({ ...p, [a.athlete.id]: e.target.value }))}
+                                  placeholder="0:00.000"
+                                  className="w-28 bg-gray-800 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                />
+                              )}
+                              {workout.partBScoreType === 'rounds_reps' && (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number" min="0"
+                                    value={partBRrInputs[a.athlete.id]?.rounds ?? ''}
+                                    onChange={(e) => setPartBRrInputs((p) => ({ ...p, [a.athlete.id]: { ...p[a.athlete.id], rounds: e.target.value } }))}
+                                    placeholder="0"
+                                    className="w-14 bg-gray-800 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                  />
+                                  <span className="text-gray-500 text-xs">rds</span>
+                                  <input
+                                    type="number" min="0" max={REPS_MULTIPLIER - 1}
+                                    value={partBRrInputs[a.athlete.id]?.reps ?? ''}
+                                    onChange={(e) => setPartBRrInputs((p) => ({ ...p, [a.athlete.id]: { ...p[a.athlete.id], reps: e.target.value } }))}
+                                    placeholder="0"
+                                    className="w-14 bg-gray-800 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                  />
+                                  <span className="text-gray-500 text-xs">reps</span>
+                                </div>
+                              )}
+                              {workout.partBScoreType !== 'time' && workout.partBScoreType !== 'rounds_reps' && (
+                                <input
+                                  type="number" step="any"
+                                  value={partBWeightInputs[a.athlete.id] ?? ''}
+                                  onChange={(e) => setPartBWeightInputs((p) => ({ ...p, [a.athlete.id]: e.target.value }))}
+                                  placeholder="Score"
+                                  className="w-28 bg-gray-800 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                              )}
+                            </td>
+                          )}
                           <td className="px-5 py-3 text-gray-300">
                             {score ? (
                               <div>
                                 <div className={`font-bold text-sm ${score.points === 1 ? 'text-yellow-400' : score.points !== null && score.points <= 3 ? 'text-orange-400' : 'text-white'}`}>
                                   {score.points != null ? `#${score.points}` : '—'}
+                                  {workout.partBEnabled && score.partBPoints != null && (
+                                    <span className="text-gray-500 font-normal text-xs ml-1">/ B#{score.partBPoints}</span>
+                                  )}
                                 </div>
                                 {score.rawScore > 0 && (
                                   <div className="text-xs text-gray-500">{formatScore(score.rawScore, workout.scoreType)}</div>

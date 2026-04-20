@@ -3,8 +3,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 
-export async function GET(_req: Request, ctx: RouteContext<'/api/workouts/[id]/assignments'>) {
-  const { id } = await ctx.params
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const assignments = await prisma.heatAssignment.findMany({
     where: { workoutId: Number(id) },
     include: { athlete: { include: { division: true } } },
@@ -13,11 +13,11 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/workouts/[id]/a
   return Response.json(assignments)
 }
 
-export async function POST(req: Request, ctx: RouteContext<'/api/workouts/[id]/assignments'>) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id } = await ctx.params
+  const { id } = await params
   const workoutId = Number(id)
 
   const workout = await prisma.workout.findUnique({ where: { id: workoutId } })
@@ -61,7 +61,7 @@ export async function POST(req: Request, ctx: RouteContext<'/api/workouts/[id]/a
   return Response.json(result, { status: 201 })
 }
 
-export async function PATCH(req: Request, ctx: RouteContext<'/api/workouts/[id]/assignments'>) {
+export async function PATCH(req: Request, { params: _params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 

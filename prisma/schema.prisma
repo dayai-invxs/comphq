@@ -43,6 +43,8 @@ model Workout {
   status           String           @default("draft")
   mixedHeats       Boolean          @default(true)
   tiebreakEnabled    Boolean          @default(false)
+  partBEnabled       Boolean          @default(false)
+  partBScoreType     String           @default("time")
   heatStartOverrides String           @default("{}")
   completedHeats     String           @default("[]")
   assignments        HeatAssignment[]
@@ -76,6 +78,8 @@ model Score {
   rawScore         Float
   tiebreakRawScore Float?
   points           Int?
+  partBRawScore    Float?
+  partBPoints      Int?
 
   @@unique([athleteId, workoutId])
 }

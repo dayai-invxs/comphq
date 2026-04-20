@@ -3,11 +3,11 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
-export async function PUT(req: Request, ctx: RouteContext<'/api/users/[id]'>) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id } = await ctx.params
+  const { id } = await params
   const { password } = await req.json()
   if (!password || password.length < 6) return new Response('Password must be at least 6 characters', { status: 400 })
 
@@ -20,11 +20,11 @@ export async function PUT(req: Request, ctx: RouteContext<'/api/users/[id]'>) {
   return Response.json(user)
 }
 
-export async function DELETE(_req: Request, ctx: RouteContext<'/api/users/[id]'>) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id } = await ctx.params
+  const { id } = await params
 
   const total = await prisma.user.count()
   if (total <= 1) return new Response('Cannot delete the last user', { status: 400 })

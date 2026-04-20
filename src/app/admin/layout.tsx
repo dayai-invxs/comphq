@@ -15,7 +15,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login')
-  }, [status, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
 
   useEffect(() => {
     fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))

@@ -2,8 +2,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(_req: Request, ctx: RouteContext<'/api/workouts/[id]'>) {
-  const { id } = await ctx.params
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const workout = await prisma.workout.findUnique({
     where: { id: Number(id) },
     include: {
@@ -15,11 +15,11 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/workouts/[id]'>
   return Response.json(workout)
 }
 
-export async function PUT(req: Request, ctx: RouteContext<'/api/workouts/[id]'>) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id } = await ctx.params
+  const { id } = await params
   const body = await req.json()
 
   const workout = await prisma.workout.update({
@@ -36,17 +36,19 @@ export async function PUT(req: Request, ctx: RouteContext<'/api/workouts/[id]'>)
       ...(body.status && { status: body.status }),
       ...(body.mixedHeats !== undefined && { mixedHeats: Boolean(body.mixedHeats) }),
       ...(body.tiebreakEnabled !== undefined && { tiebreakEnabled: Boolean(body.tiebreakEnabled) }),
+      ...(body.partBEnabled !== undefined && { partBEnabled: Boolean(body.partBEnabled) }),
+      ...(body.partBScoreType && { partBScoreType: body.partBScoreType }),
       ...(body.number != null && { number: Number(body.number) }),
     },
   })
   return Response.json(workout)
 }
 
-export async function DELETE(_req: Request, ctx: RouteContext<'/api/workouts/[id]'>) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id } = await ctx.params
+  const { id } = await params
   await prisma.workout.delete({ where: { id: Number(id) } })
   return new Response(null, { status: 204 })
 }
