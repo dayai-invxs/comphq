@@ -48,8 +48,8 @@ export default function PublicSchedule() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
-    fetchSchedule()
+    void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
+    void fetchSchedule()
     const interval = setInterval(fetchSchedule, 10000)
     return () => clearInterval(interval)
   }, [fetchSchedule])

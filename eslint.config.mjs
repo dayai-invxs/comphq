@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Async data-fetching functions called in effects are valid patterns.
+      'react-hooks/set-state-in-effect': 'off',
+      // Nested component definitions that close over parent state are intentional.
+      'react-hooks/static-components': 'off',
+    },
+  },
 ]);
 
 export default eslintConfig;

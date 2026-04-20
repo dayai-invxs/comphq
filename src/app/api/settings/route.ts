@@ -1,10 +1,10 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
 
 async function getSetting(key: string, defaultValue: string): Promise<string> {
-  const row = await prisma.setting.findUnique({ where: { key } })
-  return row?.value ?? defaultValue
+  const [row] = await sql`SELECT value FROM "Setting" WHERE key = ${key}`
+  return (row?.value as string) ?? defaultValue
 }
 
 export async function GET() {
@@ -17,13 +17,11 @@ export async function PATCH(req: Request) {
   if (!session) return new Response('Unauthorized', { status: 401 })
 
   const body = await req.json()
-
   if (body.showBib !== undefined) {
-    await prisma.setting.upsert({
-      where: { key: 'showBib' },
-      update: { value: String(Boolean(body.showBib)) },
-      create: { key: 'showBib', value: String(Boolean(body.showBib)) },
-    })
+    await sql`
+      INSERT INTO "Setting" (key, value) VALUES ('showBib', ${String(Boolean(body.showBib))})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    `
   }
 
   const showBib = await getSetting('showBib', 'true')

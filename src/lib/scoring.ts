@@ -1,4 +1,4 @@
-import type { Athlete, Score } from '@/generated/prisma/client'
+import type { Athlete, Score } from '@/lib/types'
 
 export type AthleteWithScore = Athlete & { scores: Score[] }
 

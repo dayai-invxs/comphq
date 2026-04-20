@@ -42,7 +42,7 @@ export default function AthleteControl() {
   }, [])
 
   useEffect(() => {
-    fetchData()
+    void fetchData()
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
   }, [fetchData])
@@ -51,7 +51,7 @@ export default function AthleteControl() {
     const key = `${workoutId}-${heatNumber}`
     setChecks((prev) => ({
       ...prev,
-      [key]: { corral: false, walkout: false, ...prev[key], [field]: !prev[key]?.[field] },
+      [key]: { ...({ corral: false, walkout: false }), ...prev[key], [field]: !prev[key]?.[field] },
     }))
   }
 

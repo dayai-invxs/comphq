@@ -6,6 +6,21 @@ type Division = { id: number; name: string; order: number }
 type Athlete = { id: number; name: string; bibNumber: string | null; divisionId: number | null; division: Division | null }
 type EditState = { name: string; bib: string; divisionId: string }
 
+function DivisionSelect({ value, onChange, className, divisions }: { value: string; onChange: (v: string) => void; className?: string; divisions: Division[] }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${className ?? ''}`}
+    >
+      <option value="">No division</option>
+      {divisions.map((d) => (
+        <option key={d.id} value={String(d.id)}>{d.name}</option>
+      ))}
+    </select>
+  )
+}
+
 export default function AthletesPage() {
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [divisions, setDivisions] = useState<Division[]>([])
@@ -34,7 +49,7 @@ export default function AthletesPage() {
     })
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { void load() }, [])
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -118,7 +133,7 @@ export default function AthletesPage() {
   }
 
   function toggleSelect(id: number) {
-    setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+    setSelected((prev) => { const s = new Set(prev); if (s.has(id)) { s.delete(id) } else { s.add(id) }; return s })
   }
 
   function toggleAll() {
@@ -127,21 +142,6 @@ export default function AthletesPage() {
 
   const allSelected = athletes.length > 0 && selected.size === athletes.length
   const someSelected = selected.size > 0 && !allSelected
-
-  function DivisionSelect({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
-    return (
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${className ?? ''}`}
-      >
-        <option value="">No division</option>
-        {divisions.map((d) => (
-          <option key={d.id} value={String(d.id)}>{d.name}</option>
-        ))}
-      </select>
-    )
-  }
 
   return (
     <div className="space-y-8">
@@ -181,7 +181,7 @@ export default function AthletesPage() {
               className="w-24 bg-gray-800 text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
             {divisions.length > 0 && (
-              <DivisionSelect value={divisionId} onChange={setDivisionId} />
+              <DivisionSelect value={divisionId} onChange={setDivisionId} divisions={divisions} />
             )}
             <button
               type="submit"
@@ -198,7 +198,7 @@ export default function AthletesPage() {
             {divisions.length > 0 && (
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Division (applies to all imported athletes)</label>
-                <DivisionSelect value={bulkDivisionId} onChange={setBulkDivisionId} className="w-full" />
+                <DivisionSelect value={bulkDivisionId} onChange={setBulkDivisionId} className="w-full" divisions={divisions} />
               </div>
             )}
             <textarea
@@ -289,6 +289,7 @@ export default function AthletesPage() {
                           value={editState.divisionId}
                           onChange={(v) => setEditState((s) => ({ ...s, divisionId: v }))}
                           className="w-full"
+                          divisions={divisions}
                         />
                       </td>
                     )}

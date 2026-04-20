@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
 import { calculateRankings } from '@/lib/scoring'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string; heatNum: string }> }) {
@@ -11,49 +11,45 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const workoutId = Number(id)
   const heatNumber = Number(heatNum)
 
-  const workout = await prisma.workout.findUnique({
-    where: { id: workoutId },
-    include: { assignments: true },
-  })
+  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
   if (!workout) return new Response('Not found', { status: 404 })
 
-  const completed: number[] = JSON.parse(workout.completedHeats || '[]')
+  const completed: number[] = JSON.parse(workout.completedHeats as string || '[]')
   if (!completed.includes(heatNumber)) completed.push(heatNumber)
   completed.sort((a, b) => a - b)
 
-  const scores = await prisma.score.findMany({ where: { workoutId } })
+  const [scores, assignments] = await Promise.all([
+    sql`SELECT * FROM "Score" WHERE "workoutId" = ${workoutId}`,
+    sql`SELECT DISTINCT "heatNumber" FROM "HeatAssignment" WHERE "workoutId" = ${workoutId}`,
+  ])
+
   const ranked = calculateRankings(
-    scores.map((s) => ({ athleteId: s.athleteId, rawScore: s.rawScore, tiebreakRawScore: s.tiebreakRawScore })),
-    workout.scoreType,
-    workout.tiebreakEnabled
+    scores.map((s) => ({ athleteId: s.athleteId as number, rawScore: s.rawScore as number, tiebreakRawScore: s.tiebreakRawScore as number | null })),
+    workout.scoreType as string,
+    workout.tiebreakEnabled as boolean
   )
   const partBScores = scores.filter((s) => s.partBRawScore != null)
-  const rankedB = workout.partBEnabled && partBScores.length > 0
-    ? calculateRankings(
-        partBScores.map((s) => ({ athleteId: s.athleteId, rawScore: s.partBRawScore! })),
-        workout.partBScoreType
-      )
+  const rankedB = (workout.partBEnabled && partBScores.length > 0)
+    ? calculateRankings(partBScores.map((s) => ({ athleteId: s.athleteId as number, rawScore: s.partBRawScore as number })), workout.partBScoreType as string)
     : []
   const partBPointsMap = new Map(rankedB.map(({ athleteId, points }) => [athleteId, points]))
-  await prisma.$transaction(
+
+  await Promise.all(
     ranked.map(({ athleteId, points }) =>
-      prisma.score.update({
-        where: { athleteId_workoutId: { athleteId, workoutId } },
-        data: { points, partBPoints: partBPointsMap.get(athleteId) ?? null },
-      })
+      sql`UPDATE "Score" SET points = ${points}, "partBPoints" = ${partBPointsMap.get(athleteId) ?? null}
+          WHERE "athleteId" = ${athleteId} AND "workoutId" = ${workoutId}`
     )
   )
 
-  const allHeatNums = [...new Set(workout.assignments.map((a) => a.heatNumber))]
+  const allHeatNums = assignments.map((a) => a.heatNumber as number)
   const workoutDone = allHeatNums.every((n) => completed.includes(n))
 
-  await prisma.workout.update({
-    where: { id: workoutId },
-    data: {
-      completedHeats: JSON.stringify(completed),
-      ...(workoutDone && { status: 'completed' }),
-    },
-  })
+  await sql`
+    UPDATE "Workout" SET
+      "completedHeats" = ${JSON.stringify(completed)},
+      status = ${workoutDone ? 'completed' : workout.status as string}
+    WHERE id = ${workoutId}
+  `
 
   return Response.json({ completedHeats: completed, workoutCompleted: workoutDone })
 }
@@ -66,32 +62,28 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const workoutId = Number(id)
   const heatNumber = Number(heatNum)
 
-  const workout = await prisma.workout.findUnique({ where: { id: workoutId } })
+  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
   if (!workout) return new Response('Not found', { status: 404 })
 
-  const completed: number[] = JSON.parse(workout.completedHeats || '[]')
+  const completed: number[] = JSON.parse(workout.completedHeats as string || '[]')
   const updated = completed.filter((n) => n !== heatNumber)
 
-  const heatAthletes = await prisma.heatAssignment.findMany({
-    where: { workoutId, heatNumber },
-    select: { athleteId: true },
-  })
-  await prisma.$transaction(
-    heatAthletes.map(({ athleteId }) =>
-      prisma.score.updateMany({
-        where: { athleteId, workoutId },
-        data: { points: null },
-      })
-    )
-  )
+  const heatAthletes = await sql`
+    SELECT "athleteId" FROM "HeatAssignment" WHERE "workoutId" = ${workoutId} AND "heatNumber" = ${heatNumber}
+  `
+  const athleteIds = heatAthletes.map((a) => a.athleteId as number)
+  if (athleteIds.length > 0) {
+    await sql`
+      UPDATE "Score" SET points = NULL WHERE "athleteId" = ANY(${athleteIds}) AND "workoutId" = ${workoutId}
+    `
+  }
 
-  await prisma.workout.update({
-    where: { id: workoutId },
-    data: {
-      completedHeats: JSON.stringify(updated),
-      ...(workout.status === 'completed' && { status: 'active' }),
-    },
-  })
+  await sql`
+    UPDATE "Workout" SET
+      "completedHeats" = ${JSON.stringify(updated)},
+      status = ${workout.status === 'completed' ? 'active' : workout.status as string}
+    WHERE id = ${workoutId}
+  `
 
   return Response.json({ completedHeats: updated })
 }

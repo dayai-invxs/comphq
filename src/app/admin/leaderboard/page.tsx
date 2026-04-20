@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { formatScore } from '@/lib/scoreFormat'
-
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
 type WorkoutScore = { points: number; display: string } | null
 type Entry = {

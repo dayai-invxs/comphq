@@ -78,7 +78,7 @@ export default function WorkoutsPage() {
     setWorkouts(await res.json())
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { void load() }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

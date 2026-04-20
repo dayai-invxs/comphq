@@ -63,8 +63,8 @@ export default function OpsView() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
-    fetchData()
+    void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
+    void fetchData()
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
   }, [fetchData])
