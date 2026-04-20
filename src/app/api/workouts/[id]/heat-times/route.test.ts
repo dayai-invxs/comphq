@@ -1,0 +1,33 @@
+import { describe, it, expect, vi } from 'vitest'
+import { supabaseMock as mock } from '@/test/setup'
+import { getServerSession } from 'next-auth'
+import { PUT } from './route'
+
+const params = (id: string) => ({ params: Promise.resolve({ id }) })
+
+describe('PUT /api/workouts/[id]/heat-times', () => {
+  it('rejects unauthenticated', async () => {
+    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    const res = await PUT(new Request('http://test', { method: 'PUT', body: JSON.stringify({ heatNumber: 1, isoTime: '2026-01-01T10:00:00Z' }) }), params('1'))
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 404 when workout not found', async () => {
+    mock.queueResult({ data: null, error: null })
+    const res = await PUT(new Request('http://test', { method: 'PUT', body: JSON.stringify({ heatNumber: 1, isoTime: '2026-01-01T10:00:00Z' }) }), params('99'))
+    expect(res.status).toBe(404)
+  })
+
+  it('sets override and clears all later overrides', async () => {
+    mock.queueResult({ data: { id: 1, heatStartOverrides: JSON.stringify({ '1': 't1', '2': 't2', '5': 't5' }) }, error: null })
+    mock.queueResult({ data: { id: 1, heatStartOverrides: '{"1":"t1","3":"NEW"}' }, error: null })
+
+    const res = await PUT(new Request('http://test', { method: 'PUT', body: JSON.stringify({ heatNumber: 3, isoTime: 'NEW' }) }), params('1'))
+    expect(res.status).toBe(200)
+
+    const updateCall = mock.calls.find(c => c.ops.find(o => o.op === 'update'))!
+    const patch = updateCall.ops.find(o => o.op === 'update')!.args[0] as Record<string, string>
+    const parsed = JSON.parse(patch.heatStartOverrides)
+    expect(parsed).toEqual({ '1': 't1', '2': 't2', '3': 'NEW' })
+  })
+})

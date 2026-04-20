@@ -1,10 +1,10 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 async function getSetting(key: string, defaultValue: string): Promise<string> {
-  const [row] = await sql`SELECT value FROM "Setting" WHERE key = ${key}`
-  return (row?.value as string) ?? defaultValue
+  const { data } = await supabase.from('Setting').select('value').eq('key', key).maybeSingle()
+  return (data as { value?: string } | null)?.value ?? defaultValue
 }
 
 export async function GET() {
@@ -16,12 +16,11 @@ export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json() as { showBib?: boolean }
   if (body.showBib !== undefined) {
-    await sql`
-      INSERT INTO "Setting" (key, value) VALUES ('showBib', ${String(Boolean(body.showBib))})
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    `
+    await supabase
+      .from('Setting')
+      .upsert({ key: 'showBib', value: String(Boolean(body.showBib)) }, { onConflict: 'key' })
   }
 
   const showBib = await getSetting('showBib', 'true')

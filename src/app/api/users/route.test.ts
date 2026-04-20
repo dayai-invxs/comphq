@@ -1,0 +1,62 @@
+import { describe, it, expect, vi } from 'vitest'
+import { supabaseMock as mock } from '@/test/setup'
+import { getServerSession } from 'next-auth'
+import { GET, POST } from './route'
+
+describe('GET /api/users', () => {
+  it('rejects unauthenticated', async () => {
+    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    const res = await GET()
+    expect(res.status).toBe(401)
+  })
+
+  it('returns users ordered by id (id + username only)', async () => {
+    mock.queueResult({ data: [{ id: 1, username: 'admin' }], error: null })
+    const res = await GET()
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual([{ id: 1, username: 'admin' }])
+    expect(mock.lastCall!.table).toBe('User')
+    expect(mock.lastCall!.ops.find(o => o.op === 'select')?.args[0]).toBe('id, username')
+    expect(mock.lastCall!.ops.find(o => o.op === 'order')?.args[0]).toBe('id')
+  })
+})
+
+describe('POST /api/users', () => {
+  it('rejects unauthenticated', async () => {
+    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'a', password: 'secret1' }) }))
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects missing username', async () => {
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ password: 'secret1' }) }))
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects short password', async () => {
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'short' }) }))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 409 when username taken', async () => {
+    mock.queueResult({ data: { id: 5 }, error: null })
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'taken', password: 'secret1' }) }))
+    expect(res.status).toBe(409)
+  })
+
+  it('creates user with hashed password and returns 201', async () => {
+    mock.queueResult({ data: null, error: null })
+    mock.queueResult({ data: { id: 2, username: 'new' }, error: null })
+
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'secret1' }) }))
+    expect(res.status).toBe(201)
+    expect(await res.json()).toEqual({ id: 2, username: 'new' })
+
+    const insertCall = mock.calls[1]
+    const insert = insertCall.ops.find(o => o.op === 'insert')!
+    const row = insert.args[0] as { username: string; password: string }
+    expect(row.username).toBe('new')
+    expect(row.password).not.toBe('secret1')
+    expect(row.password.length).toBeGreaterThan(20)
+  })
+})

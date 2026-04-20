@@ -1,29 +1,21 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
 
-const ASSIGNMENT_SELECT = `
-  SELECT ha.*,
-    jsonb_build_object(
-      'id', a.id, 'name', a.name, 'bibNumber', a."bibNumber", 'divisionId', a."divisionId",
-      'division', CASE WHEN d.id IS NOT NULL THEN
-        jsonb_build_object('id', d.id, 'name', d.name, 'order', d."order")
-      ELSE NULL END
-    ) as athlete
-  FROM "HeatAssignment" ha
-  JOIN "Athlete" a ON ha."athleteId" = a.id
-  LEFT JOIN "Division" d ON a."divisionId" = d.id
-`
+const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const assignments = await sql.unsafe(
-    `${ASSIGNMENT_SELECT} WHERE ha."workoutId" = $1 ORDER BY ha."heatNumber", ha.lane`,
-    [Number(id)]
-  )
-  return Response.json(assignments)
+  const { data, error } = await supabase
+    .from('HeatAssignment')
+    .select(ASSIGNMENT_EMBED)
+    .eq('workoutId', Number(id))
+    .order('heatNumber')
+    .order('lane')
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data ?? [])
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -33,37 +25,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
   const workoutId = Number(id)
 
-  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
+  const { data: workout } = await supabase.from('Workout').select('*').eq('id', workoutId).maybeSingle()
   if (!workout) return new Response('Not found', { status: 404 })
 
   const body = await req.json().catch(() => ({}))
   const useCumulative = body?.useCumulative === true
 
-  const [athletesRaw, divisions] = await Promise.all([
-    sql`
-      SELECT a.*,
-        COALESCE(
-          jsonb_agg(jsonb_build_object(
-            'id', s.id, 'athleteId', s."athleteId", 'workoutId', s."workoutId",
-            'rawScore', s."rawScore", 'tiebreakRawScore', s."tiebreakRawScore",
-            'points', s.points, 'partBRawScore', s."partBRawScore", 'partBPoints', s."partBPoints"
-          )) FILTER (WHERE s.id IS NOT NULL),
-          '[]'::jsonb
-        ) as scores
-      FROM "Athlete" a
-      LEFT JOIN "Score" s ON s."athleteId" = a.id
-      GROUP BY a.id
-    `,
-    sql`SELECT * FROM "Division"`,
-  ])
+  const { data: athletesRaw } = await supabase
+    .from('Athlete')
+    .select('*, scores:Score(*)')
 
-  const athletes = athletesRaw as unknown as AthleteWithScore[]
-  const divisionOrder = new Map((divisions as unknown as Array<{ id: number; order: number }>).map((d) => [d.id, d.order]))
+  const { data: divisions } = await supabase.from('Division').select('id, order')
+
+  const athletes = (athletesRaw ?? []) as unknown as AthleteWithScore[]
+  const divisionOrder = new Map(
+    (divisions ?? []).map((d) => [(d as { id: number }).id, (d as { order: number }).order]),
+  )
 
   let cumulativePoints: Map<number, number> | undefined
   if (useCumulative) {
-    const completedWorkouts = await sql`SELECT id FROM "Workout" WHERE status = 'completed'`
-    cumulativePoints = calcCumulativePoints(athletes, completedWorkouts.map((w) => w.id as number))
+    const { data: completed } = await supabase
+      .from('Workout')
+      .select('id')
+      .eq('status', 'completed')
+    cumulativePoints = calcCumulativePoints(
+      athletes,
+      (completed ?? []).map((w) => (w as { id: number }).id),
+    )
   }
 
   const newAssignments = assignHeats(athletes, workout.lanes as number, {
@@ -72,43 +60,47 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     divisionOrder,
   })
 
-  await sql`DELETE FROM "HeatAssignment" WHERE "workoutId" = ${workoutId}`
-  if (newAssignments.length > 0) {
-    await sql`
-      INSERT INTO "HeatAssignment" ("workoutId", "athleteId", "heatNumber", lane)
-      SELECT * FROM jsonb_to_recordset(${JSON.stringify(newAssignments.map(a => ({ ...a, workoutId })))}::jsonb)
-        AS t("workoutId" int, "athleteId" int, "heatNumber" int, lane int)
-    `
-  }
-  await sql`UPDATE "Workout" SET "heatStartOverrides" = '{}' WHERE id = ${workoutId}`
+  await supabase.from('HeatAssignment').delete().eq('workoutId', workoutId)
 
-  const result = await sql.unsafe(
-    `${ASSIGNMENT_SELECT} WHERE ha."workoutId" = $1 ORDER BY ha."heatNumber", ha.lane`,
-    [workoutId]
-  )
-  return Response.json(result, { status: 201 })
+  if (newAssignments.length > 0) {
+    const { error } = await supabase
+      .from('HeatAssignment')
+      .insert(newAssignments.map((a) => ({ ...a, workoutId })))
+    if (error) return new Response(error.message, { status: 500 })
+  }
+
+  await supabase.from('Workout').update({ heatStartOverrides: '{}' }).eq('id', workoutId)
+
+  const { data: result, error: selErr } = await supabase
+    .from('HeatAssignment')
+    .select(ASSIGNMENT_EMBED)
+    .eq('workoutId', workoutId)
+    .order('heatNumber')
+    .order('lane')
+  if (selErr) return new Response(selErr.message, { status: 500 })
+
+  return Response.json(result ?? [], { status: 201 })
 }
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const { id: assignmentId, heatNumber, lane } = await req.json() as { id: number; heatNumber: number; lane: number }
+  const { id, heatNumber, lane } = await req.json() as { id: number; heatNumber: number; lane: number }
+  const assignmentId = Number(id)
 
-  const [updated] = await sql.unsafe(
-    `${ASSIGNMENT_SELECT} JOIN (
-      SELECT id FROM "HeatAssignment" WHERE id = $1
-    ) ids ON ha.id = ids.id`,
-    [Number(assignmentId)]
-  )
-  await sql`
-    UPDATE "HeatAssignment" SET "heatNumber" = ${Number(heatNumber)}, lane = ${Number(lane)}
-    WHERE id = ${Number(assignmentId)}
-  `
-  // Re-fetch after update to get fresh data
-  const [fresh] = await sql.unsafe(
-    `${ASSIGNMENT_SELECT} WHERE ha.id = $1`,
-    [Number(assignmentId)]
-  )
-  return Response.json(fresh ?? updated)
+  const { error: uerr } = await supabase
+    .from('HeatAssignment')
+    .update({ heatNumber: Number(heatNumber), lane: Number(lane) })
+    .eq('id', assignmentId)
+  if (uerr) return new Response(uerr.message, { status: 500 })
+
+  const { data, error } = await supabase
+    .from('HeatAssignment')
+    .select(ASSIGNMENT_EMBED)
+    .eq('id', assignmentId)
+    .single()
+  if (error) return new Response(error.message, { status: 500 })
+
+  return Response.json(data)
 }

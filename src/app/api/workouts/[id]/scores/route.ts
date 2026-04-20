@@ -1,17 +1,17 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
+
+const SCORE_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId)'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const scores = await sql`
-    SELECT s.*,
-      jsonb_build_object('id', a.id, 'name', a.name, 'bibNumber', a."bibNumber", 'divisionId', a."divisionId") as athlete
-    FROM "Score" s
-    JOIN "Athlete" a ON s."athleteId" = a.id
-    WHERE s."workoutId" = ${Number(id)}
-  `
-  return Response.json(scores)
+  const { data, error } = await supabase
+    .from('Score')
+    .select(SCORE_EMBED)
+    .eq('workoutId', Number(id))
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data ?? [])
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,18 +24,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     athleteId: number; rawScore: number; tiebreakRawScore?: number | null; partBRawScore?: number | null
   }
 
-  const [score] = await sql`
-    INSERT INTO "Score" ("athleteId", "workoutId", "rawScore", "tiebreakRawScore", points, "partBRawScore", "partBPoints")
-    VALUES (${Number(athleteId)}, ${workoutId}, ${Number(rawScore)}, ${tiebreakRawScore ?? null}, NULL, ${partBRawScore ?? null}, NULL)
-    ON CONFLICT ("athleteId", "workoutId") DO UPDATE SET
-      "rawScore" = EXCLUDED."rawScore",
-      "tiebreakRawScore" = EXCLUDED."tiebreakRawScore",
-      points = NULL,
-      "partBRawScore" = EXCLUDED."partBRawScore",
-      "partBPoints" = NULL
-    RETURNING *
-  `
-  return Response.json(score)
+  const { data, error } = await supabase
+    .from('Score')
+    .upsert(
+      {
+        athleteId: Number(athleteId),
+        workoutId,
+        rawScore: Number(rawScore),
+        tiebreakRawScore: tiebreakRawScore ?? null,
+        points: null,
+        partBRawScore: partBRawScore ?? null,
+        partBPoints: null,
+      },
+      { onConflict: 'athleteId,workoutId' },
+    )
+    .select('*')
+    .single()
+
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data)
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -45,8 +52,19 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   const workoutId = Number(id)
 
-  const deleted = await sql`DELETE FROM "Score" WHERE "workoutId" = ${workoutId} RETURNING id`
-  await sql`UPDATE "Workout" SET status = 'active' WHERE id = ${workoutId} AND status = 'completed'`
+  const { data: deleted, error: derr } = await supabase
+    .from('Score')
+    .delete()
+    .eq('workoutId', workoutId)
+    .select('id')
+  if (derr) return new Response(derr.message, { status: 500 })
 
-  return Response.json({ deleted: deleted.length })
+  const { error: uerr } = await supabase
+    .from('Workout')
+    .update({ status: 'active' })
+    .eq('id', workoutId)
+    .eq('status', 'completed')
+  if (uerr) return new Response(uerr.message, { status: 500 })
+
+  return Response.json({ deleted: deleted?.length ?? 0 })
 }

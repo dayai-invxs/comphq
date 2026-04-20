@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { calculateRankings } from '@/lib/scoring'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -10,30 +10,48 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params
   const workoutId = Number(id)
 
-  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
+  const { data: workout } = await supabase.from('Workout').select('*').eq('id', workoutId).maybeSingle()
   if (!workout) return new Response('Not found', { status: 404 })
 
-  const scores = await sql`SELECT * FROM "Score" WHERE "workoutId" = ${workoutId}`
+  const { data: scores, error: serr } = await supabase
+    .from('Score')
+    .select('*')
+    .eq('workoutId', workoutId)
+  if (serr) return new Response(serr.message, { status: 500 })
 
   const rankedA = calculateRankings(
-    scores.map((s) => ({ athleteId: s.athleteId as number, rawScore: s.rawScore as number, tiebreakRawScore: s.tiebreakRawScore as number | null })),
+    (scores ?? []).map((s) => ({
+      athleteId: (s as { athleteId: number }).athleteId,
+      rawScore: (s as { rawScore: number }).rawScore,
+      tiebreakRawScore: (s as { tiebreakRawScore: number | null }).tiebreakRawScore,
+    })),
     workout.scoreType as string,
-    workout.tiebreakEnabled as boolean
+    workout.tiebreakEnabled as boolean,
   )
 
-  const partBScores = scores.filter((s) => s.partBRawScore != null)
+  const partBScores = (scores ?? []).filter((s) => (s as { partBRawScore: number | null }).partBRawScore != null)
   const rankedB = (workout.partBEnabled && partBScores.length > 0)
-    ? calculateRankings(partBScores.map((s) => ({ athleteId: s.athleteId as number, rawScore: s.partBRawScore as number })), workout.partBScoreType as string)
+    ? calculateRankings(
+        partBScores.map((s) => ({
+          athleteId: (s as { athleteId: number }).athleteId,
+          rawScore: (s as { partBRawScore: number }).partBRawScore,
+        })),
+        workout.partBScoreType as string,
+      )
     : []
   const partBPointsMap = new Map(rankedB.map(({ athleteId, points }) => [athleteId, points]))
 
   await Promise.all(
     rankedA.map(({ athleteId, points }) =>
-      sql`UPDATE "Score" SET points = ${points}, "partBPoints" = ${partBPointsMap.get(athleteId) ?? null}
-          WHERE "athleteId" = ${athleteId} AND "workoutId" = ${workoutId}`
-    )
+      supabase
+        .from('Score')
+        .update({ points, partBPoints: partBPointsMap.get(athleteId) ?? null })
+        .eq('athleteId', athleteId)
+        .eq('workoutId', workoutId),
+    ),
   )
-  await sql`UPDATE "Workout" SET status = 'completed' WHERE id = ${workoutId}`
+
+  await supabase.from('Workout').update({ status: 'completed' }).eq('id', workoutId)
 
   return Response.json({ message: 'Rankings calculated', count: rankedA.length })
 }

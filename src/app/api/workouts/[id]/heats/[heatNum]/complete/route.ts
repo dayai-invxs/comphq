@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { calculateRankings } from '@/lib/scoring'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string; heatNum: string }> }) {
@@ -11,45 +11,63 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const workoutId = Number(id)
   const heatNumber = Number(heatNum)
 
-  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
+  const { data: workout } = await supabase.from('Workout').select('*').eq('id', workoutId).maybeSingle()
   if (!workout) return new Response('Not found', { status: 404 })
 
-  const completed: number[] = JSON.parse(workout.completedHeats as string || '[]')
+  const completed: number[] = JSON.parse((workout as { completedHeats: string }).completedHeats || '[]')
   if (!completed.includes(heatNumber)) completed.push(heatNumber)
   completed.sort((a, b) => a - b)
 
-  const [scores, assignments] = await Promise.all([
-    sql`SELECT * FROM "Score" WHERE "workoutId" = ${workoutId}`,
-    sql`SELECT DISTINCT "heatNumber" FROM "HeatAssignment" WHERE "workoutId" = ${workoutId}`,
+  const [scoresRes, assignmentsRes] = await Promise.all([
+    supabase.from('Score').select('*').eq('workoutId', workoutId),
+    supabase.from('HeatAssignment').select('heatNumber').eq('workoutId', workoutId),
   ])
 
+  const scores = scoresRes.data ?? []
+  const assignments = assignmentsRes.data ?? []
+
   const ranked = calculateRankings(
-    scores.map((s) => ({ athleteId: s.athleteId as number, rawScore: s.rawScore as number, tiebreakRawScore: s.tiebreakRawScore as number | null })),
+    scores.map((s) => ({
+      athleteId: (s as { athleteId: number }).athleteId,
+      rawScore: (s as { rawScore: number }).rawScore,
+      tiebreakRawScore: (s as { tiebreakRawScore: number | null }).tiebreakRawScore,
+    })),
     workout.scoreType as string,
-    workout.tiebreakEnabled as boolean
+    workout.tiebreakEnabled as boolean,
   )
-  const partBScores = scores.filter((s) => s.partBRawScore != null)
+
+  const partBScores = scores.filter((s) => (s as { partBRawScore: number | null }).partBRawScore != null)
   const rankedB = (workout.partBEnabled && partBScores.length > 0)
-    ? calculateRankings(partBScores.map((s) => ({ athleteId: s.athleteId as number, rawScore: s.partBRawScore as number })), workout.partBScoreType as string)
+    ? calculateRankings(
+        partBScores.map((s) => ({
+          athleteId: (s as { athleteId: number }).athleteId,
+          rawScore: (s as { partBRawScore: number }).partBRawScore,
+        })),
+        workout.partBScoreType as string,
+      )
     : []
   const partBPointsMap = new Map(rankedB.map(({ athleteId, points }) => [athleteId, points]))
 
   await Promise.all(
     ranked.map(({ athleteId, points }) =>
-      sql`UPDATE "Score" SET points = ${points}, "partBPoints" = ${partBPointsMap.get(athleteId) ?? null}
-          WHERE "athleteId" = ${athleteId} AND "workoutId" = ${workoutId}`
-    )
+      supabase
+        .from('Score')
+        .update({ points, partBPoints: partBPointsMap.get(athleteId) ?? null })
+        .eq('athleteId', athleteId)
+        .eq('workoutId', workoutId),
+    ),
   )
 
-  const allHeatNums = assignments.map((a) => a.heatNumber as number)
-  const workoutDone = allHeatNums.every((n) => completed.includes(n))
+  const allHeatNums = Array.from(new Set(assignments.map((a) => (a as { heatNumber: number }).heatNumber)))
+  const workoutDone = allHeatNums.length > 0 && allHeatNums.every((n) => completed.includes(n))
 
-  await sql`
-    UPDATE "Workout" SET
-      "completedHeats" = ${JSON.stringify(completed)},
-      status = ${workoutDone ? 'completed' : workout.status as string}
-    WHERE id = ${workoutId}
-  `
+  await supabase
+    .from('Workout')
+    .update({
+      completedHeats: JSON.stringify(completed),
+      status: workoutDone ? 'completed' : workout.status as string,
+    })
+    .eq('id', workoutId)
 
   return Response.json({ completedHeats: completed, workoutCompleted: workoutDone })
 }
@@ -62,28 +80,34 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const workoutId = Number(id)
   const heatNumber = Number(heatNum)
 
-  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
+  const { data: workout } = await supabase.from('Workout').select('*').eq('id', workoutId).maybeSingle()
   if (!workout) return new Response('Not found', { status: 404 })
 
-  const completed: number[] = JSON.parse(workout.completedHeats as string || '[]')
+  const completed: number[] = JSON.parse((workout as { completedHeats: string }).completedHeats || '[]')
   const updated = completed.filter((n) => n !== heatNumber)
 
-  const heatAthletes = await sql`
-    SELECT "athleteId" FROM "HeatAssignment" WHERE "workoutId" = ${workoutId} AND "heatNumber" = ${heatNumber}
-  `
-  const athleteIds = heatAthletes.map((a) => a.athleteId as number)
+  const { data: heatAthletes } = await supabase
+    .from('HeatAssignment')
+    .select('athleteId')
+    .eq('workoutId', workoutId)
+    .eq('heatNumber', heatNumber)
+
+  const athleteIds = (heatAthletes ?? []).map((a) => (a as { athleteId: number }).athleteId)
   if (athleteIds.length > 0) {
-    await sql`
-      UPDATE "Score" SET points = NULL WHERE "athleteId" = ANY(${athleteIds}) AND "workoutId" = ${workoutId}
-    `
+    await supabase
+      .from('Score')
+      .update({ points: null })
+      .in('athleteId', athleteIds)
+      .eq('workoutId', workoutId)
   }
 
-  await sql`
-    UPDATE "Workout" SET
-      "completedHeats" = ${JSON.stringify(updated)},
-      status = ${workout.status === 'completed' ? 'active' : workout.status as string}
-    WHERE id = ${workoutId}
-  `
+  await supabase
+    .from('Workout')
+    .update({
+      completedHeats: JSON.stringify(updated),
+      status: workout.status === 'completed' ? 'active' : workout.status as string,
+    })
+    .eq('id', workoutId)
 
   return Response.json({ completedHeats: updated })
 }

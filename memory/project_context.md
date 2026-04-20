@@ -6,7 +6,7 @@ type: project
 
 App is called **compOps** (was crossfit-comp). Competition management and athlete schedule tool.
 
-Stack: Next.js 16.2.4 (Turbopack), React 19, Prisma 7 + PostgreSQL (Supabase), next-auth v4, Tailwind CSS 4.
+Stack: Next.js 16.2.4 (Turbopack), React 19, Supabase (Postgres + `@supabase/supabase-js`), next-auth v4, Tailwind CSS 4. Tests: Vitest.
 
 **Why:** Managing heats, athletes, scores, and live leaderboard for CrossFit-style competitions.
 
@@ -15,3 +15,5 @@ Stack: Next.js 16.2.4 (Turbopack), React 19, Prisma 7 + PostgreSQL (Supabase), n
 - `params` in layouts/pages is a Promise; must be awaited
 - `useRouter()` from `useEffect` deps can cause infinite loops when `router.push()` is called inside the effect
 - Read `node_modules/next/dist/docs/` before writing new Next.js-specific code
+
+**DB access:** All DB queries go through `@/lib/supabase` (server-side, service-role key). Raw SQL is not used. Schema changes live in `supabase/migrations/` and are applied via `npx supabase db push`. Seed data in `supabase/seed.sql`, applied via `npx supabase db query --linked -f supabase/seed.sql`.

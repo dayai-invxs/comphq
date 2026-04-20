@@ -1,49 +1,57 @@
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { formatScore } from '@/lib/scoreFormat'
 
 export async function GET() {
-  const [workouts, athletes, scores] = await Promise.all([
-    sql`SELECT * FROM "Workout" WHERE status = 'completed' ORDER BY number`,
-    sql`
-      SELECT a.*,
-        CASE WHEN d.id IS NOT NULL THEN
-          jsonb_build_object('id', d.id, 'name', d.name, 'order', d."order")
-        ELSE NULL END as division
-      FROM "Athlete" a
-      LEFT JOIN "Division" d ON a."divisionId" = d.id
-      ORDER BY a.name
-    `,
-    sql`SELECT * FROM "Score" WHERE "workoutId" = ANY(
-      SELECT id FROM "Workout" WHERE status = 'completed'
-    )`,
-  ])
+  const { data: workouts } = await supabase
+    .from('Workout')
+    .select('*')
+    .eq('status', 'completed')
+    .order('number')
+
+  const { data: athletes } = await supabase
+    .from('Athlete')
+    .select('*, division:Division(id, name, order)')
+    .order('name')
+
+  const workoutIds = (workouts ?? []).map((w) => (w as { id: number }).id)
+  const { data: scores } = workoutIds.length > 0
+    ? await supabase.from('Score').select('*').in('workoutId', workoutIds)
+    : { data: [] }
 
   const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string }>()
-  for (const s of scores) {
-    if (s.points != null) {
-      const wo = workouts.find((w) => w.id === s.workoutId)
-      scoreMap.set(`${s.athleteId}-${s.workoutId}`, {
-        points: s.points as number,
-        rawScore: s.rawScore as number,
-        scoreType: wo?.scoreType as string ?? '',
+  for (const s of (scores ?? [])) {
+    const row = s as { athleteId: number; workoutId: number; points: number | null; rawScore: number }
+    if (row.points != null) {
+      const wo = (workouts ?? []).find((w) => (w as { id: number }).id === row.workoutId)
+      scoreMap.set(`${row.athleteId}-${row.workoutId}`, {
+        points: row.points,
+        rawScore: row.rawScore,
+        scoreType: (wo as { scoreType?: string })?.scoreType ?? '',
       })
     }
   }
 
-  const entries = athletes.map((a) => {
+  const entries = (athletes ?? []).map((a) => {
+    const athlete = a as { id: number; name: string; division: { name: string } | null }
     let totalPoints = 0
     const workoutScores: Record<number, { points: number; display: string } | null> = {}
-    for (const w of workouts) {
-      const entry = scoreMap.get(`${a.id}-${w.id}`)
+    for (const w of (workouts ?? [])) {
+      const workout = w as { id: number }
+      const entry = scoreMap.get(`${athlete.id}-${workout.id}`)
       if (entry) {
         totalPoints += entry.points
-        workoutScores[w.id as number] = { points: entry.points, display: formatScore(entry.rawScore, entry.scoreType) }
+        workoutScores[workout.id] = { points: entry.points, display: formatScore(entry.rawScore, entry.scoreType) }
       } else {
-        workoutScores[w.id as number] = null
+        workoutScores[workout.id] = null
       }
     }
-    const division = a.division as { name: string } | null
-    return { athleteId: a.id, athleteName: a.name, divisionName: division?.name ?? null, totalPoints, workoutScores }
+    return {
+      athleteId: athlete.id,
+      athleteName: athlete.name,
+      divisionName: athlete.division?.name ?? null,
+      totalPoints,
+      workoutScores,
+    }
   })
 
   entries.sort((a, b) => {
@@ -52,8 +60,8 @@ export async function GET() {
     if (aHas && !bHas) return -1
     if (!aHas && bHas) return 1
     if (a.totalPoints !== b.totalPoints) return a.totalPoints - b.totalPoints
-    return a.athleteName.localeCompare(b.athleteName as string)
+    return a.athleteName.localeCompare(b.athleteName)
   })
 
-  return Response.json({ workouts, entries })
+  return Response.json({ workouts: workouts ?? [], entries })
 }

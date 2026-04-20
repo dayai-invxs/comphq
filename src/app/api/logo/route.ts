@@ -1,14 +1,13 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { sql } from '@/lib/db'
 
 const BUCKET = 'logos'
 const LOGO_KEY = 'logoUrl'
 
 export async function GET() {
-  const [row] = await sql`SELECT value FROM "Setting" WHERE key = ${LOGO_KEY}`
-  return Response.json({ url: (row?.value as string) ?? null })
+  const { data } = await supabase.from('Setting').select('value').eq('key', LOGO_KEY).maybeSingle()
+  return Response.json({ url: (data as { value?: string } | null)?.value ?? null })
 }
 
 export async function POST(req: Request) {
@@ -30,10 +29,10 @@ export async function POST(req: Request) {
   if (error) return new Response(error.message, { status: 500 })
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename)
-  await sql`
-    INSERT INTO "Setting" (key, value) VALUES (${LOGO_KEY}, ${data.publicUrl})
-    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-  `
+  await supabase
+    .from('Setting')
+    .upsert({ key: LOGO_KEY, value: data.publicUrl }, { onConflict: 'key' })
+
   return Response.json({ url: data.publicUrl })
 }
 
@@ -41,11 +40,11 @@ export async function DELETE() {
   const session = await getServerSession(authOptions)
   if (!session) return new Response('Unauthorized', { status: 401 })
 
-  const [row] = await sql`SELECT value FROM "Setting" WHERE key = ${LOGO_KEY}`
+  const { data: row } = await supabase.from('Setting').select('value').eq('key', LOGO_KEY).maybeSingle()
   if (row) {
-    const filename = (row.value as string).split('/').pop()!
+    const filename = ((row as { value: string }).value).split('/').pop()!
     await supabase.storage.from(BUCKET).remove([filename])
-    await sql`DELETE FROM "Setting" WHERE key = ${LOGO_KEY}`
+    await supabase.from('Setting').delete().eq('key', LOGO_KEY)
   }
   return Response.json({ url: null })
 }

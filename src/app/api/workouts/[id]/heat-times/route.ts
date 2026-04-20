@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -10,17 +10,28 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const workoutId = Number(id)
   const { heatNumber, isoTime } = await req.json() as { heatNumber: number; isoTime: string }
 
-  const [workout] = await sql`SELECT * FROM "Workout" WHERE id = ${workoutId}`
+  const { data: workout } = await supabase
+    .from('Workout')
+    .select('*')
+    .eq('id', workoutId)
+    .maybeSingle()
   if (!workout) return new Response('Not found', { status: 404 })
 
-  const overrides: Record<string, string> = JSON.parse(workout.heatStartOverrides as string || '{}')
+  const overrides: Record<string, string> = JSON.parse(
+    (workout as { heatStartOverrides: string }).heatStartOverrides || '{}',
+  )
   for (const key of Object.keys(overrides)) {
     if (Number(key) >= heatNumber) delete overrides[key]
   }
   overrides[String(heatNumber)] = isoTime
 
-  const [updated] = await sql`
-    UPDATE "Workout" SET "heatStartOverrides" = ${JSON.stringify(overrides)} WHERE id = ${workoutId} RETURNING *
-  `
-  return Response.json(updated)
+  const { data, error } = await supabase
+    .from('Workout')
+    .update({ heatStartOverrides: JSON.stringify(overrides) })
+    .eq('id', workoutId)
+    .select('*')
+    .single()
+
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data)
 }

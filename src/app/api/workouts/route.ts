@@ -1,10 +1,11 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 export async function GET() {
-  const workouts = await sql`SELECT * FROM "Workout" ORDER BY number`
-  return Response.json(workouts)
+  const { data, error } = await supabase.from('Workout').select('*').order('number')
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data ?? [])
 }
 
 export async function POST(req: Request) {
@@ -12,20 +13,27 @@ export async function POST(req: Request) {
   if (!session) return new Response('Unauthorized', { status: 401 })
 
   const body = await req.json()
-  const [workout] = await sql`
-    INSERT INTO "Workout" (
-      number, name, "scoreType", lanes, "heatIntervalSecs", "timeBetweenHeatsSecs",
-      "callTimeSecs", "walkoutTimeSecs", "startTime", status, "mixedHeats",
-      "tiebreakEnabled", "partBEnabled", "partBScoreType"
-    ) VALUES (
-      ${Number(body.number)}, ${body.name.trim()}, ${body.scoreType},
-      ${Number(body.lanes)}, ${Number(body.heatIntervalSecs)},
-      ${body.timeBetweenHeatsSecs != null ? Number(body.timeBetweenHeatsSecs) : 120},
-      ${Number(body.callTimeSecs)}, ${Number(body.walkoutTimeSecs)},
-      ${body.startTime ? new Date(body.startTime) : null},
-      'draft', ${body.mixedHeats !== false}, ${body.tiebreakEnabled === true},
-      ${body.partBEnabled === true}, ${body.partBScoreType ?? 'time'}
-    ) RETURNING *
-  `
-  return Response.json(workout, { status: 201 })
+  const { data, error } = await supabase
+    .from('Workout')
+    .insert({
+      number: Number(body.number),
+      name: body.name.trim(),
+      scoreType: body.scoreType,
+      lanes: Number(body.lanes),
+      heatIntervalSecs: Number(body.heatIntervalSecs),
+      timeBetweenHeatsSecs: body.timeBetweenHeatsSecs != null ? Number(body.timeBetweenHeatsSecs) : 120,
+      callTimeSecs: Number(body.callTimeSecs),
+      walkoutTimeSecs: Number(body.walkoutTimeSecs),
+      startTime: body.startTime ? new Date(body.startTime).toISOString() : null,
+      status: 'draft',
+      mixedHeats: body.mixedHeats !== false,
+      tiebreakEnabled: body.tiebreakEnabled === true,
+      partBEnabled: body.partBEnabled === true,
+      partBScoreType: body.partBScoreType ?? 'time',
+    })
+    .select('*')
+    .single()
+
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data, { status: 201 })
 }
