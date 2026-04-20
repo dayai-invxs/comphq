@@ -12,9 +12,11 @@
     "test:integration": "vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@supabase/supabase-js": "^2.103.3",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
+    "gsap": "^3.15.0",
     "next": "16.2.4",
     "next-auth": "^4.24.14",
     "puppeteer": "^24.41.0",

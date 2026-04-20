@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { ComphqLogo } from '@/components/ComphqLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -11,8 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
     setLoading(true)
     setError('')
     const result = await signIn('credentials', {
@@ -31,8 +31,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-sm">
+        <div className="flex justify-center mb-6">
+          <div style={{ width: 240, height: 240 }}>
+            <ComphqLogo />
+          </div>
+        </div>
         <h1 className="text-2xl font-bold text-white mb-6">Admin Login</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1">Username</label>
             <input

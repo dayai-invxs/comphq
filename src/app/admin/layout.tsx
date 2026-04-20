@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+import { ComphqLogo } from '@/components/ComphqLogo'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -44,7 +45,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const logo = logoUrl ? (
     <Image src={logoUrl} alt="Competition logo" width={120} height={60} className="max-h-10 w-auto object-contain" unoptimized />
   ) : (
-    <span className="text-orange-400 font-bold text-lg">CF Admin</span>
+    <div className="flex items-center gap-2">
+      <div className="w-10 h-10"><ComphqLogo /></div>
+      <span className="text-orange-400 font-bold text-lg">comphq</span>
+    </div>
   )
 
   return (
