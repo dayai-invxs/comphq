@@ -72,6 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="hidden lg:flex items-center gap-4 ml-auto">
             <Link href="/" target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Public View</Link>
             <Link href="/ops" target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Ops View</Link>
+            <Link href="/athlete-control" target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Athlete Control</Link>
             <button onClick={() => signOut({ callbackUrl: '/login' })} className="text-xs text-gray-400 hover:text-white transition-colors">
               Sign out
             </button>
@@ -112,6 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="border-t border-gray-800 mt-2 pt-2 flex flex-col gap-1">
               <Link href="/" target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Public View</Link>
               <Link href="/ops" target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Ops View</Link>
+              <Link href="/athlete-control" target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Control</Link>
               <button
                 onClick={() => signOut({ callbackUrl: '/login' })}
                 className="px-2 py-2 text-left text-sm text-gray-400 hover:text-white transition-colors"

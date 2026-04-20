@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 type HeatEntry = {
   athleteId: number
@@ -117,12 +118,20 @@ export default function OpsView() {
           >
             {showAthletes ? 'Hide athletes' : 'Show athletes'}
           </button>
-          <div className="text-right text-xs text-gray-500">
-            <div className="flex items-center gap-2 justify-end">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              Live
+          <div className="flex items-center gap-4">
+            <Link
+              href="/athlete-control"
+              className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+            >
+              Athlete Control
+            </Link>
+            <div className="text-right text-xs text-gray-500">
+              <div className="flex items-center gap-2 justify-end">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Live
+              </div>
+              {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
             </div>
-            {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
           </div>
         </div>
       </div>
@@ -164,20 +173,20 @@ export default function OpsView() {
                     }`}
                   >
                     <div className={`px-4 py-2.5 ${heat.isComplete ? 'bg-gray-700' : 'bg-gray-800'}`}>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-semibold text-sm ${heat.isComplete ? 'text-gray-400' : 'text-orange-400'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold text-base ${heat.isComplete ? 'text-gray-400' : 'text-orange-400'}`}>
                           Heat {heat.heatNumber}
                         </span>
                         {heat.isComplete && (
                           <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded-full font-medium">Done</span>
                         )}
-                        {(() => {
-                          const divs = [...new Set(heat.entries.map((e) => e.divisionName).filter(Boolean))]
-                          return divs.length > 0
-                            ? <span className="text-gray-400 text-xs truncate">{divs.join(' / ')}</span>
-                            : null
-                        })()}
                       </div>
+                      {(() => {
+                        const divs = [...new Set(heat.entries.map((e) => e.divisionName).filter(Boolean))]
+                        return divs.length > 0
+                          ? <p className="text-gray-400 text-xs">{divs.join(' / ')}</p>
+                          : null
+                      })()}
                       {heat.corralTime && (
                         <p className="text-xs text-gray-400 mt-0.5">
                           Corral: <span className="text-yellow-400 font-mono">{fmtTime(heat.corralTime)}</span>
