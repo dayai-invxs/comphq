@@ -77,7 +77,6 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
             <Link href={`/${slug}/ops`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Ops View</Link>
             <Link href={`/${slug}/athlete-control`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Athlete Control</Link>
             <Link href="/admin/users" className="text-xs text-gray-500 hover:text-gray-300">Users</Link>
-            <Link href="/admin" className="text-xs text-gray-500 hover:text-gray-300">All Competitions</Link>
             <button onClick={() => signOut({ callbackUrl: '/login' })} className="text-xs text-gray-400 hover:text-white transition-colors">
               Sign out
             </button>
@@ -117,7 +116,6 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
               <Link href={`/${slug}`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Public View</Link>
               <Link href={`/${slug}/ops`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Ops View</Link>
               <Link href={`/${slug}/athlete-control`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Control</Link>
-              <Link href="/admin" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">All Competitions</Link>
               <button
                 onClick={() => signOut({ callbackUrl: '/login' })}
                 className="px-2 py-2 text-left text-sm text-gray-400 hover:text-white transition-colors"
