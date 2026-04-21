@@ -3,111 +3,143 @@ import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
+import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const { data, error } = await supabase
-    .from('HeatAssignment')
-    .select(ASSIGNMENT_EMBED)
-    .eq('workoutId', Number(id))
-    .order('heatNumber')
-    .order('lane')
-  if (error) return new Response(error.message, { status: 500 })
-  return Response.json(data ?? [])
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+
+  try {
+    const { competition } = await requireCompetitionMember(session, slug)
+    const { id } = await params
+    const workoutId = Number(id)
+    await requireWorkoutInCompetition(workoutId, competition.id, 'id')
+
+    const { data, error } = await supabase
+      .from('HeatAssignment')
+      .select(ASSIGNMENT_EMBED)
+      .eq('workoutId', workoutId)
+      .order('heatNumber')
+      .order('lane')
+    if (error) return new Response(error.message, { status: 500 })
+    return Response.json(data ?? [])
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
-  const { id } = await params
-  const workoutId = Number(id)
-
-  const { data: workout } = await supabase.from('Workout').select('*').eq('id', workoutId).maybeSingle()
-  if (!workout) return new Response('Not found', { status: 404 })
-
-  const body = await req.json().catch(() => ({}))
-  const useCumulative = body?.useCumulative === true
-
-  const competitionId = (workout as { competitionId: number }).competitionId
-
-  const { data: athletesRaw } = await supabase
-    .from('Athlete')
-    .select('*, scores:Score(*)')
-    .eq('competitionId', competitionId)
-
-  const { data: divisions } = await supabase
-    .from('Division')
-    .select('id, order')
-    .eq('competitionId', competitionId)
-
-  const athletes = (athletesRaw ?? []) as unknown as AthleteWithScore[]
-  const divisionOrder = new Map(
-    (divisions ?? []).map((d) => [(d as { id: number }).id, (d as { order: number }).order]),
-  )
-
-  let cumulativePoints: Map<number, number> | undefined
-  if (useCumulative) {
-    const { data: completed } = await supabase
-      .from('Workout')
-      .select('id')
-      .eq('competitionId', competitionId)
-      .eq('status', 'completed')
-    cumulativePoints = calcCumulativePoints(
-      athletes,
-      (completed ?? []).map((w) => (w as { id: number }).id),
+  try {
+    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { id } = await params
+    const workoutId = Number(id)
+    const workout = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(
+      workoutId,
+      competition.id,
+      'id, lanes, mixedHeats',
     )
-  }
 
-  const newAssignments = assignHeats(athletes, workout.lanes as number, {
-    cumulativePoints,
-    mixedHeats: workout.mixedHeats as boolean,
-    divisionOrder,
-  })
+    const body = await req.json().catch(() => ({}))
+    const useCumulative = body?.useCumulative === true
 
-  await supabase.from('HeatAssignment').delete().eq('workoutId', workoutId)
+    const { data: athletesRaw } = await supabase
+      .from('Athlete')
+      .select('*, scores:Score(*)')
+      .eq('competitionId', competition.id)
 
-  if (newAssignments.length > 0) {
-    const { error } = await supabase
+    const { data: divisions } = await supabase
+      .from('Division')
+      .select('id, order')
+      .eq('competitionId', competition.id)
+
+    const athletes = (athletesRaw ?? []) as unknown as AthleteWithScore[]
+    const divisionOrder = new Map(
+      (divisions ?? []).map((d) => [(d as { id: number }).id, (d as { order: number }).order]),
+    )
+
+    let cumulativePoints: Map<number, number> | undefined
+    if (useCumulative) {
+      const { data: completed } = await supabase
+        .from('Workout')
+        .select('id')
+        .eq('competitionId', competition.id)
+        .eq('status', 'completed')
+      cumulativePoints = calcCumulativePoints(
+        athletes,
+        (completed ?? []).map((w) => (w as { id: number }).id),
+      )
+    }
+
+    const newAssignments = assignHeats(athletes, workout.lanes, {
+      cumulativePoints,
+      mixedHeats: workout.mixedHeats,
+      divisionOrder,
+    })
+
+    await supabase.from('HeatAssignment').delete().eq('workoutId', workoutId)
+
+    if (newAssignments.length > 0) {
+      const { error } = await supabase
+        .from('HeatAssignment')
+        .insert(newAssignments.map((a) => ({ ...a, workoutId })))
+      if (error) return new Response(error.message, { status: 500 })
+    }
+
+    await supabase.from('Workout').update({ heatStartOverrides: '{}' }).eq('id', workoutId)
+
+    const { data: result, error: selErr } = await supabase
       .from('HeatAssignment')
-      .insert(newAssignments.map((a) => ({ ...a, workoutId })))
-    if (error) return new Response(error.message, { status: 500 })
+      .select(ASSIGNMENT_EMBED)
+      .eq('workoutId', workoutId)
+      .order('heatNumber')
+      .order('lane')
+    if (selErr) return new Response(selErr.message, { status: 500 })
+
+    return Response.json(result ?? [], { status: 201 })
+  } catch (e) {
+    return authErrorResponse(e)
   }
-
-  await supabase.from('Workout').update({ heatStartOverrides: '{}' }).eq('id', workoutId)
-
-  const { data: result, error: selErr } = await supabase
-    .from('HeatAssignment')
-    .select(ASSIGNMENT_EMBED)
-    .eq('workoutId', workoutId)
-    .order('heatNumber')
-    .order('lane')
-  if (selErr) return new Response(selErr.message, { status: 500 })
-
-  return Response.json(result ?? [], { status: 201 })
 }
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
-  const { id, heatNumber, lane } = await req.json() as { id: number; heatNumber: number; lane: number }
-  const assignmentId = Number(id)
+  try {
+    const { competition } = await requireCompetitionMember(session, slug, 'admin')
 
-  const { error: uerr } = await supabase
-    .from('HeatAssignment')
-    .update({ heatNumber: Number(heatNumber), lane: Number(lane) })
-    .eq('id', assignmentId)
-  if (uerr) return new Response(uerr.message, { status: 500 })
+    const { id, heatNumber, lane } = await req.json() as { id: number; heatNumber: number; lane: number }
+    const assignmentId = Number(id)
 
-  const { data, error } = await supabase
-    .from('HeatAssignment')
-    .select(ASSIGNMENT_EMBED)
-    .eq('id', assignmentId)
-    .single()
-  if (error) return new Response(error.message, { status: 500 })
+    // Verify the assignment belongs to a workout in the caller's competition.
+    const { data: existing } = await supabase
+      .from('HeatAssignment')
+      .select('id, workout:Workout!inner(competitionId)')
+      .eq('id', assignmentId)
+      .eq('workout.competitionId', competition.id)
+      .maybeSingle()
+    if (!existing) return new Response('Assignment not found', { status: 404 })
 
-  return Response.json(data)
+    const { error: uerr } = await supabase
+      .from('HeatAssignment')
+      .update({ heatNumber: Number(heatNumber), lane: Number(lane) })
+      .eq('id', assignmentId)
+    if (uerr) return new Response(uerr.message, { status: 500 })
+
+    const { data, error } = await supabase
+      .from('HeatAssignment')
+      .select(ASSIGNMENT_EMBED)
+      .eq('id', assignmentId)
+      .single()
+    if (error) return new Response(error.message, { status: 500 })
+
+    return Response.json(data)
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 }

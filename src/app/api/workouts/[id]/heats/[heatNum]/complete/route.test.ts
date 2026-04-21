@@ -4,17 +4,18 @@ import { getServerSession } from 'next-auth'
 import { POST, DELETE } from './route'
 
 const params = (id: string, heatNum: string) => ({ params: Promise.resolve({ id, heatNum }) })
+const url = 'http://test/api/workouts/1/heats/1/complete?slug=default'
 
 describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test', { method: 'POST' }), params('1', '1'))
+    const res = await POST(new Request(url, { method: 'POST' }), params('1', '1'))
     expect(res.status).toBe(401)
   })
 
-  it('returns 404 when workout not found', async () => {
+  it('returns 404 when workout not in caller competition', async () => {
     mock.queueResult({ data: null, error: null })
-    const res = await POST(new Request('http://test', { method: 'POST' }), params('99', '1'))
+    const res = await POST(new Request(url, { method: 'POST' }), params('99', '1'))
     expect(res.status).toBe(404)
   })
 
@@ -31,7 +32,7 @@ describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
     mock.queueResult({ data: null, error: null })
     mock.queueResult({ data: null, error: null })
 
-    const res = await POST(new Request('http://test', { method: 'POST' }), params('1', '1'))
+    const res = await POST(new Request(url, { method: 'POST' }), params('1', '1'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.completedHeats).toEqual([1])
@@ -48,7 +49,7 @@ describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
 describe('DELETE /api/workouts/[id]/heats/[heatNum]/complete', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await DELETE(new Request('http://test'), params('1', '1'))
+    const res = await DELETE(new Request(url), params('1', '1'))
     expect(res.status).toBe(401)
   })
 
@@ -61,7 +62,7 @@ describe('DELETE /api/workouts/[id]/heats/[heatNum]/complete', () => {
     mock.queueResult({ data: null, error: null })
     mock.queueResult({ data: null, error: null })
 
-    const res = await DELETE(new Request('http://test'), params('1', '1'))
+    const res = await DELETE(new Request(url), params('1', '1'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.completedHeats).toEqual([2])

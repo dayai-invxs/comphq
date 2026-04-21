@@ -1,13 +1,18 @@
 import { describe, it, expect, vi } from 'vitest'
 import { supabaseMock as mock } from '@/test/setup'
-import {
+import type { Session } from 'next-auth'
+
+// Setup mocks the public API of this module. For the module's OWN tests we
+// want the real implementation, so un-mock before importing.
+vi.unmock('@/lib/auth-competition')
+
+const {
   AuthError,
   authErrorResponse,
   requireCompetitionMember,
   requireSession,
   requireSiteAdmin,
-} from './auth-competition'
-import type { Session } from 'next-auth'
+} = await vi.importActual<typeof import('./auth-competition')>('./auth-competition')
 
 const adminSession = { user: { name: 'admin' } } as Session
 const userSession = { user: { name: 'bob' } } as Session

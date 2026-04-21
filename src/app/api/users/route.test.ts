@@ -10,13 +10,13 @@ describe('GET /api/users', () => {
     expect(res.status).toBe(401)
   })
 
-  it('returns users ordered by id (id + username only)', async () => {
-    mock.queueResult({ data: [{ id: 1, username: 'admin' }], error: null })
+  it('returns users ordered by id', async () => {
+    mock.queueResult({ data: [{ id: 1, username: 'admin', role: 'admin' }], error: null })
     const res = await GET()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual([{ id: 1, username: 'admin' }])
+    expect(await res.json()).toEqual([{ id: 1, username: 'admin', role: 'admin' }])
     expect(mock.lastCall!.table).toBe('User')
-    expect(mock.lastCall!.ops.find(o => o.op === 'select')?.args[0]).toBe('id, username')
+    expect(mock.lastCall!.ops.find(o => o.op === 'select')?.args[0]).toBe('id, username, role')
     expect(mock.lastCall!.ops.find(o => o.op === 'order')?.args[0]).toBe('id')
   })
 })

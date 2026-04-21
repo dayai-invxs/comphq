@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
+import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
 
 async function getSetting(competitionId: number, key: string, defaultValue: string): Promise<string> {
   const { data } = await supabase
@@ -13,6 +14,7 @@ async function getSetting(competitionId: number, key: string, defaultValue: stri
   return (data as { value?: string } | null)?.value ?? defaultValue
 }
 
+// Public read of competition-level settings (used by unauthed display views).
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const competition = await resolveCompetition(slug)
@@ -30,36 +32,38 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
-
   const body = await req.json() as { slug?: string; showBib?: boolean; tiebreakWorkoutId?: number | null }
-  const competition = await resolveCompetition(body.slug ?? '')
-  if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const upserts = []
+  try {
+    const { competition } = await requireCompetitionMember(session, body.slug ?? '', 'admin')
 
-  if (body.showBib !== undefined) {
-    upserts.push(supabase.from('Setting').upsert(
-      { competitionId: competition.id, key: 'showBib', value: String(Boolean(body.showBib)) },
-      { onConflict: 'competitionId,key' }
-    ).then())
+    const upserts = []
+
+    if (body.showBib !== undefined) {
+      upserts.push(supabase.from('Setting').upsert(
+        { competitionId: competition.id, key: 'showBib', value: String(Boolean(body.showBib)) },
+        { onConflict: 'competitionId,key' },
+      ).then())
+    }
+
+    if ('tiebreakWorkoutId' in body) {
+      upserts.push(supabase.from('Setting').upsert(
+        { competitionId: competition.id, key: 'tiebreakWorkoutId', value: body.tiebreakWorkoutId != null ? String(body.tiebreakWorkoutId) : '' },
+        { onConflict: 'competitionId,key' },
+      ).then())
+    }
+
+    await Promise.all(upserts)
+
+    const [showBib, tiebreakWorkoutId] = await Promise.all([
+      getSetting(competition.id, 'showBib', 'true'),
+      getSetting(competition.id, 'tiebreakWorkoutId', ''),
+    ])
+    return Response.json({
+      showBib: showBib !== 'false',
+      tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
+    })
+  } catch (e) {
+    return authErrorResponse(e)
   }
-
-  if ('tiebreakWorkoutId' in body) {
-    upserts.push(supabase.from('Setting').upsert(
-      { competitionId: competition.id, key: 'tiebreakWorkoutId', value: body.tiebreakWorkoutId != null ? String(body.tiebreakWorkoutId) : '' },
-      { onConflict: 'competitionId,key' }
-    ).then())
-  }
-
-  await Promise.all(upserts)
-
-  const [showBib, tiebreakWorkoutId] = await Promise.all([
-    getSetting(competition.id, 'showBib', 'true'),
-    getSetting(competition.id, 'tiebreakWorkoutId', ''),
-  ])
-  return Response.json({
-    showBib: showBib !== 'false',
-    tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
-  })
 }

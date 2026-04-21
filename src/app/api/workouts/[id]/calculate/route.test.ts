@@ -4,17 +4,18 @@ import { getServerSession } from 'next-auth'
 import { POST } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
+const req = () => new Request('http://test/api/workouts/1/calculate?slug=default', { method: 'POST' })
 
 describe('POST /api/workouts/[id]/calculate', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test', { method: 'POST' }), params('1'))
+    const res = await POST(req(), params('1'))
     expect(res.status).toBe(401)
   })
 
-  it('returns 404 when workout not found', async () => {
-    mock.queueResult({ data: null, error: null })
-    const res = await POST(new Request('http://test', { method: 'POST' }), params('99'))
+  it('returns 404 when workout not in caller competition', async () => {
+    mock.queueResult({ data: null, error: null }) // requireWorkoutInCompetition
+    const res = await POST(req(), params('99'))
     expect(res.status).toBe(404)
   })
 
@@ -34,7 +35,7 @@ describe('POST /api/workouts/[id]/calculate', () => {
     mock.queueResult({ data: null, error: null })
     mock.queueResult({ data: null, error: null })
 
-    const res = await POST(new Request('http://test', { method: 'POST' }), params('1'))
+    const res = await POST(req(), params('1'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ message: 'Rankings calculated', count: 2 })
 

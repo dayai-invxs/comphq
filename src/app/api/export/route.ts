@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { resolveCompetition } from '@/lib/competition'
+import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
 
 function esc(val: string | number | null | undefined): string {
@@ -21,11 +21,13 @@ function section(title: string): string {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
-
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
-  const competition = await resolveCompetition(slug)
-  if (!competition) return new Response('Competition not found', { status: 404 })
+  let competition: { id: number; name: string; slug: string }
+  try {
+    ({ competition } = await requireCompetitionMember(session, slug))
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 
   const { data: workouts } = await supabase.from('Workout').select('*').eq('competitionId', competition.id).order('number')
   const workoutIds = (workouts ?? []).map((w) => (w as { id: number }).id)
