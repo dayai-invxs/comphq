@@ -49,6 +49,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
 
   const parts = pathname.split('/').filter(Boolean)
   const opsHref = parts.length >= 2 ? `/${parts[0]}/ops` : '/ops'
+  const adminHref = parts.length >= 1 ? `/${parts[0]}/admin` : '/admin'
 
   const fetchData = useCallback(async () => {
     try {
@@ -115,6 +116,9 @@ export default function AthleteControl({ slug }: { slug: string }) {
         <div className="flex items-center gap-4">
           <Link href={opsHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
             Ops View
+          </Link>
+          <Link href={adminHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
+            Admin
           </Link>
           <div className="text-xs text-gray-500 text-right">
             <div className="flex items-center gap-2 justify-end">

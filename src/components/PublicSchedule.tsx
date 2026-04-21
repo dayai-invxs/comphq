@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 type ScheduleEntry = {
   athleteId: number
@@ -33,6 +34,7 @@ function fmtTime(iso: string | null) {
 }
 
 export default function PublicSchedule({ slug }: { slug: string }) {
+  const adminHref = `/${slug}/admin`
   const [data, setData] = useState<ScheduleData | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -71,13 +73,12 @@ export default function PublicSchedule({ slug }: { slug: string }) {
           <h1 className="text-3xl font-bold text-white">Competition Schedule</h1>
         </div>
         <div className="text-right text-xs text-gray-500">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-end">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             Live
           </div>
-          {lastUpdated && (
-            <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>
-          )}
+          {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
+          <Link href={adminHref} className="mt-1 block hover:text-gray-300 transition-colors">Admin</Link>
         </div>
       </div>
 

@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ComphqLogo } from '@/components/ComphqLogo'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/admin'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -22,7 +24,7 @@ export default function LoginPage() {
     })
     setLoading(false)
     if (result?.ok) {
-      router.push('/admin')
+      router.push(callbackUrl)
     } else {
       setError('Invalid username or password')
     }

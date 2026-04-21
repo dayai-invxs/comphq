@@ -16,7 +16,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/login')
+    if (status === 'unauthenticated') router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 

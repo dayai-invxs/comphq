@@ -56,6 +56,7 @@ export default function OpsView({ slug }: { slug: string }) {
 
   const parts = pathname.split('/').filter(Boolean)
   const athleteControlHref = parts.length >= 2 ? `/${parts[0]}/athlete-control` : '/athlete-control'
+  const adminHref = parts.length >= 1 ? `/${parts[0]}/admin` : '/admin'
 
   const fetchData = useCallback(async () => {
     try {
@@ -124,11 +125,11 @@ export default function OpsView({ slug }: { slug: string }) {
             {showAthletes ? 'Hide athletes' : 'Show athletes'}
           </button>
           <div className="flex items-center gap-4">
-            <Link
-              href={athleteControlHref}
-              className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
-            >
+            <Link href={athleteControlHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
               Athlete Control
+            </Link>
+            <Link href={adminHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
+              Admin
             </Link>
             <div className="text-right text-xs text-gray-500">
               <div className="flex items-center gap-2 justify-end">

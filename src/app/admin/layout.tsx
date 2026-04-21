@@ -10,7 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/login')
+    if (status === 'unauthenticated') router.push(`/login?callbackUrl=${encodeURIComponent('/admin')}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
