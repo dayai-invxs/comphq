@@ -4,14 +4,9 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { statusStyle } from '@/lib/workoutEnums'
 
 type Workout = { id: number; number: number; name: string; status: string; lanes: number }
-
-const statusColor: Record<string, string> = {
-  draft: 'bg-gray-700 text-gray-300',
-  active: 'bg-green-900 text-green-300',
-  completed: 'bg-blue-900 text-blue-300',
-}
 
 export default function CompetitionDashboard() {
   const { slug } = useParams<{ slug: string }>()
@@ -95,7 +90,7 @@ export default function CompetitionDashboard() {
                   <span className="font-semibold text-white">WOD {w.number}: {w.name}</span>
                   <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes</span>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[w.status] ?? 'bg-gray-700 text-gray-300'}`}>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(w.status).className}`}>
                   {w.status}
                 </span>
               </Link>

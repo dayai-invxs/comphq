@@ -8,17 +8,7 @@ import { useScoreInputs } from '@/hooks/useScoreInputs'
 import WorkoutEditForm from '@/components/workout-detail/WorkoutEditForm'
 import HeatCard from '@/components/workout-detail/HeatCard'
 import WorkoutLeaderboard from '@/components/workout-detail/WorkoutLeaderboard'
-
-const statusColor: Record<string, string> = {
-  draft: 'bg-gray-700 text-gray-300',
-  active: 'bg-green-900 text-green-300',
-  completed: 'bg-blue-900 text-blue-300',
-}
-
-const SCORE_TYPE_LABELS: Record<string, string> = {
-  time: 'Time', rounds_reps: 'Rounds + Reps', weight: 'Weight',
-  lower_is_better: 'Time', higher_is_better: 'Reps / Weight',
-}
+import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
 
 export default function WorkoutDetailPage() {
   const { slug, id } = useParams<{ slug: string; id: string }>()
@@ -106,9 +96,9 @@ export default function WorkoutDetailPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-white">WOD {workout.number}: {workout.name}</h1>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[workout.status] ?? 'bg-gray-700 text-gray-300'}`}>{workout.status}</span>
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(workout.status).className}`}>{workout.status}</span>
             <span className="text-gray-400 text-sm">
-              {workout.lanes} lanes · {SCORE_TYPE_LABELS[workout.scoreType] ?? workout.scoreType} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(workout.timeBetweenHeatsSecs / 60)}m {workout.timeBetweenHeatsSecs % 60 > 0 ? `${workout.timeBetweenHeatsSecs % 60}s ` : ''}between heats
+              {workout.lanes} lanes · {scoreTypeLabel(workout.scoreType)} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(workout.timeBetweenHeatsSecs / 60)}m {workout.timeBetweenHeatsSecs % 60 > 0 ? `${workout.timeBetweenHeatsSecs % 60}s ` : ''}between heats
             </span>
             {workout.startTime && <span className="text-gray-400 text-sm">Starts {new Date(workout.startTime).toLocaleString()}</span>}
           </div>

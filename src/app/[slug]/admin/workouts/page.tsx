@@ -3,20 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
 
 type Workout = { id: number; number: number; name: string; scoreType: string; lanes: number; status: string }
-
-const statusColor: Record<string, string> = {
-  draft: 'bg-gray-700 text-gray-300',
-  active: 'bg-green-900 text-green-300',
-  completed: 'bg-blue-900 text-blue-300',
-}
-
-const SCORE_TYPE_LABELS: Record<string, string> = {
-  time: 'Time',
-  rounds_reps: 'Rounds + Reps',
-  weight: 'Weight',
-}
 
 function parseMinSec(val: string): number {
   const [m = '0', s = '0'] = val.split(':')
@@ -184,9 +173,9 @@ export default function WorkoutsPage() {
             <Link key={w.id} href={`${base}/workouts/${w.id}`} className="flex items-center justify-between bg-gray-900 hover:bg-gray-800 rounded-xl px-5 py-4 transition-colors">
               <div>
                 <span className="font-semibold text-white">WOD {w.number}: {w.name}</span>
-                <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes · {SCORE_TYPE_LABELS[w.scoreType] ?? w.scoreType}</span>
+                <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes · {scoreTypeLabel(w.scoreType)}</span>
               </div>
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[w.status] ?? 'bg-gray-700 text-gray-300'}`}>{w.status}</span>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(w.status).className}`}>{w.status}</span>
             </Link>
           ))}
         </div>

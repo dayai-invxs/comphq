@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { useOps, useLogoUrl, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
+import { statusStyle } from '@/lib/workoutEnums'
 
 type HeatEntry = {
   athleteId: number
@@ -49,12 +50,6 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
     workout.heatStartOverrides,
     workout.timeBetweenHeatsSecs,
   )
-}
-
-const STATUS_STYLES: Record<string, { label: string; className: string }> = {
-  draft:     { label: 'Draft',     className: 'bg-gray-700 text-gray-300' },
-  active:    { label: 'Active',    className: 'bg-green-800 text-green-300' },
-  completed: { label: 'Completed', className: 'bg-blue-900 text-blue-300' },
 }
 
 export default function OpsView({ slug }: { slug: string }) {
@@ -148,7 +143,7 @@ export default function OpsView({ slug }: { slug: string }) {
       )}
 
       {data && data.workouts.map((workout) => {
-        const statusStyle = STATUS_STYLES[workout.status] ?? { label: workout.status, className: 'bg-gray-700 text-gray-300' }
+        const badge = statusStyle(workout.status)
         const visibleHeats = filterHeats(workout.heats)
         if (searchTerm && visibleHeats.length === 0) return null
         return (
@@ -157,8 +152,8 @@ export default function OpsView({ slug }: { slug: string }) {
               <h2 className="text-xl font-bold text-white">
                 Workout {workout.number}: {workout.name}
               </h2>
-              <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusStyle.className}`}>
-                {statusStyle.label}
+              <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${badge.className}`}>
+                {badge.label}
               </span>
             </div>
 

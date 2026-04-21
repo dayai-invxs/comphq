@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Workout } from '@/hooks/useWorkoutDetail'
+import { SCORE_TYPE_OPTIONS } from '@/lib/workoutEnums'
 
 type TimeField = string
 
@@ -96,9 +97,7 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
         <div>
           <label className="block text-xs text-gray-400 mb-1">Score Type</label>
           <select value={scoreType} onChange={(e) => setScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="time">Time (lower is better)</option>
-            <option value="rounds_reps">Rounds + Reps (higher is better)</option>
-            <option value="weight">Weight (higher is better)</option>
+            {SCORE_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div><label className="block text-xs text-gray-400 mb-1">Lanes</label><input type="number" value={lanes} onChange={(e) => setLanes(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
@@ -116,9 +115,7 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
           <div className="col-span-2">
             <label className="block text-xs text-gray-400 mb-1">Part B Score Type</label>
             <select value={partBScoreType} onChange={(e) => setPartBScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
-              <option value="time">Time (lower is better)</option>
-              <option value="rounds_reps">Rounds + Reps (higher is better)</option>
-              <option value="weight">Weight (higher is better)</option>
+              {SCORE_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         )}
