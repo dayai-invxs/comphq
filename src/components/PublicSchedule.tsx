@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
-import { usePollingInterval } from '@/lib/usePollingInterval'
+import { useOps, useLogoUrl, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = {
@@ -53,26 +53,13 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
 export default function PublicSchedule({ slug }: { slug: string }) {
   const adminHref = `/${slug}/admin`
   const leaderboardHref = `/${slug}/leaderboard`
-  const [data, setData] = useState<OpsData | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const { data, dataUpdatedAt } = useOps<OpsData>(slug)
+  const { data: logoData } = useLogoUrl()
+  const logoUrl = logoData?.url ?? null
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
 
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/ops?slug=${slug}`, { cache: 'no-store' })
-      if (res.ok) {
-        setData(await res.json())
-        setLastUpdated(new Date())
-      }
-    } catch {}
-  }, [slug])
-
-  useEffect(() => {
-    void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
-    void fetchData()
-  }, [fetchData])
-  usePollingInterval(fetchData, 10000)
-  useRealtimeInvalidation(fetchData)
+  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug)], [slug])
+  useRealtimeInvalidation(realtimeKeys)
 
   const activeWorkouts = (data?.workouts ?? []).filter((w) => w.status === 'active')
 

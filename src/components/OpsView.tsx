@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
-import { usePollingInterval } from '@/lib/usePollingInterval'
+import { useOps, useLogoUrl, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = {
@@ -58,9 +58,10 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
 }
 
 export default function OpsView({ slug }: { slug: string }) {
-  const [data, setData] = useState<OpsData | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const { data, dataUpdatedAt } = useOps<OpsData>(slug)
+  const { data: logoData } = useLogoUrl()
+  const logoUrl = logoData?.url ?? null
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
   const [showAthletes, setShowAthletes] = useState(true)
   const [search, setSearch] = useState('')
   const pathname = usePathname()
@@ -69,22 +70,8 @@ export default function OpsView({ slug }: { slug: string }) {
   const athleteControlHref = parts.length >= 2 ? `/${parts[0]}/athlete-control` : '/athlete-control'
   const adminHref = parts.length >= 1 ? `/${parts[0]}/admin` : '/admin'
 
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/ops?slug=${slug}`, { cache: 'no-store' })
-      if (res.ok) {
-        setData(await res.json())
-        setLastUpdated(new Date())
-      }
-    } catch {}
-  }, [slug])
-
-  useEffect(() => {
-    void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
-    void fetchData()
-  }, [fetchData])
-  usePollingInterval(fetchData, 10000)
-  useRealtimeInvalidation(fetchData)
+  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.schedule(slug), qk.leaderboard(slug)], [slug])
+  useRealtimeInvalidation(realtimeKeys)
 
   const searchTerm = search.trim().toLowerCase()
 

@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
-import { usePollingInterval } from '@/lib/usePollingInterval'
+import { useOps, qk } from '@/lib/queries'
+import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; lane: number }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
@@ -36,9 +38,12 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
 type RowChecks = { corral: boolean; walkout: boolean }
 type EditingHeatKey = { workoutId: number; heatNumber: number }
 
+type OpsData = { workouts: WorkoutData[]; showBib: boolean }
+
 export default function AthleteControl({ slug }: { slug: string }) {
-  const [workouts, setWorkouts] = useState<WorkoutData[]>([])
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const { data, dataUpdatedAt } = useOps<OpsData>(slug)
+  const workouts = data?.workouts ?? []
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
   const [checks, setChecks] = useState<Record<string, RowChecks>>({})
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
@@ -49,21 +54,9 @@ export default function AthleteControl({ slug }: { slug: string }) {
   const opsHref = parts.length >= 2 ? `/${parts[0]}/ops` : '/ops'
   const adminHref = parts.length >= 1 ? `/${parts[0]}/admin` : '/admin'
 
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/ops?slug=${slug}`, { cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        setWorkouts(data.workouts)
-        setLastUpdated(new Date())
-      }
-    } catch {}
-  }, [slug])
-
-  useEffect(() => {
-    void fetchData()
-  }, [fetchData])
-  usePollingInterval(fetchData, 10000)
+  const qc = useQueryClient()
+  const realtimeKeys = useMemo(() => [qk.ops(slug)], [slug])
+  useRealtimeInvalidation(realtimeKeys)
 
   function toggleExpand(workoutId: number, heatNumber: number) {
     const key = `${workoutId}-${heatNumber}`
@@ -111,13 +104,13 @@ export default function AthleteControl({ slug }: { slug: string }) {
     const base = new Date(ms)
     const [hh, mm] = heatTimeInput.split(':').map(Number)
     const newDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0)
-    await fetch(`/api/workouts/${workoutId}/heat-times`, {
+    await fetch(`/api/workouts/${workoutId}/heat-times?slug=${slug}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ heatNumber, isoTime: newDate.toISOString() }),
     })
     setEditingHeat(null)
-    await fetchData()
+    qc.invalidateQueries({ queryKey: qk.ops(slug) })
   }
 
   return (
