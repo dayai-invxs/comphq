@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { calcHeatStartMs } from '@/lib/heatTime'
 
-type Heat = { heatNumber: number; isComplete: boolean }
+type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; lane: number }
+type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
 
 type WorkoutData = {
   id: number
@@ -43,6 +44,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
   const [workouts, setWorkouts] = useState<WorkoutData[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [checks, setChecks] = useState<Record<string, RowChecks>>({})
+  const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
   const [heatTimeInput, setHeatTimeInput] = useState('')
   const pathname = usePathname()
@@ -67,6 +69,19 @@ export default function AthleteControl({ slug }: { slug: string }) {
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
   }, [fetchData])
+
+  function toggleExpand(workoutId: number, heatNumber: number) {
+    const key = `${workoutId}-${heatNumber}`
+    setExpandedHeats((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  function isExpanded(workoutId: number, heatNumber: number) {
+    return expandedHeats.has(`${workoutId}-${heatNumber}`)
+  }
 
   function toggle(workoutId: number, heatNumber: number, field: keyof RowChecks) {
     const key = `${workoutId}-${heatNumber}`
@@ -156,6 +171,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-700">
+                    <th className="w-8 px-2 py-2" />
                     <th className="text-left px-3 py-2 text-gray-400 font-medium">Heat</th>
                     <th className="text-left px-3 py-2 text-gray-400 font-medium">Corral</th>
                     <th className="text-left px-3 py-2 text-gray-400 font-medium">Walk Out</th>
@@ -175,54 +191,86 @@ export default function AthleteControl({ slug }: { slug: string }) {
                       (prevLatestMs !== -Infinity && heatMs <= prevLatestMs)
                     )
                     const isEditing = editingHeat?.workoutId === workout.id && editingHeat?.heatNumber === heat.heatNumber
+                    const expanded = isExpanded(workout.id, heat.heatNumber)
+                    const sortedEntries = [...heat.entries].sort((a, b) => a.lane - b.lane)
 
                     return (
-                      <tr
-                        key={heat.heatNumber}
-                        className={`border-b transition-opacity ${dimmed ? 'opacity-40' : ''} ${conflict ? 'border-2 border-red-600' : 'border-gray-800'}`}
-                      >
-                        <td className={`px-3 py-2.5 font-semibold ${dimmed ? 'text-gray-500' : 'text-orange-400'}`}>
-                          {heat.heatNumber}
-                          {heat.isComplete && <span className="ml-1.5 text-xs text-green-500">✓</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-yellow-400 font-mono">
-                          <span className="flex items-center gap-2">
-                            {fmtMs(corralMs)}
-                            <input type="checkbox" checked={c.corral} onChange={() => toggle(workout.id, heat.heatNumber, 'corral')} className="accent-yellow-400 w-3.5 h-3.5" />
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-blue-400 font-mono">
-                          <span className="flex items-center gap-2">
-                            {fmtMs(walkoutMs)}
-                            <input type="checkbox" checked={c.walkout} onChange={() => toggle(workout.id, heat.heatNumber, 'walkout')} className="accent-blue-400 w-3.5 h-3.5" />
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-white font-mono">
-                          {isEditing ? (
+                      <>
+                        <tr
+                          key={heat.heatNumber}
+                          className={`border-b transition-opacity ${dimmed ? 'opacity-40' : ''} ${conflict ? 'border-2 border-red-600' : 'border-gray-800'}`}
+                        >
+                          <td className="px-2 py-2.5">
+                            {sortedEntries.length > 0 && (
+                              <button
+                                onClick={() => toggleExpand(workout.id, heat.heatNumber)}
+                                className="text-gray-400 hover:text-white transition-colors"
+                                aria-label={expanded ? 'Collapse' : 'Expand'}
+                              >
+                                <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            )}
+                          </td>
+                          <td className={`px-3 py-2.5 font-semibold ${dimmed ? 'text-gray-500' : 'text-orange-400'}`}>
+                            {heat.heatNumber}
+                            {heat.isComplete && <span className="ml-1.5 text-xs text-green-500">✓</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-yellow-400 font-mono">
                             <span className="flex items-center gap-2">
-                              <input
-                                type="time"
-                                value={heatTimeInput}
-                                onChange={(e) => setHeatTimeInput(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') saveHeatTime(); if (e.key === 'Escape') setEditingHeat(null) }}
-                                autoFocus
-                                className="bg-gray-700 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
-                              />
-                              <button onClick={saveHeatTime} className="text-xs text-green-400 hover:text-green-300 font-medium">Save</button>
-                              <button onClick={() => setEditingHeat(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                              {fmtMs(corralMs)}
+                              <input type="checkbox" checked={c.corral} onChange={() => toggle(workout.id, heat.heatNumber, 'corral')} className="accent-yellow-400 w-3.5 h-3.5" />
                             </span>
-                          ) : (
+                          </td>
+                          <td className="px-3 py-2.5 text-blue-400 font-mono">
                             <span className="flex items-center gap-2">
-                              {fmtMs(heatMs)}
-                              {heatMs != null && (
-                                <button onClick={() => startEditHeatTime(workout.id, heat.heatNumber)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
-                                  Edit
-                                </button>
-                              )}
+                              {fmtMs(walkoutMs)}
+                              <input type="checkbox" checked={c.walkout} onChange={() => toggle(workout.id, heat.heatNumber, 'walkout')} className="accent-blue-400 w-3.5 h-3.5" />
                             </span>
-                          )}
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="px-3 py-2.5 text-white font-mono">
+                            {isEditing ? (
+                              <span className="flex items-center gap-2">
+                                <input
+                                  type="time"
+                                  value={heatTimeInput}
+                                  onChange={(e) => setHeatTimeInput(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') saveHeatTime(); if (e.key === 'Escape') setEditingHeat(null) }}
+                                  autoFocus
+                                  className="bg-gray-700 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                                <button onClick={saveHeatTime} className="text-xs text-green-400 hover:text-green-300 font-medium">Save</button>
+                                <button onClick={() => setEditingHeat(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                {fmtMs(heatMs)}
+                                {heatMs != null && (
+                                  <button onClick={() => startEditHeatTime(workout.id, heat.heatNumber)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                                    Edit
+                                  </button>
+                                )}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                        {expanded && sortedEntries.length > 0 && (
+                          <tr key={`${heat.heatNumber}-athletes`} className="border-b border-gray-800 bg-gray-900/50">
+                            <td />
+                            <td colSpan={4} className="px-3 py-2">
+                              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                                {sortedEntries.map((e) => (
+                                  <span key={e.athleteId} className="text-sm text-gray-300">
+                                    <span className="text-orange-400 font-bold mr-1.5">{e.lane}</span>
+                                    {e.athleteName}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     )
                   })}
                 </tbody>
