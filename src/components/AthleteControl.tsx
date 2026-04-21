@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { calcHeatStartMs } from '@/lib/heatTime'
+import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { usePollingInterval } from '@/lib/usePollingInterval'
 
 type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; lane: number }
@@ -21,11 +21,6 @@ type WorkoutData = {
   walkoutTimeSecs: number
   heatStartOverrides: string
   heats: Heat[]
-}
-
-function fmtMs(ms: number | null): string {
-  if (ms == null) return '—'
-  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
@@ -74,7 +69,8 @@ export default function AthleteControl({ slug }: { slug: string }) {
     const key = `${workoutId}-${heatNumber}`
     setExpandedHeats((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }

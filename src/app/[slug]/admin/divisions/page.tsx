@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 
 type Division = { id: number; name: string; order: number }
@@ -15,12 +15,12 @@ export default function DivisionsPage() {
   const [editName, setEditName] = useState('')
   const [editOrder, setEditOrder] = useState('')
 
-  async function load() {
+  const load = useCallback(async () => {
     const res = await fetch(`/api/divisions?slug=${slug}`)
     if (res.ok) setDivisions(await res.json())
-  }
+  }, [slug])
 
-  useEffect(() => { void load() }, [slug])
+  useEffect(() => { void load() }, [load])
 
   async function addDivision(e: React.FormEvent) {
     e.preventDefault()

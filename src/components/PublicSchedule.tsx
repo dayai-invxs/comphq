@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { calcHeatStartMs } from '@/lib/heatTime'
+import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { usePollingInterval } from '@/lib/usePollingInterval'
 
 type HeatEntry = {
@@ -37,11 +37,6 @@ type WorkoutData = {
 type OpsData = {
   workouts: WorkoutData[]
   showBib: boolean
-}
-
-function fmtMs(ms: number | null): string {
-  if (ms == null) return '—'
-  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {

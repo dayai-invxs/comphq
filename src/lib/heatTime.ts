@@ -33,3 +33,8 @@ export function calcHeatStartMs(
 
   return bestMs + (heatNumber - bestHeat) * (heatIntervalSecs + timeBetweenHeatsSecs) * 1000
 }
+
+export function fmtHeatTime(ms: number | null): string {
+  if (ms == null) return '—'
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}

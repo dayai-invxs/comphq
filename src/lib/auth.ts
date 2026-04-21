@@ -27,7 +27,9 @@ export async function ensureSeedUser(): Promise<void> {
   const plainPassword = adminPassword ?? 'crossfit123' // dev-only fallback
   const password = await bcrypt.hash(plainPassword, 10)
 
-  await supabase.from('User').insert({ username, password })
+  // upsert + onConflict keeps concurrent boot calls idempotent — two seeders
+  // both observing an empty table won't produce a duplicate-key crash.
+  await supabase.from('User').upsert({ username, password }, { onConflict: 'username', ignoreDuplicates: true })
 }
 
 type Credentials = { username?: string; password?: string } | undefined

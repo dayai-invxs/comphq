@@ -60,21 +60,25 @@ describe('ensureSeedUser', () => {
   it('is a no-op when the User table is non-empty', async () => {
     mock.queueResult({ data: [{ id: 1 }], error: null })
     await ensureSeedUser()
-    // Only the .select('id') call happened; no insert
+    // Only the .select('id') call happened; no upsert
     expect(mock.calls.length).toBe(1)
-    expect(mock.calls[0].ops.find((o) => o.op === 'insert')).toBeUndefined()
+    expect(mock.calls[0].ops.find((o) => o.op === 'upsert')).toBeUndefined()
   })
 
-  it('seeds the admin user when the table is empty and ADMIN_PASSWORD is set', async () => {
+  it('seeds the admin user via upsert when the table is empty and ADMIN_PASSWORD is set', async () => {
     vi.stubEnv('ADMIN_PASSWORD', 'safe-password-12345')
     mock.queueResult({ data: [], error: null })
     mock.queueResult({ data: null, error: null })
 
     await ensureSeedUser()
 
-    const insert = mock.calls.find((c) => c.ops.find((o) => o.op === 'insert'))!
-    const row = insert.ops.find((o) => o.op === 'insert')!.args[0] as { username: string; password: string }
+    const upsert = mock.calls.find((c) => c.ops.find((o) => o.op === 'upsert'))!
+    const upsertOp = upsert.ops.find((o) => o.op === 'upsert')!
+    const row = upsertOp.args[0] as { username: string; password: string }
+    const opts = upsertOp.args[1] as { onConflict: string; ignoreDuplicates: boolean }
     expect(row.username).toBe('admin')
+    expect(opts.onConflict).toBe('username')
+    expect(opts.ignoreDuplicates).toBe(true)
     // Password is hashed, not stored raw
     expect(row.password).not.toBe('safe-password-12345')
     expect(await bcrypt.compare('safe-password-12345', row.password)).toBe(true)
@@ -95,7 +99,7 @@ describe('ensureSeedUser', () => {
     mock.queueResult({ data: null, error: null })
 
     await expect(ensureSeedUser()).resolves.toBeUndefined()
-    const insert = mock.calls.find((c) => c.ops.find((o) => o.op === 'insert'))!
-    expect(insert).toBeDefined()
+    const upsert = mock.calls.find((c) => c.ops.find((o) => o.op === 'upsert'))!
+    expect(upsert).toBeDefined()
   })
 })

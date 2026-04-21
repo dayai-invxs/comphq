@@ -5,9 +5,7 @@ import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetitio
 import { getCompletedHeats } from '@/lib/heatCompletion'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutUpdate } from '@/lib/schemas'
-
-const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
-const SCORE_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId)'
+import { ASSIGNMENT_EMBED, SCORE_EMBED } from '@/lib/embeds'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)

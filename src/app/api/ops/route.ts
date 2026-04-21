@@ -2,8 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
-
-const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
+import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null

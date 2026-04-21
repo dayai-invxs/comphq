@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -57,7 +57,7 @@ export default function WorkoutsPage() {
   const [importResult, setImportResult] = useState<{ imported: number; workoutsAffected: number[]; errors: { line: number; message: string }[]; warnings: { message: string }[] } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     const [workoutsRes, settingsRes] = await Promise.all([
       fetch(`/api/workouts?slug=${slug}`),
       fetch(`/api/settings?slug=${slug}`),
@@ -67,9 +67,9 @@ export default function WorkoutsPage() {
       const s = await settingsRes.json()
       setTiebreakWorkoutId(s.tiebreakWorkoutId ?? null)
     }
-  }
+  }, [slug])
 
-  useEffect(() => { void load() }, [slug])
+  useEffect(() => { void load() }, [load])
 
   async function saveTiebreakWorkout(workoutId: number | null) {
     setTiebreakWorkoutId(workoutId)

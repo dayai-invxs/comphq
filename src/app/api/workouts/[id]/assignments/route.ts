@@ -6,8 +6,7 @@ import type { AthleteWithScore } from '@/lib/scoring'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentPatch, AssignmentRegen } from '@/lib/schemas'
-
-const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
+import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)

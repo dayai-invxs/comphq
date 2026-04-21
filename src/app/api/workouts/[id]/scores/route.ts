@@ -4,8 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { ScoreUpsert } from '@/lib/schemas'
-
-const SCORE_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId)'
+import { SCORE_EMBED } from '@/lib/embeds'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
