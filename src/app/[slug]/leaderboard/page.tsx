@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
 type WorkoutScore = { points: number; display: string } | null
@@ -15,16 +16,18 @@ export default function PublicLeaderboardPage() {
   const [halfWeightIds, setHalfWeightIds] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch(`/api/leaderboard?slug=${slug}`)
-      .then((r) => r.json())
-      .then(({ workouts: ws, entries: es, halfWeightIds: hwIds }) => {
-        setWorkouts(ws)
-        setEntries(es)
-        setHalfWeightIds(hwIds ?? [])
-        setLoading(false)
-      })
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/leaderboard?slug=${slug}`, { cache: 'no-store' })
+    if (!res.ok) return
+    const { workouts: ws, entries: es, halfWeightIds: hwIds } = await res.json()
+    setWorkouts(ws)
+    setEntries(es)
+    setHalfWeightIds(hwIds ?? [])
+    setLoading(false)
   }, [slug])
+
+  useEffect(() => { void load() }, [load])
+  useRealtimeInvalidation(load)
 
   const divisions = [...new Set(entries.map((e) => e.divisionName))].sort((a, b) => {
     if (a === null) return 1

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { usePollingInterval } from '@/lib/usePollingInterval'
+import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = {
   athleteId: number
@@ -71,6 +72,7 @@ export default function PublicSchedule({ slug }: { slug: string }) {
     void fetchData()
   }, [fetchData])
   usePollingInterval(fetchData, 10000)
+  useRealtimeInvalidation(fetchData)
 
   const activeWorkouts = (data?.workouts ?? []).filter((w) => w.status === 'active')
 

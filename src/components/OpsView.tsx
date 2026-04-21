@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { usePollingInterval } from '@/lib/usePollingInterval'
+import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = {
   athleteId: number
@@ -83,6 +84,7 @@ export default function OpsView({ slug }: { slug: string }) {
     void fetchData()
   }, [fetchData])
   usePollingInterval(fetchData, 10000)
+  useRealtimeInvalidation(fetchData)
 
   const searchTerm = search.trim().toLowerCase()
 
