@@ -4,7 +4,7 @@ import { createRateLimiter } from './rate-limit'
 describe('createRateLimiter', () => {
   it('allows up to max hits in the window', () => {
     const rl = createRateLimiter({ windowMs: 1000, max: 3 })
-    let now = 1000
+    const now = 1000
     expect(rl.check('k', now).ok).toBe(true)
     expect(rl.check('k', now).ok).toBe(true)
     expect(rl.check('k', now).ok).toBe(true)
