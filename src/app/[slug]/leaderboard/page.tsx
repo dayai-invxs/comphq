@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
+import { SlugNav } from '@/components/SlugNav'
 
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
 type WorkoutScore = { points: number; display: string } | null
@@ -99,24 +99,16 @@ export default function PublicLeaderboardPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
-          {!loading && workouts.length > 0 && (
-            <p className="text-gray-400 mt-1">
-              Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · Lower points = better
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href={`/${slug}`} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Schedule
-          </Link>
-          <Link href={`/${slug}/admin`} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Admin
-          </Link>
-        </div>
+    <div className="min-h-screen flex flex-col">
+      <SlugNav slug={slug} />
+      <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
+        {!loading && workouts.length > 0 && (
+          <p className="text-gray-400 mt-1">
+            Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · Lower points = better
+          </p>
+        )}
       </div>
 
       {loading && <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>}
@@ -130,6 +122,7 @@ export default function PublicLeaderboardPage() {
           {divisions.map((d) => renderTable(d))}
         </div>
       )}
-    </main>
+      </main>
+    </div>
   )
 }

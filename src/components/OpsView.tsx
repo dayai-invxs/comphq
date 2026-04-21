@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs } from '@/lib/heatTime'
 
 type HeatEntry = {
@@ -63,15 +61,8 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
 export default function OpsView({ slug }: { slug: string }) {
   const [data, setData] = useState<OpsData | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [showAthletes, setShowAthletes] = useState(true)
   const [search, setSearch] = useState('')
-  const pathname = usePathname()
-
-  const parts = pathname.split('/').filter(Boolean)
-  const athleteControlHref = parts.length >= 2 ? `/${parts[0]}/athlete-control` : '/athlete-control'
-  const adminHref = parts.length >= 1 ? `/${parts[0]}/admin` : '/admin'
-  const scheduleHref = parts.length >= 1 ? `/${parts[0]}` : '/'
 
   const fetchData = useCallback(async () => {
     try {
@@ -81,10 +72,9 @@ export default function OpsView({ slug }: { slug: string }) {
         setLastUpdated(new Date())
       }
     } catch {}
-  }, [])
+  }, [slug])
 
   useEffect(() => {
-    void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
     void fetchData()
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
@@ -107,23 +97,13 @@ export default function OpsView({ slug }: { slug: string }) {
   const athletesVisible = showAthletes || !!searchTerm
 
   return (
-    <main className="min-h-screen p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen flex flex-col">
+      <SlugNav slug={slug} />
+      <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <div className="flex items-center gap-5">
-          {logoUrl && (
-            <Image
-              src={logoUrl}
-              alt="Competition logo"
-              width={120}
-              height={60}
-              className="max-h-14 w-auto object-contain"
-              unoptimized
-            />
-          )}
-          <div>
-            <h1 className="text-3xl font-bold text-white">Athlete Overview</h1>
-            <p className="text-gray-400 mt-1">All workouts · All heats</p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-white">Athlete Overview</h1>
+          <p className="text-gray-400 mt-1">All workouts · All heats</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <input
@@ -139,23 +119,12 @@ export default function OpsView({ slug }: { slug: string }) {
           >
             {showAthletes ? 'Hide athletes' : 'Show athletes'}
           </button>
-          <div className="flex items-center gap-4">
-            <Link href={scheduleHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-              Schedule
-            </Link>
-            <Link href={athleteControlHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-              Athlete Control
-            </Link>
-            <Link href={adminHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-              Admin
-            </Link>
-            <div className="text-right text-xs text-gray-500">
-              <div className="flex items-center gap-2 justify-end">
-                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Live
-              </div>
-              {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
+          <div className="text-right text-xs text-gray-500">
+            <div className="flex items-center gap-2 justify-end">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Live
             </div>
+            {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
           </div>
         </div>
       </div>
@@ -256,6 +225,7 @@ export default function OpsView({ slug }: { slug: string }) {
           </section>
         )
       })}
-    </main>
+      </main>
+    </div>
   )
 }

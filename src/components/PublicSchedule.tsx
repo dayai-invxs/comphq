@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
+import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs } from '@/lib/heatTime'
 
 type HeatEntry = {
@@ -54,12 +53,8 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
 }
 
 export default function PublicSchedule({ slug }: { slug: string }) {
-  const adminHref = `/${slug}/admin`
-  const leaderboardHref = `/${slug}/leaderboard`
-  const overviewHref = `/${slug}/ops`
   const [data, setData] = useState<OpsData | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -72,7 +67,6 @@ export default function PublicSchedule({ slug }: { slug: string }) {
   }, [slug])
 
   useEffect(() => {
-    void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
     void fetchData()
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
@@ -81,32 +75,17 @@ export default function PublicSchedule({ slug }: { slug: string }) {
   const activeWorkouts = (data?.workouts ?? []).filter((w) => w.status === 'active')
 
   return (
-    <main className="min-h-screen p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen flex flex-col">
+      <SlugNav slug={slug} />
+      <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-5">
-          {logoUrl && (
-            <Image
-              src={logoUrl}
-              alt="Competition logo"
-              width={120}
-              height={60}
-              className="max-h-14 w-auto object-contain"
-              unoptimized
-            />
-          )}
-          <h1 className="text-3xl font-bold text-white">Competition Schedule</h1>
-        </div>
+        <h1 className="text-3xl font-bold text-white">Competition Schedule</h1>
         <div className="text-right text-xs text-gray-500">
           <div className="flex items-center gap-2 justify-end">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             Live
           </div>
           {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
-          <div className="mt-1 flex gap-3 justify-end">
-            <Link href={leaderboardHref} className="hover:text-gray-300 transition-colors">Leaderboard</Link>
-            <Link href={overviewHref} className="hover:text-gray-300 transition-colors">Athlete Overview</Link>
-            <Link href={adminHref} className="hover:text-gray-300 transition-colors">Admin</Link>
-          </div>
         </div>
       </div>
 
@@ -178,6 +157,7 @@ export default function PublicSchedule({ slug }: { slug: string }) {
           </div>
         )
       })}
-    </main>
+      </main>
+    </div>
   )
 }
