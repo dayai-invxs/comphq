@@ -38,25 +38,22 @@ describe('POST /api/workouts/[id]/assignments', () => {
     expect(res.status).toBe(404)
   })
 
-  it('generates assignments, deletes old, inserts new, and returns 201', async () => {
+  it('generates assignments and calls replace_workout_heat_assignments RPC', async () => {
     mock.queueResult({ data: { id: 1, lanes: 2, mixedHeats: true }, error: null }) // requireWorkoutInCompetition
     mock.queueResult({ data: [{ id: 10, divisionId: null, scores: [] }, { id: 11, divisionId: null, scores: [] }], error: null })
     mock.queueResult({ data: [], error: null })
-    mock.queueResult({ data: null, error: null }) // delete old
-    mock.queueResult({ data: [{ id: 1 }, { id: 2 }], error: null }) // insert
-    mock.queueResult({ data: null, error: null }) // update overrides
+    mock.queueResult({ data: null, error: null }) // RPC replace_workout_heat_assignments
     mock.queueResult({ data: [{ id: 1, heatNumber: 1, lane: 1 }, { id: 2, heatNumber: 1, lane: 2 }], error: null })
 
     const res = await POST(req('POST', {}), params('1'))
     expect(res.status).toBe(201)
     expect(Array.isArray(await res.json())).toBe(true)
 
-    const deleteCall = mock.calls.find(c => c.table === 'HeatAssignment' && c.ops.find(o => o.op === 'delete'))
-    expect(deleteCall).toBeTruthy()
-    const insertCall = mock.calls.find(c => c.table === 'HeatAssignment' && c.ops.find(o => o.op === 'insert'))
-    expect(insertCall).toBeTruthy()
-    const override = mock.calls.find(c => c.table === 'Workout' && c.ops.find(o => o.op === 'update'))
-    expect((override!.ops.find(o => o.op === 'update')!.args[0] as Record<string, unknown>).heatStartOverrides).toBe('{}')
+    const rpcCall = mock.calls.find(c => c.table === 'rpc:replace_workout_heat_assignments')
+    expect(rpcCall).toBeTruthy()
+    const args = rpcCall!.ops[0].args[0] as { p_workout_id: number; p_assignments: unknown[] }
+    expect(args.p_workout_id).toBe(1)
+    expect(args.p_assignments).toHaveLength(2)
   })
 })
 

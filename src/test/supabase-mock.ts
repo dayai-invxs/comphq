@@ -65,6 +65,14 @@ export function createSupabaseMock() {
     return makeChain(call)
   })
 
+  // RPC invocations land in `calls` as a synthetic "table" = `rpc:<fn>`.
+  const rpc = vi.fn(async (fn: string, args?: Record<string, unknown>) => {
+    const call: ChainCall = { table: `rpc:${fn}`, ops: [{ op: 'rpc', args: args ? [args] : [] }] }
+    calls.push(call)
+    const next = results.shift() ?? { data: null, error: null }
+    return next
+  })
+
   const storage = {
     from: vi.fn<(bucket: string) => {
       upload: (path: string, file: unknown, opts?: unknown) => Promise<{ data: { path: string }; error: null }>
@@ -78,7 +86,7 @@ export function createSupabaseMock() {
   }
 
   return {
-    client: { from, storage },
+    client: { from, storage, rpc },
     queueResult<T = unknown>(result: SupabaseResult<T>) {
       results.push(result)
     },
@@ -95,6 +103,7 @@ export function createSupabaseMock() {
       results.length = 0
       calls.length = 0
       from.mockClear()
+      rpc.mockClear()
     },
   }
 }

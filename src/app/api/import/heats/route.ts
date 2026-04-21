@@ -147,13 +147,16 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
 
     if (assignments.length === 0) continue
 
-    await supabase.from('HeatAssignment').delete().eq('workoutId', workoutId)
-    const { error: ierr } = await supabase.from('HeatAssignment').insert(assignments)
+    // Atomic per-workout replace via RPC — failure here doesn't leave other
+    // workouts half-wiped.
+    const { error: ierr } = await supabase.rpc('replace_workout_heat_assignments', {
+      p_workout_id: workoutId,
+      p_assignments: assignments.map(({ athleteId, heatNumber, lane }) => ({ athleteId, heatNumber, lane })),
+    })
     if (ierr) {
-      result.errors.push({ line: rows[0].lineIndex, message: `Insert failed: ${ierr.message}` })
+      result.errors.push({ line: rows[0].lineIndex, message: `Import failed: ${ierr.message}` })
       continue
     }
-    await supabase.from('Workout').update({ heatStartOverrides: '{}' }).eq('id', workoutId)
 
     result.imported += assignments.length
     result.workoutsAffected.push(workoutNumber)

@@ -84,16 +84,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       divisionOrder,
     })
 
-    await supabase.from('HeatAssignment').delete().eq('workoutId', workoutId)
-
-    if (newAssignments.length > 0) {
-      const { error } = await supabase
-        .from('HeatAssignment')
-        .insert(newAssignments.map((a) => ({ ...a, workoutId })))
-      if (error) return new Response(error.message, { status: 500 })
-    }
-
-    await supabase.from('Workout').update({ heatStartOverrides: '{}' }).eq('id', workoutId)
+    // Atomic DELETE+INSERT+UPDATE via RPC — no partial failure state.
+    const { error: rpcErr } = await supabase.rpc('replace_workout_heat_assignments', {
+      p_workout_id: workoutId,
+      p_assignments: newAssignments,
+    })
+    if (rpcErr) return new Response(rpcErr.message, { status: 500 })
 
     const { data: result, error: selErr } = await supabase
       .from('HeatAssignment')
