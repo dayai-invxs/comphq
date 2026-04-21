@@ -36,20 +36,20 @@ export async function PATCH(req: Request) {
   const competition = await resolveCompetition(body.slug ?? '')
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const upserts: Promise<unknown>[] = []
+  const upserts = []
 
   if (body.showBib !== undefined) {
     upserts.push(supabase.from('Setting').upsert(
       { competitionId: competition.id, key: 'showBib', value: String(Boolean(body.showBib)) },
       { onConflict: 'competitionId,key' }
-    ))
+    ).then())
   }
 
   if ('tiebreakWorkoutId' in body) {
     upserts.push(supabase.from('Setting').upsert(
       { competitionId: competition.id, key: 'tiebreakWorkoutId', value: body.tiebreakWorkoutId != null ? String(body.tiebreakWorkoutId) : '' },
       { onConflict: 'competitionId,key' }
-    ))
+    ).then())
   }
 
   await Promise.all(upserts)
