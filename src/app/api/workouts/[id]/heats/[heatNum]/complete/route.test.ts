@@ -19,17 +19,20 @@ describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
     expect(res.status).toBe(404)
   })
 
-  it('marks heat complete, ranks, updates Score, marks workout done when all heats finished', async () => {
-    mock.queueResult({
-      data: {
-        id: 1, scoreType: 'time', tiebreakEnabled: false, partBEnabled: false,
-        partBScoreType: 'time', status: 'active', completedHeats: '[]',
-      },
-      error: null,
-    })
-    mock.queueResult({ data: [{ id: 1, athleteId: 1, rawScore: 100 }], error: null })
-    mock.queueResult({ data: [{ heatNumber: 1 }], error: null })
+  it('upserts HeatCompletion, ranks, reports workout completed when all heats done', async () => {
+    // 1. requireWorkoutInCompetition
+    mock.queueResult({ data: { id: 1, status: 'active', scoreType: 'time', tiebreakEnabled: false, partBEnabled: false, partBScoreType: 'time' }, error: null })
+    // 2. HeatCompletion upsert
     mock.queueResult({ data: null, error: null })
+    // 3. getCompletedHeats internal query (async fn body runs first, awaits before Promise.all iterates)
+    mock.queueResult({ data: [{ heatNumber: 1 }], error: null })
+    // 4. Promise.all iteration — Score.select
+    mock.queueResult({ data: [{ athleteId: 1, workoutId: 1, rawScore: 100, tiebreakRawScore: null, partBRawScore: null }], error: null })
+    // 5. Promise.all iteration — HeatAssignment.select
+    mock.queueResult({ data: [{ heatNumber: 1 }], error: null })
+    // 6. rankAndPersist upsert
+    mock.queueResult({ data: null, error: null })
+    // 7. Workout status update
     mock.queueResult({ data: null, error: null })
 
     const res = await POST(new Request(url, { method: 'POST' }), params('1', '1'))
@@ -38,11 +41,14 @@ describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
     expect(body.completedHeats).toEqual([1])
     expect(body.workoutCompleted).toBe(true)
 
-    const workoutUpdate = mock.calls.at(-1)!
-    expect(workoutUpdate.table).toBe('Workout')
-    const patch = workoutUpdate.ops.find(o => o.op === 'update')!.args[0] as Record<string, unknown>
-    expect(patch.status).toBe('completed')
-    expect(patch.completedHeats).toBe('[1]')
+    // HeatCompletion upsert happened (idempotent insert)
+    const upsert = mock.calls.find((c) => c.table === 'HeatCompletion' && c.ops.find((o) => o.op === 'upsert'))!
+    expect(upsert.ops.find(o => o.op === 'upsert')?.args[0]).toEqual({ workoutId: 1, heatNumber: 1 })
+    expect(upsert.ops.find(o => o.op === 'upsert')?.args[1]).toMatchObject({ onConflict: 'workoutId,heatNumber', ignoreDuplicates: true })
+
+    // Workout status set to completed
+    const workoutUpdate = mock.calls.find((c) => c.table === 'Workout' && c.ops.find((o) => o.op === 'update'))!
+    expect(workoutUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({ status: 'completed' })
   })
 })
 
@@ -53,26 +59,38 @@ describe('DELETE /api/workouts/[id]/heats/[heatNum]/complete', () => {
     expect(res.status).toBe(401)
   })
 
-  it('uncompletes heat, clears points for its athletes, resets workout if was completed', async () => {
-    mock.queueResult({
-      data: { id: 1, status: 'completed', completedHeats: '[1,2]' },
-      error: null,
-    })
+  it('removes HeatCompletion row, clears points, resets workout if was completed', async () => {
+    // requireWorkoutInCompetition
+    mock.queueResult({ data: { status: 'completed' }, error: null })
+    // HeatCompletion delete
+    mock.queueResult({ data: null, error: null })
+    // HeatAssignment athletes
     mock.queueResult({ data: [{ athleteId: 5 }, { athleteId: 6 }], error: null })
+    // Score points clear
     mock.queueResult({ data: null, error: null })
+    // Workout status revert
     mock.queueResult({ data: null, error: null })
+    // getCompletedHeats
+    mock.queueResult({ data: [{ heatNumber: 2 }], error: null })
 
     const res = await DELETE(new Request(url), params('1', '1'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.completedHeats).toEqual([2])
 
+    const completionDelete = mock.calls.find((c) => c.table === 'HeatCompletion' && c.ops.find((o) => o.op === 'delete'))!
+    expect(completionDelete).toBeDefined()
+    const eqArgs = completionDelete.ops.filter(o => o.op === 'eq').map(o => o.args)
+    expect(eqArgs).toEqual(expect.arrayContaining([
+      ['workoutId', 1],
+      ['heatNumber', 1],
+    ]))
+
     const scoreUpdate = mock.calls.find(c => c.table === 'Score' && c.ops.find(o => o.op === 'update'))!
     expect(scoreUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({ points: null })
     expect(scoreUpdate.ops.find(o => o.op === 'in')?.args).toEqual(['athleteId', [5, 6]])
 
-    const workoutUpdate = mock.calls.at(-1)!
-    const patch = workoutUpdate.ops.find(o => o.op === 'update')!.args[0] as Record<string, unknown>
-    expect(patch.status).toBe('active')
+    const workoutUpdate = mock.calls.find((c) => c.table === 'Workout' && c.ops.find((o) => o.op === 'update'))!
+    expect(workoutUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({ status: 'active' })
   })
 })

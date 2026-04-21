@@ -13,7 +13,7 @@ type Workout = {
   id: number; number: number; name: string; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean
-  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; heatStartOverrides: string; completedHeats: string
+  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; heatStartOverrides: string; completedHeats: number[]
   assignments: Assignment[]; scores: Score[]
 }
 type RRField = { rounds: string; reps: string }
@@ -292,7 +292,7 @@ export default function WorkoutDetailPage() {
   const scoredCount = workout.scores.filter((s) => s.rawScore != null).length
   const totalAthletes = workout.assignments.length
   const someScored = scoredCount > 0
-  const completedHeatNums: number[] = JSON.parse(workout.completedHeats || '[]')
+  const completedHeatNums: number[] = workout.completedHeats ?? []
 
   function heatStartTime(heatNumber: number): string | null {
     if (!workout?.startTime) return null

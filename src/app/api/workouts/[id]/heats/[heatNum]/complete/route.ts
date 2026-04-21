@@ -1,17 +1,17 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { calculateRankings } from '@/lib/scoring'
+import { rankAndPersist } from '@/lib/scoring'
+import { getCompletedHeats } from '@/lib/heatCompletion'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
-type WorkoutFull = {
+type RankableWorkout = {
   id: number
   status: string
   scoreType: string
   tiebreakEnabled: boolean
   partBEnabled: boolean
   partBScoreType: string
-  completedHeats: string
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string; heatNum: string }> }) {
@@ -23,68 +23,41 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id, heatNum } = await params
     const workoutId = Number(id)
     const heatNumber = Number(heatNum)
-    const workout = await requireWorkoutInCompetition<WorkoutFull>(
+    const workout = await requireWorkoutInCompetition<RankableWorkout>(
       workoutId,
       competition.id,
-      'id, status, scoreType, tiebreakEnabled, partBEnabled, partBScoreType, completedHeats',
+      'id, status, scoreType, tiebreakEnabled, partBEnabled, partBScoreType',
     )
 
-    const completed: number[] = JSON.parse(workout.completedHeats || '[]')
-    if (!completed.includes(heatNumber)) completed.push(heatNumber)
-    completed.sort((a, b) => a - b)
+    // Idempotent insert: the unique (workoutId, heatNumber) index makes
+    // concurrent clicks race-safe. Double-click just no-ops on the second one.
+    await supabase
+      .from('HeatCompletion')
+      .upsert({ workoutId, heatNumber }, { onConflict: 'workoutId,heatNumber', ignoreDuplicates: true })
 
-    const [scoresRes, assignmentsRes] = await Promise.all([
-      supabase.from('Score').select('*').eq('workoutId', workoutId),
+    const [scoresRes, assignmentsRes, completedHeats] = await Promise.all([
+      supabase
+        .from('Score')
+        .select('athleteId, workoutId, rawScore, tiebreakRawScore, partBRawScore')
+        .eq('workoutId', workoutId),
       supabase.from('HeatAssignment').select('heatNumber').eq('workoutId', workoutId),
+      getCompletedHeats(workoutId),
     ])
 
     const scores = scoresRes.data ?? []
     const assignments = assignmentsRes.data ?? []
 
-    const ranked = calculateRankings(
-      scores.map((s) => ({
-        athleteId: (s as { athleteId: number }).athleteId,
-        rawScore: (s as { rawScore: number }).rawScore,
-        tiebreakRawScore: (s as { tiebreakRawScore: number | null }).tiebreakRawScore,
-      })),
-      workout.scoreType,
-      workout.tiebreakEnabled,
-    )
-
-    const partBScores = scores.filter((s) => (s as { partBRawScore: number | null }).partBRawScore != null)
-    const rankedB = (workout.partBEnabled && partBScores.length > 0)
-      ? calculateRankings(
-          partBScores.map((s) => ({
-            athleteId: (s as { athleteId: number }).athleteId,
-            rawScore: (s as { partBRawScore: number }).partBRawScore,
-          })),
-          workout.partBScoreType,
-        )
-      : []
-    const partBPointsMap = new Map(rankedB.map(({ athleteId, points }) => [athleteId, points]))
-
-    await Promise.all(
-      ranked.map(({ athleteId, points }) =>
-        supabase
-          .from('Score')
-          .update({ points, partBPoints: partBPointsMap.get(athleteId) ?? null })
-          .eq('athleteId', athleteId)
-          .eq('workoutId', workoutId),
-      ),
-    )
+    const rankResult = await rankAndPersist(workoutId, workout, scores)
+    if (rankResult.error) return new Response(rankResult.error, { status: 500 })
 
     const allHeatNums = Array.from(new Set(assignments.map((a) => (a as { heatNumber: number }).heatNumber)))
-    const workoutDone = allHeatNums.length > 0 && allHeatNums.every((n) => completed.includes(n))
+    const workoutDone = allHeatNums.length > 0 && allHeatNums.every((n) => completedHeats.includes(n))
 
-    await supabase
-      .from('Workout')
-      .update({
-        completedHeats: JSON.stringify(completed),
-        status: workoutDone ? 'completed' : workout.status,
-      })
-      .eq('id', workoutId)
+    if (workoutDone && workout.status !== 'completed') {
+      await supabase.from('Workout').update({ status: 'completed' }).eq('id', workoutId)
+    }
 
-    return Response.json({ completedHeats: completed, workoutCompleted: workoutDone })
+    return Response.json({ completedHeats, workoutCompleted: workoutDone })
   } catch (e) {
     return authErrorResponse(e)
   }
@@ -99,15 +72,19 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { id, heatNum } = await params
     const workoutId = Number(id)
     const heatNumber = Number(heatNum)
-    const workout = await requireWorkoutInCompetition<WorkoutFull>(
+    const workout = await requireWorkoutInCompetition<{ status: string }>(
       workoutId,
       competition.id,
-      'id, status, completedHeats',
+      'status',
     )
 
-    const completed: number[] = JSON.parse(workout.completedHeats || '[]')
-    const updated = completed.filter((n) => n !== heatNumber)
+    await supabase
+      .from('HeatCompletion')
+      .delete()
+      .eq('workoutId', workoutId)
+      .eq('heatNumber', heatNumber)
 
+    // Clear points for athletes in the un-completed heat.
     const { data: heatAthletes } = await supabase
       .from('HeatAssignment')
       .select('athleteId')
@@ -123,15 +100,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         .eq('workoutId', workoutId)
     }
 
-    await supabase
-      .from('Workout')
-      .update({
-        completedHeats: JSON.stringify(updated),
-        status: workout.status === 'completed' ? 'active' : workout.status,
-      })
-      .eq('id', workoutId)
+    if (workout.status === 'completed') {
+      await supabase.from('Workout').update({ status: 'active' }).eq('id', workoutId)
+    }
 
-    return Response.json({ completedHeats: updated })
+    const completedHeats = await getCompletedHeats(workoutId)
+    return Response.json({ completedHeats })
   } catch (e) {
     return authErrorResponse(e)
   }

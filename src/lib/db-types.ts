@@ -254,6 +254,35 @@ export type Database = {
           },
         ]
       }
+      HeatCompletion: {
+        Row: {
+          completedAt: string
+          heatNumber: number
+          id: number
+          workoutId: number
+        }
+        Insert: {
+          completedAt?: string
+          heatNumber: number
+          id?: number
+          workoutId: number
+        }
+        Update: {
+          completedAt?: string
+          heatNumber?: number
+          id?: number
+          workoutId?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "HeatCompletion_workoutId_fkey"
+            columns: ["workoutId"]
+            isOneToOne: false
+            referencedRelation: "Workout"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Score: {
         Row: {
           athleteId: number
@@ -353,7 +382,6 @@ export type Database = {
         Row: {
           callTimeSecs: number
           competitionId: number
-          completedHeats: string
           halfWeight: boolean
           heatIntervalSecs: number
           heatStartOverrides: string
@@ -374,7 +402,6 @@ export type Database = {
         Insert: {
           callTimeSecs: number
           competitionId: number
-          completedHeats?: string
           halfWeight?: boolean
           heatIntervalSecs: number
           heatStartOverrides?: string
@@ -395,7 +422,6 @@ export type Database = {
         Update: {
           callTimeSecs?: number
           competitionId?: number
-          completedHeats?: string
           halfWeight?: boolean
           heatIntervalSecs?: number
           heatStartOverrides?: string

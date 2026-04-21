@@ -1,13 +1,14 @@
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
   heatIntervalSecs: number; heatStartOverrides: string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; completedHeats: string
+  callTimeSecs: number; walkoutTimeSecs: number
 }
 
 type Assignment = {
@@ -31,18 +32,24 @@ export async function GET(req: Request) {
     .order('number')
 
   const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
-  const { data: assignments } = workoutIds.length > 0
-    ? await supabase
-        .from('HeatAssignment')
-        .select(ASSIGNMENT_EMBED)
-        .in('workoutId', workoutIds)
-        .order('heatNumber')
-        .order('lane')
-    : { data: [] }
+
+  const [assignmentsRes, completedByWorkout] = await Promise.all([
+    workoutIds.length > 0
+      ? supabase
+          .from('HeatAssignment')
+          .select(ASSIGNMENT_EMBED)
+          .in('workoutId', workoutIds)
+          .order('heatNumber')
+          .order('lane')
+      : Promise.resolve({ data: [] as Assignment[] }),
+    getCompletedHeatsByWorkout(workoutIds),
+  ])
+
+  const assignments = assignmentsRes.data ?? []
 
   const result = ((workouts ?? []) as Workout[]).map((workout) => {
-    const completedHeats: number[] = JSON.parse(workout.completedHeats || '[]')
-    const wAssignments = ((assignments ?? []) as Assignment[]).filter((a) => a.workoutId === workout.id)
+    const completedHeats = completedByWorkout.get(workout.id) ?? []
+    const wAssignments = (assignments as Assignment[]).filter((a) => a.workoutId === workout.id)
     const heatNums = [...new Set(wAssignments.map((a) => a.heatNumber))].sort((a, b) => a - b)
 
     const heats = heatNums.map((heatNumber) => {

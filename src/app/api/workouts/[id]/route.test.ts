@@ -12,9 +12,14 @@ const putReq = (body: Record<string, unknown>) =>
 const deleteReq = () => new Request(`http://test/api/workouts/1${url}`)
 
 describe('GET /api/workouts/[id]', () => {
-  it('returns workout with assignments and scores', async () => {
-    mock.queueResult({ data: { id: 1, name: 'WOD 1' }, error: null }) // requireWorkoutInCompetition
+  it('returns workout with assignments, scores, and completedHeats', async () => {
+    // 1. requireWorkoutInCompetition
+    mock.queueResult({ data: { id: 1, name: 'WOD 1' }, error: null })
+    // 2. getCompletedHeats internal (async fn runs first in Promise.all)
+    mock.queueResult({ data: [{ heatNumber: 1 }], error: null })
+    // 3. HeatAssignment
     mock.queueResult({ data: [{ id: 10, heatNumber: 1, lane: 1, athlete: { id: 1 } }], error: null })
+    // 4. Score
     mock.queueResult({ data: [{ id: 20, athleteId: 1, rawScore: 100, athlete: { id: 1 } }], error: null })
 
     const res = await GET(getReq(), params('1'))
@@ -23,6 +28,7 @@ describe('GET /api/workouts/[id]', () => {
     expect(body.id).toBe(1)
     expect(body.assignments).toHaveLength(1)
     expect(body.scores).toHaveLength(1)
+    expect(body.completedHeats).toEqual([1])
   })
 
   it('returns 404 when not found in caller competition', async () => {

@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { getCompletedHeats } from '@/lib/heatCompletion'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 const SCORE_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId)'
@@ -16,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition(workoutId, competition.id)
 
-    const [assignmentsRes, scoresRes] = await Promise.all([
+    const [assignmentsRes, scoresRes, completedHeats] = await Promise.all([
       supabase
         .from('HeatAssignment')
         .select(ASSIGNMENT_EMBED)
@@ -27,6 +28,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         .from('Score')
         .select(SCORE_EMBED)
         .eq('workoutId', workoutId),
+      getCompletedHeats(workoutId),
     ])
 
     if (assignmentsRes.error) return new Response(assignmentsRes.error.message, { status: 500 })
@@ -34,6 +36,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return Response.json({
       ...workout,
+      completedHeats,
       assignments: assignmentsRes.data ?? [],
       scores: scoresRes.data ?? [],
     })

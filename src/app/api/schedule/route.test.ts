@@ -16,8 +16,13 @@ describe('GET /api/schedule', () => {
 
   it('hides completed heats from schedule and returns entries per remaining heat', async () => {
     mock.queueResults(
+      // 1. showBib setting
       { data: { value: 'false' }, error: null },
-      { data: [{ id: 1, number: 1, name: 'WOD', status: 'active', completedHeats: '[1]', startTime: '2026-01-01T10:00:00Z', heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120, callTimeSecs: 60, walkoutTimeSecs: 30 }], error: null },
+      // 2. workouts
+      { data: [{ id: 1, number: 1, name: 'WOD', status: 'active', startTime: '2026-01-01T10:00:00Z', heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120, callTimeSecs: 60, walkoutTimeSecs: 30 }], error: null },
+      // 3. getCompletedHeatsByWorkout (async fn starts in Promise.all ctor)
+      { data: [{ workoutId: 1, heatNumber: 1 }], error: null },
+      // 4. assignments select
       {
         data: [
           { id: 10, workoutId: 1, athleteId: 1, heatNumber: 1, lane: 1, athlete: { id: 1, name: 'Alice', bibNumber: null, division: null } },

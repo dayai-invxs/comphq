@@ -27,7 +27,7 @@ export type Workout = {
   partBEnabled: boolean
   partBScoreType: string
   heatStartOverrides: string
-  completedHeats: string
+  completedHeats: number[]
 }
 
 export type HeatAssignment = {
