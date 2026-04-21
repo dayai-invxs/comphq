@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.mts",
-    "db:types": "supabase gen types typescript --linked > src/lib/db-types.ts"
+    "db:types": "npx supabase gen types typescript --linked 2>/dev/null > src/lib/db-types.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -23,6 +23,7 @@
     "puppeteer": "^24.41.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

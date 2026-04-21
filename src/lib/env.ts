@@ -10,15 +10,11 @@ const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 })
 
-export const envSchema = baseSchema.superRefine((data, ctx) => {
-  if (data.NODE_ENV === 'production' && !data.ADMIN_PASSWORD) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['ADMIN_PASSWORD'],
-      message: 'ADMIN_PASSWORD is required in production (no hardcoded fallback).',
-    })
-  }
-})
+// Note: ADMIN_PASSWORD-required-in-production is enforced at runtime in
+// src/lib/auth.ts#ensureSeedUser. Keeping it out of the schema lets
+// `next build` (which sets NODE_ENV=production) succeed without a real
+// password in the build environment.
+export const envSchema = baseSchema
 
 export type Env = z.infer<typeof envSchema>
 

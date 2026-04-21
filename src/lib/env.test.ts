@@ -36,13 +36,9 @@ describe('envSchema', () => {
     expect(() => envSchema.parse({ ...valid, SUPABASE_URL: 'not a url' })).toThrow()
   })
 
-  it('requires ADMIN_PASSWORD in production', () => {
+  it('allows missing ADMIN_PASSWORD regardless of NODE_ENV (runtime check lives in auth.ts)', () => {
     const rest = omit(valid, 'ADMIN_PASSWORD')
-    expect(() => envSchema.parse({ ...rest, NODE_ENV: 'production' })).toThrow(/ADMIN_PASSWORD/)
-  })
-
-  it('allows missing ADMIN_PASSWORD outside production', () => {
-    const rest = omit(valid, 'ADMIN_PASSWORD')
+    expect(() => envSchema.parse({ ...rest, NODE_ENV: 'production' })).not.toThrow()
     expect(() => envSchema.parse({ ...rest, NODE_ENV: 'development' })).not.toThrow()
   })
 
