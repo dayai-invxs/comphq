@@ -1,16 +1,23 @@
 import { supabase } from '@/lib/supabase'
+import { resolveCompetition } from '@/lib/competition'
 import { formatScore } from '@/lib/scoreFormat'
 
-export async function GET() {
+export async function GET(req: Request) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
   const { data: workouts } = await supabase
     .from('Workout')
     .select('*')
+    .eq('competitionId', competition.id)
     .eq('status', 'completed')
     .order('number')
 
   const { data: athletes } = await supabase
     .from('Athlete')
     .select('*, division:Division(id, name, order)')
+    .eq('competitionId', competition.id)
     .order('name')
 
   const workoutIds = (workouts ?? []).map((w) => (w as { id: number }).id)

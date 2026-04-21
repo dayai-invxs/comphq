@@ -31,11 +31,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = await req.json().catch(() => ({}))
   const useCumulative = body?.useCumulative === true
 
+  const competitionId = (workout as { competitionId: number }).competitionId
+
   const { data: athletesRaw } = await supabase
     .from('Athlete')
     .select('*, scores:Score(*)')
+    .eq('competitionId', competitionId)
 
-  const { data: divisions } = await supabase.from('Division').select('id, order')
+  const { data: divisions } = await supabase
+    .from('Division')
+    .select('id, order')
+    .eq('competitionId', competitionId)
 
   const athletes = (athletesRaw ?? []) as unknown as AthleteWithScore[]
   const divisionOrder = new Map(
@@ -47,6 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { data: completed } = await supabase
       .from('Workout')
       .select('id')
+      .eq('competitionId', competitionId)
       .eq('status', 'completed')
     cumulativePoints = calcCumulativePoints(
       athletes,

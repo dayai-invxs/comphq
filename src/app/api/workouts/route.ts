@@ -1,9 +1,18 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { resolveCompetition } from '@/lib/competition'
 
-export async function GET() {
-  const { data, error } = await supabase.from('Workout').select('*').order('number')
+export async function GET(req: Request) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
+  const { data, error } = await supabase
+    .from('Workout')
+    .select('*')
+    .eq('competitionId', competition.id)
+    .order('number')
   if (error) return new Response(error.message, { status: 500 })
   return Response.json(data ?? [])
 }
@@ -13,9 +22,13 @@ export async function POST(req: Request) {
   if (!session) return new Response('Unauthorized', { status: 401 })
 
   const body = await req.json()
+  const competition = await resolveCompetition(body.slug ?? '')
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
   const { data, error } = await supabase
     .from('Workout')
     .insert({
+      competitionId: competition.id,
       number: Number(body.number),
       name: body.name.trim(),
       scoreType: body.scoreType,
