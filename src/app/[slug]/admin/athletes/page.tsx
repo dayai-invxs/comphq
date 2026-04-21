@@ -167,7 +167,7 @@ export default function AthletesPage() {
       </div>
 
       {athletes.length > 0 && (
-        <div className="bg-gray-900 rounded-xl overflow-hidden">
+        <div className="bg-gray-900 rounded-xl overflow-hidden overflow-x-auto">
           <div className="bg-gray-800 px-5 py-3 flex items-center justify-between">
             <label className="flex items-center gap-3 cursor-pointer select-none">
               <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={toggleAll} className="w-4 h-4 accent-orange-500" />

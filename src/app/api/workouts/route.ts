@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       tiebreakEnabled: body.tiebreakEnabled === true,
       partBEnabled: body.partBEnabled === true,
       partBScoreType: body.partBScoreType ?? 'time',
+      halfWeight: body.halfWeight === true,
     })
     .select('*')
     .single()

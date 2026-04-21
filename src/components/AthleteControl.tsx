@@ -25,11 +25,14 @@ function fmtTime(iso: string | null) {
 }
 
 type RowChecks = { corral: boolean; walkout: boolean }
+type EditingHeatKey = { workoutId: number; heatNumber: number }
 
 export default function AthleteControl({ slug }: { slug: string }) {
   const [workouts, setWorkouts] = useState<WorkoutData[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [checks, setChecks] = useState<Record<string, RowChecks>>({})
+  const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
+  const [heatTimeInput, setHeatTimeInput] = useState('')
   const pathname = usePathname()
 
   const parts = pathname.split('/').filter(Boolean)
@@ -62,6 +65,31 @@ export default function AthleteControl({ slug }: { slug: string }) {
 
   function getChecks(workoutId: number, heatNumber: number): RowChecks {
     return checks[`${workoutId}-${heatNumber}`] ?? { corral: false, walkout: false }
+  }
+
+  function startEditHeatTime(workoutId: number, heatNumber: number, currentHeatTime: string | null) {
+    if (!currentHeatTime) return
+    const d = new Date(currentHeatTime)
+    setHeatTimeInput(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
+    setEditingHeat({ workoutId, heatNumber })
+  }
+
+  async function saveHeatTime() {
+    if (!editingHeat || !heatTimeInput) return
+    const { workoutId, heatNumber } = editingHeat
+    const workout = workouts.find((w) => w.id === workoutId)
+    const heat = workout?.heats.find((h) => h.heatNumber === heatNumber)
+    if (!heat?.heatTime) return
+    const base = new Date(heat.heatTime)
+    const [hh, mm] = heatTimeInput.split(':').map(Number)
+    const newDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0)
+    await fetch(`/api/workouts/${workoutId}/heat-times`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ heatNumber, isoTime: newDate.toISOString() }),
+    })
+    setEditingHeat(null)
+    await fetchData()
   }
 
   return (
@@ -156,7 +184,34 @@ export default function AthleteControl({ slug }: { slug: string }) {
                           />
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-white font-mono">{fmtTime(heat.heatTime)}</td>
+                      <td className="px-3 py-2.5 text-white font-mono">
+                        {editingHeat?.workoutId === workout.id && editingHeat?.heatNumber === heat.heatNumber ? (
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={heatTimeInput}
+                              onChange={(e) => setHeatTimeInput(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveHeatTime(); if (e.key === 'Escape') setEditingHeat(null) }}
+                              autoFocus
+                              className="bg-gray-700 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            <button onClick={saveHeatTime} className="text-xs text-green-400 hover:text-green-300 font-medium">Save</button>
+                            <button onClick={() => setEditingHeat(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            {fmtTime(heat.heatTime)}
+                            {heat.heatTime && (
+                              <button
+                                onClick={() => startEditHeatTime(workout.id, heat.heatNumber, heat.heatTime)}
+                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}

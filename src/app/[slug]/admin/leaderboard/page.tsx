@@ -11,14 +11,16 @@ export default function LeaderboardPage() {
   const { slug } = useParams<{ slug: string }>()
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
+  const [halfWeightIds, setHalfWeightIds] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetch(`/api/leaderboard?slug=${slug}`)
       .then((r) => r.json())
-      .then(({ workouts: ws, entries: es }) => {
+      .then(({ workouts: ws, entries: es, halfWeightIds: hwIds }) => {
         setWorkouts(ws)
         setEntries(es)
+        setHalfWeightIds(hwIds ?? [])
         setLoading(false)
       })
   }, [slug])
@@ -40,6 +42,13 @@ export default function LeaderboardPage() {
     return a.localeCompare(b)
   })
 
+  const workoutIds = workouts.map((w) => w.id)
+
+  function isTrulyTied(a: Entry, b: Entry): boolean {
+    if (a.totalPoints !== b.totalPoints) return false
+    return workoutIds.every((wId) => (a.workoutScores[wId]?.points ?? null) === (b.workoutScores[wId]?.points ?? null))
+  }
+
   function renderTable(divisionName: string | null) {
     const rows = entries.filter((e) => e.divisionName === divisionName)
     if (rows.length === 0) return null
@@ -56,7 +65,9 @@ export default function LeaderboardPage() {
                 <th className="text-left px-5 py-2 text-gray-400 font-medium w-12">Rank</th>
                 <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
                 {workouts.map((w) => (
-                  <th key={w.id} className="text-left px-4 py-2 text-gray-400 font-medium whitespace-nowrap">WOD {w.number}</th>
+                  <th key={w.id} className="text-left px-4 py-2 text-gray-400 font-medium whitespace-nowrap">
+                    WOD {w.number}{halfWeightIds.includes(w.id) && <span className="ml-1 text-yellow-500 text-xs">½</span>}
+                  </th>
                 ))}
                 <th className="text-left px-5 py-2 text-gray-400 font-medium">Total Pts</th>
               </tr>
@@ -66,7 +77,7 @@ export default function LeaderboardPage() {
                 const hasAnyScore = Object.values(entry.workoutScores).some((v) => v !== null)
                 if (i > 0 && hasAnyScore) {
                   const prev = rows[i - 1]
-                  if (entry.totalPoints > prev.totalPoints) rank = i + 1
+                  if (!isTrulyTied(prev, entry)) rank = i + 1
                 }
                 const rankDisplay = hasAnyScore ? rank : '—'
                 return (
@@ -86,7 +97,7 @@ export default function LeaderboardPage() {
                         </td>
                       )
                     })}
-                    <td className="px-5 py-3 font-bold text-white">{hasAnyScore ? entry.totalPoints : '—'}</td>
+                    <td className="px-5 py-3 font-bold text-white">{hasAnyScore ? (Number.isInteger(entry.totalPoints) ? entry.totalPoints : entry.totalPoints.toFixed(1)) : '—'}</td>
                   </tr>
                 )
               })}

@@ -13,7 +13,7 @@ type Workout = {
   id: number; number: number; name: string; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean
-  partBEnabled: boolean; partBScoreType: string; heatStartOverrides: string; completedHeats: string
+  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; heatStartOverrides: string; completedHeats: string
   assignments: Assignment[]; scores: Score[]
 }
 type RRField = { rounds: string; reps: string }
@@ -90,6 +90,8 @@ export default function WorkoutDetailPage() {
   const [editingAssignment, setEditingAssignment] = useState<number | null>(null)
   const [assignEditHeat, setAssignEditHeat] = useState('')
   const [assignEditLane, setAssignEditLane] = useState('')
+  const [draggedId, setDraggedId] = useState<number | null>(null)
+  const [dragOverId, setDragOverId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [editNumber, setEditNumber] = useState('')
   const [editScoreType, setEditScoreType] = useState('time')
@@ -103,6 +105,7 @@ export default function WorkoutDetailPage() {
   const [editTiebreakEnabled, setEditTiebreakEnabled] = useState(false)
   const [editPartBEnabled, setEditPartBEnabled] = useState(false)
   const [editPartBScoreType, setEditPartBScoreType] = useState('time')
+  const [editHalfWeight, setEditHalfWeight] = useState(false)
 
   const workoutsPath = `/${slug}/admin/workouts`
 
@@ -140,7 +143,8 @@ export default function WorkoutDetailPage() {
     setEditTimeBetweenHeats(secsToField(workout.timeBetweenHeatsSecs)); setEditCallTime(secsToField(workout.callTimeSecs))
     setEditWalkoutTime(secsToField(workout.walkoutTimeSecs)); setEditStartTime(toLocalDatetime(workout.startTime))
     setEditMixedHeats(workout.mixedHeats); setEditTiebreakEnabled(workout.tiebreakEnabled)
-    setEditPartBEnabled(workout.partBEnabled); setEditPartBScoreType(workout.partBScoreType); setEditing(true)
+    setEditPartBEnabled(workout.partBEnabled); setEditPartBScoreType(workout.partBScoreType)
+    setEditHalfWeight(workout.halfWeight); setEditing(true)
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -152,7 +156,7 @@ export default function WorkoutDetailPage() {
         heatIntervalSecs: fieldToSecs(editHeatInterval), timeBetweenHeatsSecs: fieldToSecs(editTimeBetweenHeats),
         callTimeSecs: fieldToSecs(editCallTime), walkoutTimeSecs: fieldToSecs(editWalkoutTime),
         startTime: editStartTime || null, mixedHeats: editMixedHeats, tiebreakEnabled: editTiebreakEnabled,
-        partBEnabled: editPartBEnabled, partBScoreType: editPartBScoreType,
+        partBEnabled: editPartBEnabled, partBScoreType: editPartBScoreType, halfWeight: editHalfWeight,
       }),
     })
     if (!res.ok) { setMsg('Error saving settings.'); setLoading(false); return }
@@ -200,6 +204,20 @@ export default function WorkoutDetailPage() {
   async function saveAssignment(assignmentId: number) {
     await fetch(`/api/workouts/${id}/assignments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: assignmentId, heatNumber: Number(assignEditHeat), lane: Number(assignEditLane) }) })
     setEditingAssignment(null); await load()
+  }
+
+  async function swapAssignments(aId: number, bId: number) {
+    if (aId === bId || !workout) return
+    const a = workout.assignments.find((x) => x.id === aId)
+    const b = workout.assignments.find((x) => x.id === bId)
+    if (!a || !b) return
+    setLoading(true)
+    await Promise.all([
+      fetch(`/api/workouts/${id}/assignments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: aId, heatNumber: b.heatNumber, lane: b.lane }) }),
+      fetch(`/api/workouts/${id}/assignments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: bId, heatNumber: a.heatNumber, lane: a.lane }) }),
+    ])
+    await load()
+    setLoading(false)
   }
 
   async function saveScore(athleteId: number) {
@@ -289,16 +307,16 @@ export default function WorkoutDetailPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-white">WOD {workout.number}: {workout.name}</h1>
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[workout.status] ?? 'bg-gray-700 text-gray-300'}`}>{workout.status}</span>
             <span className="text-gray-400 text-sm">{workout.lanes} lanes · {SCORE_TYPE_LABELS[workout.scoreType] ?? workout.scoreType} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(workout.timeBetweenHeatsSecs / 60)}m {workout.timeBetweenHeatsSecs % 60 > 0 ? `${workout.timeBetweenHeatsSecs % 60}s ` : ''}between heats</span>
             {workout.startTime && <span className="text-gray-400 text-sm">Starts {new Date(workout.startTime).toLocaleString()}</span>}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button onClick={openEdit} className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Edit Settings</button>
           {workout.status === 'draft' && <button onClick={() => setStatus('active')} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Activate</button>}
           {workout.status === 'active' && <button onClick={() => setStatus('draft')} className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Deactivate</button>}
@@ -327,6 +345,7 @@ export default function WorkoutDetailPage() {
             {editScoreType === 'rounds_reps' && <div className="col-span-2"><label className="flex items-center gap-3 cursor-pointer select-none"><div onClick={() => setEditTiebreakEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${editTiebreakEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${editTiebreakEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div><div><span className="text-sm text-white font-medium">Tie Break Time</span><p className="text-xs text-gray-500">Enter a tiebreak time per athlete — lowest time wins ties</p></div></label></div>}
             <div className="col-span-2"><label className="flex items-center gap-3 cursor-pointer select-none"><div onClick={() => setEditPartBEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${editPartBEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${editPartBEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div><div><span className="text-sm text-white font-medium">Part A / Part B</span><p className="text-xs text-gray-500">Add a second score (Part B) to each athlete</p></div></label></div>
             {editPartBEnabled && <div className="col-span-2"><label className="block text-xs text-gray-400 mb-1">Part B Score Type</label><select value={editPartBScoreType} onChange={(e) => setEditPartBScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"><option value="time">Time (lower is better)</option><option value="rounds_reps">Rounds + Reps (higher is better)</option><option value="weight">Weight (higher is better)</option></select></div>}
+            <div className="col-span-2"><label className="flex items-center gap-3 cursor-pointer select-none"><div onClick={() => setEditHalfWeight((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${editHalfWeight ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${editHalfWeight ? 'translate-x-5' : 'translate-x-1'}`} /></div><div><span className="text-sm text-white font-medium">Half Weight</span><p className="text-xs text-gray-500">This workout counts at 50% on the overall leaderboard</p></div></label></div>
             <div className="col-span-2 flex gap-3">
               <button type="submit" disabled={loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-6 py-2.5 text-sm transition-colors">{loading ? 'Saving...' : 'Save Changes'}</button>
               <button type="button" onClick={() => setEditing(false)} className="bg-gray-700 hover:bg-gray-600 text-white rounded-lg px-6 py-2.5 text-sm transition-colors">Cancel</button>
@@ -412,7 +431,16 @@ export default function WorkoutDetailPage() {
                         const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
                         const isEditingThis = editingAssignment === a.id
                         return (
-                          <tr key={a.id} className={`border-t border-gray-800 ${isEditingThis ? 'bg-gray-800/40' : ''}`}>
+                          <tr
+                          key={a.id}
+                          draggable={!isEditingThis}
+                          onDragStart={() => setDraggedId(a.id)}
+                          onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverId(a.id) }}
+                          onDragLeave={() => setDragOverId(null)}
+                          onDrop={(e) => { e.preventDefault(); if (draggedId != null) swapAssignments(draggedId, a.id); setDraggedId(null); setDragOverId(null) }}
+                          className={`border-t border-gray-800 cursor-grab active:cursor-grabbing transition-opacity ${isEditingThis ? 'bg-gray-800/40 cursor-default' : ''} ${draggedId === a.id ? 'opacity-40' : ''} ${dragOverId === a.id && draggedId !== a.id ? 'bg-orange-500/10 border-orange-500/50' : ''}`}
+                        >
                             <td className="px-3 py-2">{isEditingThis ? <input type="number" min="1" value={assignEditLane} onChange={(e) => setAssignEditLane(e.target.value)} className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500" /> : <span className="font-bold text-orange-400 px-2">{a.lane}</span>}</td>
                             <td className="px-3 py-2">{isEditingThis ? <input type="number" min="1" value={assignEditHeat} onChange={(e) => setAssignEditHeat(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveAssignment(a.id); if (e.key === 'Escape') setEditingAssignment(null) }} className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500" /> : <span className="text-gray-400 px-2">{a.heatNumber}</span>}</td>
                             <td className="px-5 py-3 text-white font-medium">{a.athlete.name}</td>

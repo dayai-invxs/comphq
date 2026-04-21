@@ -48,7 +48,9 @@ export default function WorkoutsPage() {
   const [tiebreakEnabled, setTiebreakEnabled] = useState(false)
   const [partBEnabled, setPartBEnabled] = useState(false)
   const [partBScoreType, setPartBScoreType] = useState('time')
+  const [halfWeight, setHalfWeight] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [tiebreakWorkoutId, setTiebreakWorkoutId] = useState<number | null>(null)
 
   const [importCsv, setImportCsv] = useState('')
   const [importLoading, setImportLoading] = useState(false)
@@ -56,11 +58,27 @@ export default function WorkoutsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
-    const res = await fetch(`/api/workouts?slug=${slug}`)
-    if (res.ok) setWorkouts(await res.json())
+    const [workoutsRes, settingsRes] = await Promise.all([
+      fetch(`/api/workouts?slug=${slug}`),
+      fetch(`/api/settings?slug=${slug}`),
+    ])
+    if (workoutsRes.ok) setWorkouts(await workoutsRes.json())
+    if (settingsRes.ok) {
+      const s = await settingsRes.json()
+      setTiebreakWorkoutId(s.tiebreakWorkoutId ?? null)
+    }
   }
 
   useEffect(() => { void load() }, [slug])
+
+  async function saveTiebreakWorkout(workoutId: number | null) {
+    setTiebreakWorkoutId(workoutId)
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, tiebreakWorkoutId: workoutId }),
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -75,12 +93,12 @@ export default function WorkoutsPage() {
         timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
         callTimeSecs: parseMinSec(callTime),
         walkoutTimeSecs: parseMinSec(walkoutTime),
-        startTime: startTime || null, mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType,
+        startTime: startTime || null, mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
       }),
     })
     setNumber(''); setName(''); setScoreType('time'); setLanes('5')
     setHeatInterval('10:00'); setTimeBetweenHeats('2:00'); setCallTime('10:00'); setWalkoutTime('2:00')
-    setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time')
+    setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false)
     await load()
     setLoading(false)
   }
@@ -150,6 +168,12 @@ export default function WorkoutsPage() {
           {partBEnabled && (
             <div className="col-span-2"><label className="block text-xs text-gray-400 mb-1">Part B Score Type</label><select value={partBScoreType} onChange={(e) => setPartBScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"><option value="time">Time (lower is better)</option><option value="rounds_reps">Rounds + Reps (higher is better)</option><option value="weight">Weight (higher is better)</option></select></div>
           )}
+          <div className="col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div onClick={() => setHalfWeight((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${halfWeight ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${halfWeight ? 'translate-x-5' : 'translate-x-1'}`} /></div>
+              <div><span className="text-sm text-white font-medium">Half Weight</span><p className="text-xs text-gray-500">This workout counts at 50% on the overall leaderboard</p></div>
+            </label>
+          </div>
           <div className="col-span-2"><button type="submit" disabled={loading || !number || !name} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-6 py-2.5 text-sm transition-colors">{loading ? 'Creating...' : 'Create Workout'}</button></div>
         </form>
       </div>
@@ -167,6 +191,23 @@ export default function WorkoutsPage() {
           ))}
         </div>
       )}
+
+      <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
+        <h2 className="text-lg font-semibold text-white mb-1">Leaderboard Tiebreaker</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          If athletes are still tied after comparing all workout placements, use the raw score from this workout to determine final placement.
+        </p>
+        <select
+          value={tiebreakWorkoutId ?? ''}
+          onChange={(e) => saveTiebreakWorkout(e.target.value ? Number(e.target.value) : null)}
+          className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+        >
+          <option value="">None</option>
+          {workouts.map((w) => (
+            <option key={w.id} value={w.id}>WOD {w.number}: {w.name}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="bg-gray-900 rounded-xl p-6 max-w-2xl">
         <h2 className="text-lg font-semibold text-white mb-1">Import Heat Assignments</h2>
