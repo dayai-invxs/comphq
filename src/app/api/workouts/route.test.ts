@@ -7,7 +7,7 @@ describe('GET /api/workouts', () => {
   it('returns workouts ordered by number', async () => {
     const rows = [{ id: 1, number: 1, name: 'WOD 1' }]
     mock.queueResult({ data: rows, error: null })
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/workouts?slug=test'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
     expect(mock.lastCall!.table).toBe('Workout')
@@ -28,7 +28,7 @@ describe('POST /api/workouts', () => {
     const res = await POST(new Request('http://test', {
       method: 'POST',
       body: JSON.stringify({
-        number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
+        slug: 'test', number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
         heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
       }),
     }))

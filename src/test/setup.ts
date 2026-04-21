@@ -9,6 +9,11 @@ export const supabaseMock = createSupabaseMock()
 
 vi.mock('@/lib/supabase', () => ({ supabase: supabaseMock.client }))
 
+vi.mock('@/lib/competition', () => ({
+  resolveCompetition: vi.fn().mockResolvedValue({ id: 1, name: 'Test', slug: 'test' }),
+  getCompetitionSlug: vi.fn().mockResolvedValue('test'),
+}))
+
 vi.mock('next-auth', () => ({
   getServerSession: vi.fn(),
 }))

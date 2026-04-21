@@ -130,7 +130,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
         <h1 className="text-3xl font-bold text-white">Athlete Control</h1>
         <div className="flex items-center gap-4">
           <Link href={opsHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Ops View
+            Athlete Overview
           </Link>
           <Link href={adminHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
             Admin

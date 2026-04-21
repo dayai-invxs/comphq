@@ -9,7 +9,7 @@ describe('GET /api/leaderboard', () => {
       { data: [], error: null },
       { data: [], error: null },
     )
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/leaderboard?slug=test'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.workouts).toEqual([])
@@ -35,10 +35,11 @@ describe('GET /api/leaderboard', () => {
     mock.queueResults(
       { data: workouts, error: null },
       { data: athletes, error: null },
+      { data: null, error: null },
       { data: scores, error: null },
     )
 
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/leaderboard?slug=test'))
     const body = await res.json()
     expect(body.entries).toHaveLength(2)
     expect(body.entries[0].athleteName).toBe('Alice')

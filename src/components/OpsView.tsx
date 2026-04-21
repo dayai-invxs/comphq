@@ -120,7 +120,7 @@ export default function OpsView({ slug }: { slug: string }) {
             />
           )}
           <div>
-            <h1 className="text-3xl font-bold text-white">Ops View</h1>
+            <h1 className="text-3xl font-bold text-white">Athlete Overview</h1>
             <p className="text-gray-400 mt-1">All workouts · All heats</p>
           </div>
         </div>

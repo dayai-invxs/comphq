@@ -11,7 +11,7 @@ describe('GET /api/athletes', () => {
     ]
     mock.queueResult({ data: rows, error: null })
 
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/athletes?slug=test'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
 
@@ -30,7 +30,7 @@ describe('POST /api/athletes', () => {
   })
 
   it('rejects empty name', async () => {
-    const res = await POST(new Request('http://test/api/athletes', { method: 'POST', body: JSON.stringify({ name: '  ' }) }))
+    const res = await POST(new Request('http://test/api/athletes', { method: 'POST', body: JSON.stringify({ slug: 'test', name: '  ' }) }))
     expect(res.status).toBe(400)
   })
 
@@ -40,7 +40,7 @@ describe('POST /api/athletes', () => {
 
     const res = await POST(new Request('http://test/api/athletes', {
       method: 'POST',
-      body: JSON.stringify({ name: 'New', divisionId: 1 }),
+      body: JSON.stringify({ slug: 'test', name: 'New', divisionId: 1 }),
     }))
 
     expect(res.status).toBe(201)
@@ -57,7 +57,7 @@ describe('POST /api/athletes', () => {
     mock.queueResult({ data: { id: 1 }, error: null })
     await POST(new Request('http://test/api/athletes', {
       method: 'POST',
-      body: JSON.stringify({ name: '  Jane  ', bibNumber: '  99  ' }),
+      body: JSON.stringify({ slug: 'test', name: '  Jane  ', bibNumber: '  99  ' }),
     }))
     const insert = mock.lastCall!.ops.find(o => o.op === 'insert')!
     expect(insert.args[0]).toMatchObject({ name: 'Jane', bibNumber: '99' })

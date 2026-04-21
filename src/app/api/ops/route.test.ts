@@ -15,7 +15,7 @@ describe('GET /api/ops', () => {
         error: null,
       },
     )
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/ops?slug=test'))
     const body = await res.json()
     expect(body.showBib).toBe(true)
     expect(body.workouts).toHaveLength(1)

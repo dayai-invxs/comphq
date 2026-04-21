@@ -8,7 +8,7 @@ describe('GET /api/schedule', () => {
       { data: null, error: null },
       { data: [], error: null },
     )
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/schedule?slug=test'))
     const body = await res.json()
     expect(body.showBib).toBe(true)
     expect(body.workouts).toEqual([])
@@ -26,7 +26,7 @@ describe('GET /api/schedule', () => {
         error: null,
       },
     )
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/schedule?slug=test'))
     const body = await res.json()
     expect(body.showBib).toBe(false)
     expect(body.workouts).toHaveLength(1)

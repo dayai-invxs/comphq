@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth'
 import { POST } from './route'
 
 function jsonReq(csv: string) {
-  return new Request('http://test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ csv }) })
+  return new Request('http://test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug: 'test', csv }) })
 }
 
 describe('POST /api/import/heats', () => {

@@ -56,6 +56,7 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
 export default function PublicSchedule({ slug }: { slug: string }) {
   const adminHref = `/${slug}/admin`
   const leaderboardHref = `/${slug}/leaderboard`
+  const overviewHref = `/${slug}/ops`
   const [data, setData] = useState<OpsData | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -103,6 +104,7 @@ export default function PublicSchedule({ slug }: { slug: string }) {
           {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
           <div className="mt-1 flex gap-3 justify-end">
             <Link href={leaderboardHref} className="hover:text-gray-300 transition-colors">Leaderboard</Link>
+            <Link href={overviewHref} className="hover:text-gray-300 transition-colors">Athlete Overview</Link>
             <Link href={adminHref} className="hover:text-gray-300 transition-colors">Admin</Link>
           </div>
         </div>

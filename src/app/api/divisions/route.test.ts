@@ -11,7 +11,7 @@ describe('GET /api/divisions', () => {
     ]
     mock.queueResult({ data: rows, error: null })
 
-    const res = await GET()
+    const res = await GET(new Request('http://test/api/divisions?slug=test'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
 
@@ -29,14 +29,14 @@ describe('POST /api/divisions', () => {
   })
 
   it('rejects empty name', async () => {
-    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ name: ' ', order: 0 }) }))
+    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ slug: 'test', name: ' ', order: 0 }) }))
     expect(res.status).toBe(400)
   })
 
   it('inserts and returns 201', async () => {
     const created = { id: 1, name: 'Rx', order: 0 }
     mock.queueResult({ data: created, error: null })
-    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ name: 'Rx', order: '0' }) }))
+    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ slug: 'test', name: 'Rx', order: '0' }) }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(created)
 
