@@ -3,8 +3,12 @@ import { supabaseMock as mock } from '@/test/setup'
 import { getServerSession } from 'next-auth'
 import { POST } from './route'
 
-function jsonReq(csv: string) {
-  return new Request('http://test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ csv }) })
+function jsonReq(csv: string, slug = 'default') {
+  return new Request('http://test', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ csv, slug }),
+  })
 }
 
 describe('POST /api/import/heats', () => {

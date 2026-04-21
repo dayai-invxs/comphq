@@ -9,24 +9,27 @@ const valid = {
   NODE_ENV: 'test',
 }
 
+function omit<T extends object, K extends keyof T>(obj: T, key: K): Omit<T, K> {
+  const copy = { ...obj }
+  delete copy[key]
+  return copy
+}
+
 describe('envSchema', () => {
   it('accepts a complete env payload', () => {
     expect(() => envSchema.parse(valid)).not.toThrow()
   })
 
   it('rejects missing SUPABASE_URL', () => {
-    const { SUPABASE_URL: _, ...rest } = valid
-    expect(() => envSchema.parse(rest)).toThrow(/SUPABASE_URL/)
+    expect(() => envSchema.parse(omit(valid, 'SUPABASE_URL'))).toThrow(/SUPABASE_URL/)
   })
 
   it('rejects missing SUPABASE_SERVICE_KEY', () => {
-    const { SUPABASE_SERVICE_KEY: _, ...rest } = valid
-    expect(() => envSchema.parse(rest)).toThrow(/SUPABASE_SERVICE_KEY/)
+    expect(() => envSchema.parse(omit(valid, 'SUPABASE_SERVICE_KEY'))).toThrow(/SUPABASE_SERVICE_KEY/)
   })
 
   it('rejects missing NEXTAUTH_SECRET', () => {
-    const { NEXTAUTH_SECRET: _, ...rest } = valid
-    expect(() => envSchema.parse(rest)).toThrow(/NEXTAUTH_SECRET/)
+    expect(() => envSchema.parse(omit(valid, 'NEXTAUTH_SECRET'))).toThrow(/NEXTAUTH_SECRET/)
   })
 
   it('rejects non-URL SUPABASE_URL', () => {
@@ -34,12 +37,12 @@ describe('envSchema', () => {
   })
 
   it('requires ADMIN_PASSWORD in production', () => {
-    const { ADMIN_PASSWORD: _, ...rest } = valid
+    const rest = omit(valid, 'ADMIN_PASSWORD')
     expect(() => envSchema.parse({ ...rest, NODE_ENV: 'production' })).toThrow(/ADMIN_PASSWORD/)
   })
 
   it('allows missing ADMIN_PASSWORD outside production', () => {
-    const { ADMIN_PASSWORD: _, ...rest } = valid
+    const rest = omit(valid, 'ADMIN_PASSWORD')
     expect(() => envSchema.parse({ ...rest, NODE_ENV: 'development' })).not.toThrow()
   })
 

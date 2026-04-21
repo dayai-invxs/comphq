@@ -3,6 +3,13 @@ import { supabaseMock as mock } from '@/test/setup'
 import { getServerSession } from 'next-auth'
 import { GET, POST } from './route'
 
+const getReq = () => new Request('http://test/api/divisions?slug=default')
+const postReq = (body: Record<string, unknown>) =>
+  new Request('http://test/api/divisions', {
+    method: 'POST',
+    body: JSON.stringify({ slug: 'default', ...body }),
+  })
+
 describe('GET /api/divisions', () => {
   it('returns divisions ordered by order', async () => {
     const rows = [
@@ -11,7 +18,7 @@ describe('GET /api/divisions', () => {
     ]
     mock.queueResult({ data: rows, error: null })
 
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
 
@@ -24,19 +31,19 @@ describe('GET /api/divisions', () => {
 describe('POST /api/divisions', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ name: 'X', order: 0 }) }))
+    const res = await POST(postReq({ name: 'X', order: 0 }))
     expect(res.status).toBe(401)
   })
 
   it('rejects empty name', async () => {
-    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ name: ' ', order: 0 }) }))
+    const res = await POST(postReq({ name: ' ', order: 0 }))
     expect(res.status).toBe(400)
   })
 
   it('inserts and returns 201', async () => {
     const created = { id: 1, name: 'Rx', order: 0 }
     mock.queueResult({ data: created, error: null })
-    const res = await POST(new Request('http://test/api/divisions', { method: 'POST', body: JSON.stringify({ name: 'Rx', order: '0' }) }))
+    const res = await POST(postReq({ name: 'Rx', order: '0' }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(created)
 

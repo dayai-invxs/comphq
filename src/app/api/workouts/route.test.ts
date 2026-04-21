@@ -3,11 +3,18 @@ import { supabaseMock as mock } from '@/test/setup'
 import { getServerSession } from 'next-auth'
 import { GET, POST } from './route'
 
+const getReq = () => new Request('http://test/api/workouts?slug=default')
+const postReq = (body: Record<string, unknown>) =>
+  new Request('http://test/api/workouts', {
+    method: 'POST',
+    body: JSON.stringify({ slug: 'default', ...body }),
+  })
+
 describe('GET /api/workouts', () => {
   it('returns workouts ordered by number', async () => {
     const rows = [{ id: 1, number: 1, name: 'WOD 1' }]
     mock.queueResult({ data: rows, error: null })
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
     expect(mock.lastCall!.table).toBe('Workout')
@@ -18,19 +25,16 @@ describe('GET /api/workouts', () => {
 describe('POST /api/workouts', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test', { method: 'POST', body: '{}' }))
+    const res = await POST(postReq({}))
     expect(res.status).toBe(401)
   })
 
   it('inserts workout with defaults and returns 201', async () => {
     const created = { id: 1, number: 1, name: 'WOD 1', status: 'draft' }
     mock.queueResult({ data: created, error: null })
-    const res = await POST(new Request('http://test', {
-      method: 'POST',
-      body: JSON.stringify({
-        number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
-        heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
-      }),
+    const res = await POST(postReq({
+      number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
+      heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
     }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(created)
