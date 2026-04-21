@@ -2,35 +2,32 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { AthleteUpdate } from '@/lib/schemas'
 
 const ATHLETE_WITH_DIVISION = '*, division:Division(id, name, order)'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, AthleteUpdate)
+  if (!parsed.ok) return parsed.response
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
-
     const { id } = await params
-    const { name, bibNumber, divisionId } = await req.json() as {
-      name: string
-      bibNumber?: string
-      divisionId?: number | null
-    }
-    if (!name?.trim()) return new Response('Name required', { status: 400 })
 
     const patch: Record<string, unknown> = {
-      name: name.trim(),
-      bibNumber: bibNumber?.trim() || null,
+      name: parsed.data.name,
+      bibNumber: parsed.data.bibNumber?.trim() || null,
     }
-    if (divisionId !== undefined) patch.divisionId = divisionId ?? null
+    if (parsed.data.divisionId !== undefined) patch.divisionId = parsed.data.divisionId ?? null
 
     const { data, error } = await supabase
       .from('Athlete')
       .update(patch)
       .eq('id', Number(id))
-      .eq('competitionId', competition.id) // cross-tenant defense
+      .eq('competitionId', competition.id)
       .select(ATHLETE_WITH_DIVISION)
       .maybeSingle()
 
@@ -48,7 +45,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
-
     const { id } = await params
     const { error } = await supabase
       .from('Athlete')

@@ -3,6 +3,8 @@ import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
+import { parseJson } from '@/lib/parseJson'
+import { WorkoutUpdate } from '@/lib/schemas'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 const SCORE_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId)'
@@ -45,40 +47,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-type WorkoutPatch = Partial<{
-  name: string; scoreType: string; lanes: number | string; heatIntervalSecs: number | string
-  timeBetweenHeatsSecs: number | string; callTimeSecs: number | string; walkoutTimeSecs: number | string
-  startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean
-  partBEnabled: boolean; partBScoreType: string; number: number | string; halfWeight: boolean
-}>
-
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, WorkoutUpdate)
+  if (!parsed.ok) return parsed.response
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
     const { id } = await params
-    const body = await req.json() as WorkoutPatch
+    const d = parsed.data
     const patch: Record<string, unknown> = {}
 
-    if (body.name) patch.name = body.name.trim()
-    if (body.scoreType) patch.scoreType = body.scoreType
-    if (body.lanes != null) patch.lanes = Number(body.lanes)
-    if (body.heatIntervalSecs != null) patch.heatIntervalSecs = Number(body.heatIntervalSecs)
-    if (body.timeBetweenHeatsSecs != null) patch.timeBetweenHeatsSecs = Number(body.timeBetweenHeatsSecs)
-    if (body.callTimeSecs != null) patch.callTimeSecs = Number(body.callTimeSecs)
-    if (body.walkoutTimeSecs != null) patch.walkoutTimeSecs = Number(body.walkoutTimeSecs)
-    if (body.startTime !== undefined) patch.startTime = body.startTime ? new Date(body.startTime).toISOString() : null
-    if (body.status) patch.status = body.status
-    if (body.mixedHeats !== undefined) patch.mixedHeats = Boolean(body.mixedHeats)
-    if (body.tiebreakEnabled !== undefined) patch.tiebreakEnabled = Boolean(body.tiebreakEnabled)
-    if (body.partBEnabled !== undefined) patch.partBEnabled = Boolean(body.partBEnabled)
-    if (body.partBScoreType) patch.partBScoreType = body.partBScoreType
-    if (body.number != null) patch.number = Number(body.number)
-    if (body.halfWeight !== undefined) patch.halfWeight = Boolean(body.halfWeight)
-
-    if (Object.keys(patch).length === 0) return new Response('Nothing to update', { status: 400 })
+    if (d.name !== undefined) patch.name = d.name
+    if (d.scoreType !== undefined) patch.scoreType = d.scoreType
+    if (d.lanes !== undefined) patch.lanes = d.lanes
+    if (d.heatIntervalSecs !== undefined) patch.heatIntervalSecs = d.heatIntervalSecs
+    if (d.timeBetweenHeatsSecs !== undefined) patch.timeBetweenHeatsSecs = d.timeBetweenHeatsSecs
+    if (d.callTimeSecs !== undefined) patch.callTimeSecs = d.callTimeSecs
+    if (d.walkoutTimeSecs !== undefined) patch.walkoutTimeSecs = d.walkoutTimeSecs
+    if (d.startTime !== undefined) patch.startTime = d.startTime ?? null
+    if (d.status !== undefined) patch.status = d.status
+    if (d.mixedHeats !== undefined) patch.mixedHeats = d.mixedHeats
+    if (d.tiebreakEnabled !== undefined) patch.tiebreakEnabled = d.tiebreakEnabled
+    if (d.partBEnabled !== undefined) patch.partBEnabled = d.partBEnabled
+    if (d.partBScoreType !== undefined) patch.partBScoreType = d.partBScoreType
+    if (d.number !== undefined) patch.number = d.number
+    if (d.halfWeight !== undefined) patch.halfWeight = d.halfWeight
 
     const { data, error } = await supabase
       .from('Workout')
@@ -91,9 +86,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (error) return new Response(error.message, { status: 500 })
     if (!data) return new Response('Workout not found', { status: 404 })
 
-    // When partBEnabled flips off, strand-data cleanup: null out partB scores
-    // so they don't revive if it's ever flipped on again. Fixes COM-9 #16.
-    if (body.partBEnabled === false) {
+    // When partBEnabled flips off, null out partB scores (COM-9 #16).
+    if (d.partBEnabled === false) {
       await supabase
         .from('Score')
         .update({ partBRawScore: null, partBPoints: null })

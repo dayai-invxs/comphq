@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { AthleteBulkDelete, AthleteCreate } from '@/lib/schemas'
 
 const ATHLETE_WITH_DIVISION = '*, division:Division(id, name, order)'
 
@@ -27,21 +29,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
-  const body = await req.json()
+  const parsed = await parseJson(req, AthleteCreate)
+  if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, body.slug ?? '', 'admin')
-
-    const { name, bibNumber, divisionId } = body as { name: string; bibNumber?: string; divisionId?: number | null }
-    if (!name?.trim()) return new Response('Name required', { status: 400 })
+    const { competition } = await requireCompetitionMember(session, parsed.data.slug, 'admin')
 
     const { data, error } = await supabase
       .from('Athlete')
       .insert({
         competitionId: competition.id,
-        name: name.trim(),
-        bibNumber: bibNumber?.trim() || null,
-        divisionId: divisionId ?? null,
+        name: parsed.data.name,
+        bibNumber: parsed.data.bibNumber?.trim() || null,
+        divisionId: parsed.data.divisionId ?? null,
       })
       .select(ATHLETE_WITH_DIVISION)
       .single()
@@ -55,18 +55,16 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const session = await getServerSession(authOptions)
-  const body = await req.json()
+  const parsed = await parseJson(req, AthleteBulkDelete)
+  if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, body.slug ?? '', 'admin')
-
-    const { ids } = body as { ids: number[] }
-    if (!Array.isArray(ids) || ids.length === 0) return new Response('No ids provided', { status: 400 })
+    const { competition } = await requireCompetitionMember(session, parsed.data.slug, 'admin')
 
     const { data, error } = await supabase
       .from('Athlete')
       .delete()
-      .in('id', ids)
+      .in('id', parsed.data.ids)
       .eq('competitionId', competition.id)
       .select('id')
 

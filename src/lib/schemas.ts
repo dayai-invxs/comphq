@@ -13,9 +13,12 @@ export const Id = z.number().int().positive()
 export const NonEmptyString = z.string().trim().min(1)
 
 // Loosely coerce number-or-string to number (admin forms sometimes send strings).
-export const NumericInt = z.union([z.number(), z.string()]).transform((v) => {
+export const NumericInt = z.union([z.number(), z.string()]).transform((v, ctx) => {
   const n = typeof v === 'number' ? v : parseInt(v, 10)
-  if (Number.isNaN(n)) throw new Error('expected number')
+  if (Number.isNaN(n)) {
+    ctx.addIssue({ code: 'custom', message: 'expected a number' })
+    return z.NEVER
+  }
   return n
 })
 

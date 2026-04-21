@@ -28,7 +28,7 @@ describe('GET /api/workouts/[id]/scores', () => {
 describe('POST /api/workouts/[id]/scores', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(req('POST', {}), params('1'))
+    const res = await POST(req('POST', { athleteId: 1, rawScore: 95 }), params('1'))
     expect(res.status).toBe(401)
   })
 

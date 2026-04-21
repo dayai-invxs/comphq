@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSession, requireSiteAdmin } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { CompetitionCreate } from '@/lib/schemas'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -27,19 +29,21 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
+  const parsed = await parseJson(req, CompetitionCreate)
+  if (!parsed.ok) return parsed.response
+
   try {
     const user = await requireSiteAdmin(session)
-    const { name, slug } = await req.json() as { name: string; slug: string }
-    if (!name?.trim() || !slug?.trim()) return new Response('Name and slug required', { status: 400 })
+    const { name, slug } = parsed.data
 
-    const cleanSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(cleanSlug)) {
       return new Response('Slug must be alphanumeric (dashes allowed internally)', { status: 400 })
     }
 
     const { data, error } = await supabase
       .from('Competition')
-      .insert({ name: name.trim(), slug: cleanSlug })
+      .insert({ name, slug: cleanSlug })
       .select('*')
       .single()
 

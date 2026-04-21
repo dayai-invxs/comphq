@@ -2,21 +2,22 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { DivisionUpdate } from '@/lib/schemas'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, DivisionUpdate)
+  if (!parsed.ok) return parsed.response
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
-
     const { id } = await params
-    const { name, order } = await req.json() as { name?: string; order?: number | string }
 
     const patch: Record<string, unknown> = {}
-    if (name?.trim()) patch.name = name.trim()
-    if (order != null) patch.order = Number(order)
-    if (Object.keys(patch).length === 0) return new Response('Nothing to update', { status: 400 })
+    if (parsed.data.name !== undefined) patch.name = parsed.data.name
+    if (parsed.data.order !== undefined) patch.order = parsed.data.order
 
     const { data, error } = await supabase
       .from('Division')
@@ -40,7 +41,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
-
     const { id } = await params
     const { error } = await supabase
       .from('Division')

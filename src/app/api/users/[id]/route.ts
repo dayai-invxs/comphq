@@ -3,16 +3,19 @@ import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { UserUpdate } from '@/lib/schemas'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
+  const parsed = await parseJson(req, UserUpdate)
+  if (!parsed.ok) return parsed.response
+
   try {
     await requireSiteAdmin(session)
     const { id } = await params
-    const { password } = await req.json() as { password: string }
-    if (!password || password.length < 12) return new Response('Password must be at least 12 characters', { status: 400 })
 
-    const hashed = await bcrypt.hash(password, 10)
+    const hashed = await bcrypt.hash(parsed.data.password, 10)
     const { data, error } = await supabase
       .from('User')
       .update({ password: hashed })

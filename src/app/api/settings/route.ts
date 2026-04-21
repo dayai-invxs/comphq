@@ -3,6 +3,8 @@ import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { SettingsPatch } from '@/lib/schemas'
 
 async function getSetting(competitionId: number, key: string, defaultValue: string): Promise<string> {
   const { data } = await supabase
@@ -32,27 +34,26 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
-  const body = await req.json() as { slug?: string; showBib?: boolean; tiebreakWorkoutId?: number | null }
+  const parsed = await parseJson(req, SettingsPatch)
+  if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, body.slug ?? '', 'admin')
+    const { competition } = await requireCompetitionMember(session, parsed.data.slug, 'admin')
+    const d = parsed.data
 
     const upserts = []
-
-    if (body.showBib !== undefined) {
+    if (d.showBib !== undefined) {
       upserts.push(supabase.from('Setting').upsert(
-        { competitionId: competition.id, key: 'showBib', value: String(Boolean(body.showBib)) },
+        { competitionId: competition.id, key: 'showBib', value: String(d.showBib) },
         { onConflict: 'competitionId,key' },
       ).then())
     }
-
-    if ('tiebreakWorkoutId' in body) {
+    if ('tiebreakWorkoutId' in d) {
       upserts.push(supabase.from('Setting').upsert(
-        { competitionId: competition.id, key: 'tiebreakWorkoutId', value: body.tiebreakWorkoutId != null ? String(body.tiebreakWorkoutId) : '' },
+        { competitionId: competition.id, key: 'tiebreakWorkoutId', value: d.tiebreakWorkoutId != null ? String(d.tiebreakWorkoutId) : '' },
         { onConflict: 'competitionId,key' },
       ).then())
     }
-
     await Promise.all(upserts)
 
     const [showBib, tiebreakWorkoutId] = await Promise.all([

@@ -25,8 +25,17 @@ describe('GET /api/workouts', () => {
 describe('POST /api/workouts', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(postReq({}))
+    const res = await POST(postReq({
+      number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
+      heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
+    }))
     expect(res.status).toBe(401)
+  })
+
+  it('rejects malformed body with 400', async () => {
+    const res = await POST(postReq({ number: 'not-a-number', name: 'X', scoreType: 'time', lanes: 5, heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30 }))
+    expect(res.status).toBe(400)
+    expect(await res.text()).toMatch(/number/)
   })
 
   it('inserts workout with defaults and returns 201', async () => {

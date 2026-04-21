@@ -3,6 +3,8 @@ import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { UserCreate } from '@/lib/schemas'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -18,26 +20,24 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
+  const parsed = await parseJson(req, UserCreate)
+  if (!parsed.ok) return parsed.response
+
   try {
     await requireSiteAdmin(session)
-
-    const { username, password, role } = await req.json() as {
-      username: string; password: string; role?: 'admin' | 'user'
-    }
-    if (!username?.trim()) return new Response('Username required', { status: 400 })
-    if (!password || password.length < 12) return new Response('Password must be at least 12 characters', { status: 400 })
+    const { username, password, role } = parsed.data
 
     const { data: existing } = await supabase
       .from('User')
       .select('id')
-      .eq('username', username.trim())
+      .eq('username', username)
       .maybeSingle()
     if (existing) return new Response('Username already taken', { status: 409 })
 
     const hashed = await bcrypt.hash(password, 10)
     const { data, error } = await supabase
       .from('User')
-      .insert({ username: username.trim(), password: hashed, role: role ?? 'user' })
+      .insert({ username, password: hashed, role: role ?? 'user' })
       .select('id, username, role')
       .single()
 

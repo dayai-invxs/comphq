@@ -24,15 +24,19 @@ describe('PUT /api/workouts/[id]/heat-times', () => {
   })
 
   it('sets override and clears all later overrides', async () => {
-    mock.queueResult({ data: { heatStartOverrides: JSON.stringify({ '1': 't1', '2': 't2', '5': 't5' }) }, error: null })
-    mock.queueResult({ data: { id: 1, heatStartOverrides: '{"1":"t1","2":"t2","3":"NEW"}' }, error: null })
+    mock.queueResult({ data: { heatStartOverrides: JSON.stringify({ '1': '2026-01-01T10:00:00Z', '2': '2026-01-01T10:10:00Z', '5': '2026-01-01T10:40:00Z' }) }, error: null })
+    mock.queueResult({ data: { id: 1, heatStartOverrides: '{}' }, error: null })
 
-    const res = await PUT(req({ heatNumber: 3, isoTime: 'NEW' }), params('1'))
+    const res = await PUT(req({ heatNumber: 3, isoTime: '2026-01-01T10:20:00Z' }), params('1'))
     expect(res.status).toBe(200)
 
     const updateCall = mock.calls.find(c => c.ops.find(o => o.op === 'update'))!
     const patch = updateCall.ops.find(o => o.op === 'update')!.args[0] as Record<string, string>
     const parsed = JSON.parse(patch.heatStartOverrides)
-    expect(parsed).toEqual({ '1': 't1', '2': 't2', '3': 'NEW' })
+    expect(parsed).toEqual({
+      '1': '2026-01-01T10:00:00Z',
+      '2': '2026-01-01T10:10:00Z',
+      '3': '2026-01-01T10:20:00Z',
+    })
   })
 })

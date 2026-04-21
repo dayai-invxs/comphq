@@ -2,10 +2,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { HeatTimeSet } from '@/lib/schemas'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, HeatTimeSet)
+  if (!parsed.ok) return parsed.response
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
@@ -17,7 +21,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       'heatStartOverrides',
     )
 
-    const { heatNumber, isoTime } = await req.json() as { heatNumber: number; isoTime: string }
+    const { heatNumber, isoTime } = parsed.data
 
     const overrides: Record<string, string> = JSON.parse(workout.heatStartOverrides || '{}')
     for (const key of Object.keys(overrides)) {

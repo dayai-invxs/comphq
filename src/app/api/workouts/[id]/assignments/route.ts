@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { AssignmentPatch, AssignmentRegen } from '@/lib/schemas'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 
@@ -44,8 +46,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       'id, lanes, mixedHeats',
     )
 
-    const body = await req.json().catch(() => ({}))
-    const useCumulative = body?.useCumulative === true
+    const parsed = await parseJson(req, AssignmentRegen)
+    if (!parsed.ok) return parsed.response
+    const useCumulative = parsed.data.useCumulative === true
 
     const { data: athletesRaw } = await supabase
       .from('Athlete')
@@ -109,12 +112,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, AssignmentPatch)
+  if (!parsed.ok) return parsed.response
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
-
-    const { id, heatNumber, lane } = await req.json() as { id: number; heatNumber: number; lane: number }
-    const assignmentId = Number(id)
+    const { id: assignmentId, heatNumber, lane } = parsed.data
 
     // Verify the assignment belongs to a workout in the caller's competition.
     const { data: existing } = await supabase
@@ -127,7 +130,7 @@ export async function PATCH(req: Request) {
 
     const { error: uerr } = await supabase
       .from('HeatAssignment')
-      .update({ heatNumber: Number(heatNumber), lane: Number(lane) })
+      .update({ heatNumber, lane })
       .eq('id', assignmentId)
     if (uerr) return new Response(uerr.message, { status: 500 })
 

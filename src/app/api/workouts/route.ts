@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { WorkoutCreate } from '@/lib/schemas'
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -24,30 +26,32 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
-  const body = await req.json()
+  const parsed = await parseJson(req, WorkoutCreate)
+  if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, body.slug ?? '', 'admin')
+    const { competition } = await requireCompetitionMember(session, parsed.data.slug, 'admin')
+    const d = parsed.data
 
     const { data, error } = await supabase
       .from('Workout')
       .insert({
         competitionId: competition.id,
-        number: Number(body.number),
-        name: body.name.trim(),
-        scoreType: body.scoreType,
-        lanes: Number(body.lanes),
-        heatIntervalSecs: Number(body.heatIntervalSecs),
-        timeBetweenHeatsSecs: body.timeBetweenHeatsSecs != null ? Number(body.timeBetweenHeatsSecs) : 120,
-        callTimeSecs: Number(body.callTimeSecs),
-        walkoutTimeSecs: Number(body.walkoutTimeSecs),
-        startTime: body.startTime ? new Date(body.startTime).toISOString() : null,
+        number: d.number,
+        name: d.name,
+        scoreType: d.scoreType,
+        lanes: d.lanes,
+        heatIntervalSecs: d.heatIntervalSecs,
+        timeBetweenHeatsSecs: d.timeBetweenHeatsSecs ?? 120,
+        callTimeSecs: d.callTimeSecs,
+        walkoutTimeSecs: d.walkoutTimeSecs,
+        startTime: d.startTime ?? null,
         status: 'draft',
-        mixedHeats: body.mixedHeats !== false,
-        tiebreakEnabled: body.tiebreakEnabled === true,
-        partBEnabled: body.partBEnabled === true,
-        partBScoreType: body.partBScoreType ?? 'time',
-        halfWeight: body.halfWeight === true,
+        mixedHeats: d.mixedHeats !== false,
+        tiebreakEnabled: d.tiebreakEnabled === true,
+        partBEnabled: d.partBEnabled === true,
+        partBScoreType: d.partBScoreType ?? 'time',
+        halfWeight: d.halfWeight === true,
       })
       .select('*')
       .single()

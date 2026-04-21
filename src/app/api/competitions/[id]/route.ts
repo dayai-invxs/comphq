@@ -2,17 +2,21 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { CompetitionUpdate } from '@/lib/schemas'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
+  const parsed = await parseJson(req, CompetitionUpdate)
+  if (!parsed.ok) return parsed.response
+
   try {
     await requireSiteAdmin(session)
     const { id } = await params
-    const body = await req.json() as { name?: string; slug?: string }
     const updates: Record<string, string> = {}
-    if (body.name?.trim()) updates.name = body.name.trim()
-    if (body.slug?.trim()) {
-      const cleanSlug = body.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')
+    if (parsed.data.name) updates.name = parsed.data.name
+    if (parsed.data.slug) {
+      const cleanSlug = parsed.data.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')
       if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(cleanSlug)) {
         return new Response('Slug must be alphanumeric (dashes allowed internally)', { status: 400 })
       }

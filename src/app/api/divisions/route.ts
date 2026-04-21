@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { DivisionCreate } from '@/lib/schemas'
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -24,17 +26,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
-  const body = await req.json()
+  const parsed = await parseJson(req, DivisionCreate)
+  if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, body.slug ?? '', 'admin')
-
-    const { name, order } = body as { name: string; order: number | string }
-    if (!name?.trim()) return new Response('Name required', { status: 400 })
+    const { competition } = await requireCompetitionMember(session, parsed.data.slug, 'admin')
 
     const { data, error } = await supabase
       .from('Division')
-      .insert({ competitionId: competition.id, name: name.trim(), order: Number(order) })
+      .insert({
+        competitionId: competition.id,
+        name: parsed.data.name,
+        order: parsed.data.order,
+      })
       .select('*')
       .single()
 

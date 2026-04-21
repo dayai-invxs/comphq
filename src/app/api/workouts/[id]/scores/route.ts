@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { ScoreUpsert } from '@/lib/schemas'
 
 const SCORE_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId)'
 
@@ -29,6 +31,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, ScoreUpsert)
+  if (!parsed.ok) return parsed.response
 
   try {
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
@@ -36,20 +40,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id, 'id')
 
-    const { athleteId, rawScore, tiebreakRawScore, partBRawScore } = await req.json() as {
-      athleteId: number; rawScore: number; tiebreakRawScore?: number | null; partBRawScore?: number | null
-    }
-
     const { data, error } = await supabase
       .from('Score')
       .upsert(
         {
-          athleteId: Number(athleteId),
+          athleteId: parsed.data.athleteId,
           workoutId,
-          rawScore: Number(rawScore),
-          tiebreakRawScore: tiebreakRawScore ?? null,
+          rawScore: parsed.data.rawScore,
+          tiebreakRawScore: parsed.data.tiebreakRawScore ?? null,
           points: null,
-          partBRawScore: partBRawScore ?? null,
+          partBRawScore: parsed.data.partBRawScore ?? null,
           partBPoints: null,
         },
         { onConflict: 'athleteId,workoutId' },
