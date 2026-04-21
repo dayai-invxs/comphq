@@ -38,6 +38,22 @@ describe('POST /api/logo', () => {
     expect(res.status).toBe(400)
   })
 
+  it('rejects SVG uploads (script-execution vector)', async () => {
+    const form = new FormData()
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    form.append('logo', new File([svg], 'evil.svg', { type: 'image/svg+xml' }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: form }))
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects files over 2 MB', async () => {
+    const form = new FormData()
+    const big = new Uint8Array(2 * 1024 * 1024 + 1)
+    form.append('logo', new File([big], 'huge.png', { type: 'image/png' }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: form }))
+    expect(res.status).toBe(413)
+  })
+
   it('uploads file, stores url in Setting, returns url', async () => {
     mock.queueResult({ data: null, error: null })
     const form = new FormData()
@@ -51,6 +67,18 @@ describe('POST /api/logo', () => {
     expect(upsertCall.table).toBe('Setting')
     const upsert = upsertCall.ops.find(o => o.op === 'upsert')!
     expect((upsert.args[0] as { key: string }).key).toBe('logoUrl')
+  })
+
+  it('derives the file extension from the mime type, not from the upload filename', async () => {
+    mock.queueResult({ data: null, error: null })
+    const form = new FormData()
+    // Attacker-named file with dangerous extension; mime is safe png.
+    form.append('logo', new File(['data'], 'hack.html', { type: 'image/png' }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: form }))
+    expect(res.status).toBe(200)
+    // Storage upload call should have used a safe extension (png), not html.
+    const storageFrom = mock.client.storage.from as unknown as { mock: { calls: unknown[][] } }
+    expect(storageFrom.mock.calls[0][0]).toBe('logos')
   })
 })
 
