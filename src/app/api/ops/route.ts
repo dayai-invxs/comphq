@@ -1,13 +1,14 @@
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { formatScore } from '@/lib/scoreFormat'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
   heatIntervalSecs: number; heatStartOverrides: string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; completedHeats: string
+  callTimeSecs: number; walkoutTimeSecs: number; completedHeats: string; scoreType: string
 }
 
 type Assignment = {
@@ -31,14 +32,21 @@ export async function GET(req: Request) {
     .order('number')
 
   const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
-  const { data: assignments } = workoutIds.length > 0
-    ? await supabase
-        .from('HeatAssignment')
-        .select(ASSIGNMENT_EMBED)
-        .in('workoutId', workoutIds)
-        .order('heatNumber')
-        .order('lane')
-    : { data: [] }
+  const [{ data: assignments }, { data: scores }] = await Promise.all([
+    workoutIds.length > 0
+      ? supabase.from('HeatAssignment').select(ASSIGNMENT_EMBED).in('workoutId', workoutIds).order('heatNumber').order('lane')
+      : Promise.resolve({ data: [] }),
+    workoutIds.length > 0
+      ? supabase.from('Score').select('athleteId, workoutId, rawScore').in('workoutId', workoutIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const scoreMap = new Map<string, string>()
+  for (const s of (scores ?? [])) {
+    const row = s as { athleteId: number; workoutId: number; rawScore: number }
+    const workout = (workouts as Workout[]).find((w) => w.id === row.workoutId)
+    if (workout) scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, workout.scoreType))
+  }
 
   const result = ((workouts ?? []) as Workout[]).map((workout) => {
     const completedHeats: number[] = JSON.parse(workout.completedHeats || '[]')
@@ -61,6 +69,7 @@ export async function GET(req: Request) {
           bibNumber: a.athlete.bibNumber,
           divisionName: a.athlete.division?.name ?? null,
           lane: a.lane,
+          scoreDisplay: scoreMap.get(`${a.athleteId}-${workout.id}`) ?? null,
         }))
       return {
         heatNumber,

@@ -22,7 +22,7 @@ export function SlugNav({ slug }: { slug: string }) {
   const navLinks = [
     { href: `/${slug}`, label: 'Competition Schedule' },
     { href: `/${slug}/leaderboard`, label: 'Leaderboard' },
-    { href: `/${slug}/ops`, label: 'Athlete Overview' },
+    { href: `/${slug}/athlete-overview`, label: 'Athlete Overview' },
     { href: `/${slug}/athlete-control`, label: 'Athlete Control' },
     { href: `/${slug}/admin`, label: 'Admin' },
   ]

@@ -3,6 +3,6 @@ import { getCompetitionSlug } from '@/lib/competition'
 
 export default async function OpsRedirect() {
   const slug = await getCompetitionSlug()
-  if (slug) redirect(`/${slug}/ops`)
+  if (slug) redirect(`/${slug}/athlete-overview`)
   redirect('/')
 }

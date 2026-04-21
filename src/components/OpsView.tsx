@@ -10,6 +10,7 @@ type HeatEntry = {
   bibNumber: string | null
   divisionName: string | null
   lane: number
+  scoreDisplay: string | null
 }
 
 type Heat = {
@@ -211,7 +212,12 @@ export default function OpsView({ slug }: { slug: string }) {
                             .map((e) => (
                               <tr key={e.athleteId} className="border-t border-gray-800">
                                 <td className="px-3 py-2 font-bold text-orange-400">{e.lane}</td>
-                                <td className="px-3 py-2 font-medium text-white">{e.athleteName}</td>
+                                <td className="px-3 py-2 font-medium text-white">
+                                  {e.athleteName}
+                                  {heat.isComplete && e.scoreDisplay && (
+                                    <span className="ml-2 text-xs text-gray-400 font-mono">{e.scoreDisplay}</span>
+                                  )}
+                                </td>
                                 {data.showBib && <td className="px-3 py-2 text-gray-400 text-xs">{e.bibNumber ?? '—'}</td>}
                               </tr>
                             ))}
