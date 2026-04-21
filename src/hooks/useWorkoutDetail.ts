@@ -42,7 +42,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   // Keep the latest callback refs so memoized fetch functions can call them
   // without invalidating on every render of the parent.
   const optsRef = useRef(opts)
-  optsRef.current = opts
+  useEffect(() => { optsRef.current = opts }, [opts])
 
   const onSuccess = useCallback((m: string) => {
     setMsg(m)
