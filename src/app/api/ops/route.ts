@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 
 const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
@@ -14,12 +15,20 @@ type Assignment = {
   athlete: { name: string; bibNumber: string | null; division: { name: string } | null }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
   const { data: setting } = await supabase
-    .from('Setting').select('value').eq('key', 'showBib').maybeSingle()
+    .from('Setting').select('value').eq('competitionId', competition.id).eq('key', 'showBib').maybeSingle()
   const showBib = (setting as { value?: string } | null)?.value !== 'false'
 
-  const { data: workouts } = await supabase.from('Workout').select('*').order('number')
+  const { data: workouts } = await supabase
+    .from('Workout')
+    .select('*')
+    .eq('competitionId', competition.id)
+    .order('number')
 
   const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
   const { data: assignments } = workoutIds.length > 0
@@ -63,7 +72,13 @@ export async function GET() {
       }
     })
 
-    return { id: workout.id, number: workout.number, name: workout.name, status: workout.status, heats }
+    return {
+      id: workout.id, number: workout.number, name: workout.name, status: workout.status,
+      startTime: workout.startTime, heatIntervalSecs: workout.heatIntervalSecs,
+      timeBetweenHeatsSecs: workout.timeBetweenHeatsSecs, callTimeSecs: workout.callTimeSecs,
+      walkoutTimeSecs: workout.walkoutTimeSecs, heatStartOverrides: workout.heatStartOverrides,
+      heats,
+    }
   })
 
   return Response.json({ workouts: result, showBib })

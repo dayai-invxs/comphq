@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { resolveCompetition } from '@/lib/competition'
 
 interface CsvRow {
   workoutNumber: number; heatNumber: number; laneNumber: number; athleteName: string; lineIndex: number
@@ -46,16 +47,22 @@ export async function POST(req: Request) {
   if (!session) return new Response('Unauthorized', { status: 401 })
 
   let csvText: string
+  let slug = ''
   const contentType = req.headers.get('content-type') ?? ''
   if (contentType.includes('multipart/form-data')) {
     const form = await req.formData()
     const file = form.get('file') as File | null
     if (!file) return new Response('No file provided', { status: 400 })
     csvText = await file.text()
+    slug = (form.get('slug') as string) ?? ''
   } else {
     const body = await req.json()
     csvText = body.csv ?? ''
+    slug = body.slug ?? ''
   }
+
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
 
   if (!csvText.trim()) return new Response('Empty CSV', { status: 400 })
   const allRows = parseCsv(csvText)
@@ -90,8 +97,8 @@ export async function POST(req: Request) {
   if (parsed.length === 0) return Response.json({ ...result, message: 'No valid rows to import' })
 
   const [workoutsRes, athletesRes] = await Promise.all([
-    supabase.from('Workout').select('id, number'),
-    supabase.from('Athlete').select('id, name'),
+    supabase.from('Workout').select('id, number').eq('competitionId', competition.id),
+    supabase.from('Athlete').select('id, name').eq('competitionId', competition.id),
   ])
 
   const workoutByNumber = new Map(

@@ -1,13 +1,19 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { resolveCompetition } from '@/lib/competition'
 
 const ATHLETE_WITH_DIVISION = '*, division:Division(id, name, order)'
 
-export async function GET() {
+export async function GET(req: Request) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
   const { data, error } = await supabase
     .from('Athlete')
     .select(ATHLETE_WITH_DIVISION)
+    .eq('competitionId', competition.id)
     .order('name')
 
   if (error) return new Response(error.message, { status: 500 })
@@ -19,12 +25,16 @@ export async function POST(req: Request) {
   if (!session) return new Response('Unauthorized', { status: 401 })
 
   const body = await req.json()
+  const competition = await resolveCompetition(body.slug ?? '')
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
   const { name, bibNumber, divisionId } = body as { name: string; bibNumber?: string; divisionId?: number | null }
   if (!name?.trim()) return new Response('Name required', { status: 400 })
 
   const { data, error } = await supabase
     .from('Athlete')
     .insert({
+      competitionId: competition.id,
       name: name.trim(),
       bibNumber: bibNumber?.trim() || null,
       divisionId: divisionId ?? null,

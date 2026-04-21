@@ -45,7 +45,7 @@ type WorkoutPatch = Partial<{
   name: string; scoreType: string; lanes: number | string; heatIntervalSecs: number | string
   timeBetweenHeatsSecs: number | string; callTimeSecs: number | string; walkoutTimeSecs: number | string
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean
-  partBEnabled: boolean; partBScoreType: string; number: number | string
+  partBEnabled: boolean; partBScoreType: string; number: number | string; halfWeight: boolean
 }>
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,6 +70,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.partBEnabled !== undefined) patch.partBEnabled = Boolean(body.partBEnabled)
   if (body.partBScoreType) patch.partBScoreType = body.partBScoreType
   if (body.number != null) patch.number = Number(body.number)
+  if (body.halfWeight !== undefined) patch.halfWeight = Boolean(body.halfWeight)
 
   if (Object.keys(patch).length === 0) return new Response('Nothing to update', { status: 400 })
 
