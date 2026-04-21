@@ -72,7 +72,13 @@ export async function GET(req: Request) {
       }
     })
 
-    return { id: workout.id, number: workout.number, name: workout.name, status: workout.status, heats }
+    return {
+      id: workout.id, number: workout.number, name: workout.name, status: workout.status,
+      startTime: workout.startTime, heatIntervalSecs: workout.heatIntervalSecs,
+      timeBetweenHeatsSecs: workout.timeBetweenHeatsSecs, callTimeSecs: workout.callTimeSecs,
+      walkoutTimeSecs: workout.walkoutTimeSecs, heatStartOverrides: workout.heatStartOverrides,
+      heats,
+    }
   })
 
   return Response.json({ workouts: result, showBib })
