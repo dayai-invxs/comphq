@@ -121,7 +121,7 @@ export default function CompetitionDashboard() {
       </div>
 
       <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
-        <h2 className="text-lg font-semibold text-white mb-4">Public View Settings</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">Competition Schedule Settings</h2>
         <label className="flex items-center gap-3 cursor-pointer select-none">
           <div
             onClick={toggleShowBib}

@@ -73,7 +73,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
           </div>
 
           <div className="hidden lg:flex items-center gap-4 ml-auto">
-            <Link href={`/${slug}`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Public View</Link>
+            <Link href={`/${slug}`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Competition Schedule</Link>
             <Link href={`/${slug}/ops`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Ops View</Link>
             <Link href={`/${slug}/athlete-control`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Athlete Control</Link>
             <Link href="/admin/users" className="text-xs text-gray-500 hover:text-gray-300">Users</Link>
@@ -113,7 +113,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
               </Link>
             ))}
             <div className="border-t border-gray-800 mt-2 pt-2 flex flex-col gap-1">
-              <Link href={`/${slug}`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Public View</Link>
+              <Link href={`/${slug}`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Competition Schedule</Link>
               <Link href={`/${slug}/ops`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Ops View</Link>
               <Link href={`/${slug}/athlete-control`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Control</Link>
               <button
