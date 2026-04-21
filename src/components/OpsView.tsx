@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { calcHeatStartMs } from '@/lib/heatTime'
 
 type HeatEntry = {
   athleteId: number
@@ -16,9 +17,6 @@ type HeatEntry = {
 type Heat = {
   heatNumber: number
   isComplete: boolean
-  heatTime: string | null
-  corralTime: string | null
-  walkoutTime: string | null
   entries: HeatEntry[]
 }
 
@@ -27,6 +25,12 @@ type WorkoutData = {
   number: number
   name: string
   status: string
+  startTime: string | null
+  heatIntervalSecs: number
+  timeBetweenHeatsSecs: number
+  callTimeSecs: number
+  walkoutTimeSecs: number
+  heatStartOverrides: string
   heats: Heat[]
 }
 
@@ -35,9 +39,19 @@ type OpsData = {
   showBib: boolean
 }
 
-function fmtTime(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function fmtMs(ms: number | null): string {
+  if (ms == null) return '—'
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
+  return calcHeatStartMs(
+    heatNumber,
+    workout.startTime,
+    workout.heatIntervalSecs,
+    workout.heatStartOverrides,
+    workout.timeBetweenHeatsSecs,
+  )
 }
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
@@ -193,15 +207,21 @@ export default function OpsView({ slug }: { slug: string }) {
                           ? <p className="text-gray-400 text-xs">{divs.join(' / ')}</p>
                           : null
                       })()}
-                      {heat.corralTime && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Corral: <span className="text-yellow-400 font-mono">{fmtTime(heat.corralTime)}</span>
-                          {' · '}
-                          Walk Out: <span className="text-blue-400 font-mono">{fmtTime(heat.walkoutTime)}</span>
-                          {' · '}
-                          Start: <span className="text-white font-mono">{fmtTime(heat.heatTime)}</span>
-                        </p>
-                      )}
+                      {(() => {
+                        const heatMs = getHeatMs(workout, heat.heatNumber)
+                        if (heatMs == null) return null
+                        const corralMs = heatMs - workout.callTimeSecs * 1000
+                        const walkoutMs = heatMs - workout.walkoutTimeSecs * 1000
+                        return (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Corral: <span className="text-yellow-400 font-mono">{fmtMs(corralMs)}</span>
+                            {' · '}
+                            Walk Out: <span className="text-blue-400 font-mono">{fmtMs(walkoutMs)}</span>
+                            {' · '}
+                            Start: <span className="text-white font-mono">{fmtMs(heatMs)}</span>
+                          </p>
+                        )
+                      })()}
                     </div>
                     {athletesVisible && (
                       <table className="w-full text-sm">
