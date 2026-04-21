@@ -59,6 +59,27 @@ describe('PUT /api/workouts/[id]', () => {
     expect(eqArgs).toContain('id')
     expect(eqArgs).toContain('competitionId')
   })
+
+  it('nulls all partBRawScore / partBPoints when partBEnabled flips off', async () => {
+    mock.queueResult({ data: { id: 1, partBEnabled: false }, error: null })
+    mock.queueResult({ data: null, error: null })
+    await PUT(putReq({ partBEnabled: false }), params('1'))
+
+    const scoreUpdate = mock.calls.find((c) => c.table === 'Score' && c.ops.find((o) => o.op === 'update'))!
+    expect(scoreUpdate).toBeDefined()
+    expect(scoreUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({
+      partBRawScore: null,
+      partBPoints: null,
+    })
+    expect(scoreUpdate.ops.find(o => o.op === 'eq')?.args).toEqual(['workoutId', 1])
+  })
+
+  it('does not touch Score when partBEnabled flips on (true)', async () => {
+    mock.queueResult({ data: { id: 1, partBEnabled: true }, error: null })
+    await PUT(putReq({ partBEnabled: true }), params('1'))
+    const scoreUpdate = mock.calls.find((c) => c.table === 'Score')
+    expect(scoreUpdate).toBeUndefined()
+  })
 })
 
 describe('DELETE /api/workouts/[id]', () => {

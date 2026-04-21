@@ -90,6 +90,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     if (error) return new Response(error.message, { status: 500 })
     if (!data) return new Response('Workout not found', { status: 404 })
+
+    // When partBEnabled flips off, strand-data cleanup: null out partB scores
+    // so they don't revive if it's ever flipped on again. Fixes COM-9 #16.
+    if (body.partBEnabled === false) {
+      await supabase
+        .from('Score')
+        .update({ partBRawScore: null, partBPoints: null })
+        .eq('workoutId', Number(id))
+    }
+
     return Response.json(data)
   } catch (e) {
     return authErrorResponse(e)
