@@ -8,7 +8,7 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) })
 describe('PUT /api/users/[id]', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await PUT(new Request('http://test', { method: 'PUT', body: JSON.stringify({ password: 'secret1' }) }), params('1'))
+    const res = await PUT(new Request('http://test', { method: 'PUT', body: JSON.stringify({ password: 'twelve-chars-minimum' }) }), params('1'))
     expect(res.status).toBe(401)
   })
 
@@ -19,11 +19,14 @@ describe('PUT /api/users/[id]', () => {
 
   it('hashes password and updates user', async () => {
     mock.queueResult({ data: { id: 1, username: 'admin' }, error: null })
-    const res = await PUT(new Request('http://test', { method: 'PUT', body: JSON.stringify({ password: 'newpass1' }) }), params('1'))
+    const res = await PUT(
+      new Request('http://test', { method: 'PUT', body: JSON.stringify({ password: 'twelve-chars-secret' }) }),
+      params('1'),
+    )
     expect(res.status).toBe(200)
     const update = mock.lastCall!.ops.find(o => o.op === 'update')!
     const patch = update.args[0] as { password: string }
-    expect(patch.password).not.toBe('newpass1')
+    expect(patch.password).not.toBe('twelve-chars-secret')
     expect(patch.password.length).toBeGreaterThan(20)
   })
 })

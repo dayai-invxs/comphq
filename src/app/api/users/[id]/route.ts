@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params
   const { password } = await req.json() as { password: string }
-  if (!password || password.length < 6) return new Response('Password must be at least 6 characters', { status: 400 })
+  if (!password || password.length < 12) return new Response('Password must be at least 12 characters', { status: 400 })
 
   const hashed = await bcrypt.hash(password, 10)
   const { data, error } = await supabase

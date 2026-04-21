@@ -24,23 +24,23 @@ describe('GET /api/users', () => {
 describe('POST /api/users', () => {
   it('rejects unauthenticated', async () => {
     vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'a', password: 'secret1' }) }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'a', password: 'twelve-chars-minimum' }) }))
     expect(res.status).toBe(401)
   })
 
   it('rejects missing username', async () => {
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ password: 'secret1' }) }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ password: 'twelve-chars-minimum' }) }))
     expect(res.status).toBe(400)
   })
 
-  it('rejects short password', async () => {
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'short' }) }))
+  it('rejects short password (< 12 chars)', async () => {
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'eleven-char' }) }))
     expect(res.status).toBe(400)
   })
 
   it('returns 409 when username taken', async () => {
     mock.queueResult({ data: { id: 5 }, error: null })
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'taken', password: 'secret1' }) }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'taken', password: 'twelve-chars-minimum' }) }))
     expect(res.status).toBe(409)
   })
 
@@ -48,7 +48,7 @@ describe('POST /api/users', () => {
     mock.queueResult({ data: null, error: null })
     mock.queueResult({ data: { id: 2, username: 'new' }, error: null })
 
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'secret1' }) }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'twelve-chars-minimum' }) }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual({ id: 2, username: 'new' })
 
@@ -56,7 +56,7 @@ describe('POST /api/users', () => {
     const insert = insertCall.ops.find(o => o.op === 'insert')!
     const row = insert.args[0] as { username: string; password: string }
     expect(row.username).toBe('new')
-    expect(row.password).not.toBe('secret1')
+    expect(row.password).not.toBe('twelve-chars-minimum')
     expect(row.password.length).toBeGreaterThan(20)
   })
 })

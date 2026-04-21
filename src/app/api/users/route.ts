@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   const { username, password } = await req.json() as { username: string; password: string }
   if (!username?.trim()) return new Response('Username required', { status: 400 })
-  if (!password || password.length < 6) return new Response('Password must be at least 6 characters', { status: 400 })
+  if (!password || password.length < 12) return new Response('Password must be at least 12 characters', { status: 400 })
 
   const { data: existing } = await supabase
     .from('User')
