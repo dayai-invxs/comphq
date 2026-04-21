@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { usePollingInterval } from '@/lib/usePollingInterval'
 
 type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; lane: number }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
@@ -66,9 +67,8 @@ export default function AthleteControl({ slug }: { slug: string }) {
 
   useEffect(() => {
     void fetchData()
-    const interval = setInterval(fetchData, 10000)
-    return () => clearInterval(interval)
   }, [fetchData])
+  usePollingInterval(fetchData, 10000)
 
   function toggleExpand(workoutId: number, heatNumber: number) {
     const key = `${workoutId}-${heatNumber}`

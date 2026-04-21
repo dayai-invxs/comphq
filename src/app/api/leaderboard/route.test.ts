@@ -48,5 +48,6 @@ describe('GET /api/leaderboard', () => {
     expect(body.entries[0].totalPoints).toBe(2)
     expect(body.entries[1].athleteName).toBe('Bob')
     expect(body.entries[1].totalPoints).toBe(4)
+    expect(res.headers.get('cache-control')).toMatch(/s-maxage=5/)
   })
 })

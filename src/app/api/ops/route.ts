@@ -88,5 +88,7 @@ export async function GET(req: Request) {
     }
   })
 
-  return Response.json({ workouts: result, showBib })
+  return Response.json({ workouts: result, showBib }, {
+    headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' },
+  })
 }

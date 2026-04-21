@@ -27,5 +27,6 @@ describe('GET /api/ops', () => {
     expect(body.workouts[0].heats).toHaveLength(2)
     expect(body.workouts[0].heats[0].isComplete).toBe(true)
     expect(body.workouts[0].heats[1].isComplete).toBe(false)
+    expect(res.headers.get('cache-control')).toMatch(/s-maxage=5/)
   })
 })

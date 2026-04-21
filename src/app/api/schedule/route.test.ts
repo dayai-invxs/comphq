@@ -38,5 +38,6 @@ describe('GET /api/schedule', () => {
     expect(body.workouts[0].schedule).toHaveLength(1)
     expect(body.workouts[0].schedule[0].athleteName).toBe('Bob')
     expect(body.workouts[0].schedule[0].divisionName).toBe('Rx')
+    expect(res.headers.get('cache-control')).toMatch(/s-maxage=5/)
   })
 })

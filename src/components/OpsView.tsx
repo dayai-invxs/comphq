@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { usePollingInterval } from '@/lib/usePollingInterval'
 
 type HeatEntry = {
   athleteId: number
@@ -85,9 +86,8 @@ export default function OpsView({ slug }: { slug: string }) {
   useEffect(() => {
     void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
     void fetchData()
-    const interval = setInterval(fetchData, 10000)
-    return () => clearInterval(interval)
   }, [fetchData])
+  usePollingInterval(fetchData, 10000)
 
   const searchTerm = search.trim().toLowerCase()
 
@@ -116,7 +116,6 @@ export default function OpsView({ slug }: { slug: string }) {
               width={120}
               height={60}
               className="max-h-14 w-auto object-contain"
-              unoptimized
             />
           )}
           <div>

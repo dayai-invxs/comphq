@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { usePollingInterval } from '@/lib/usePollingInterval'
 
 type HeatEntry = {
   athleteId: number
@@ -73,9 +74,8 @@ export default function PublicSchedule({ slug }: { slug: string }) {
   useEffect(() => {
     void fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
     void fetchData()
-    const interval = setInterval(fetchData, 10000)
-    return () => clearInterval(interval)
   }, [fetchData])
+  usePollingInterval(fetchData, 10000)
 
   const activeWorkouts = (data?.workouts ?? []).filter((w) => w.status === 'active')
 
@@ -90,7 +90,6 @@ export default function PublicSchedule({ slug }: { slug: string }) {
               width={120}
               height={60}
               className="max-h-14 w-auto object-contain"
-              unoptimized
             />
           )}
           <h1 className="text-3xl font-bold text-white">Competition Schedule</h1>

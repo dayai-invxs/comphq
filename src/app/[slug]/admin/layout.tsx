@@ -44,7 +44,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
   ]
 
   const logo = logoUrl ? (
-    <Image src={logoUrl} alt="Competition logo" width={120} height={60} className="max-h-10 w-auto object-contain" unoptimized />
+    <Image src={logoUrl} alt="Competition logo" width={120} height={60} className="max-h-10 w-auto object-contain" />
   ) : (
     <div className="flex items-center gap-2">
       <div className="w-10 h-10"><ComphqLogo /></div>

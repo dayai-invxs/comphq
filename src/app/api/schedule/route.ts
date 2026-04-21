@@ -78,5 +78,7 @@ export async function GET(req: Request) {
     return { id: workout.id, number: workout.number, name: workout.name, schedule }
   })
 
-  return Response.json({ workouts: result, showBib })
+  return Response.json({ workouts: result, showBib }, {
+    headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' },
+  })
 }

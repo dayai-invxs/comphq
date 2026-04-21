@@ -141,7 +141,7 @@ export default function CompetitionDashboard() {
         {logoUrl ? (
           <div className="space-y-3">
             <div className="bg-gray-800 rounded-lg p-3 flex items-center justify-center h-24">
-              <Image src={logoUrl} alt="Competition logo" width={160} height={80} className="max-h-20 w-auto object-contain" unoptimized />
+              <Image src={logoUrl} alt="Competition logo" width={160} height={80} className="max-h-20 w-auto object-contain" />
             </div>
             <div className="flex gap-3">
               <button onClick={() => fileInputRef.current?.click()} disabled={logoLoading} className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Replace</button>
