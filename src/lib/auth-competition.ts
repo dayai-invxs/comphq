@@ -76,6 +76,26 @@ export async function requireSiteAdmin(session: Session | null): Promise<User> {
 }
 
 /**
+ * Verifies that a Workout belongs to the given competition. Returns the
+ * workout row or throws AuthError(404). Cheap cross-tenant defense for
+ * every nested /api/workouts/[id]/* route.
+ */
+export async function requireWorkoutInCompetition<T = Record<string, unknown>>(
+  workoutId: number,
+  competitionId: number,
+  select = '*',
+): Promise<T> {
+  const { data } = await supabase
+    .from('Workout')
+    .select(select)
+    .eq('id', workoutId)
+    .eq('competitionId', competitionId)
+    .maybeSingle()
+  if (!data) throw new AuthError(404, 'Workout not found')
+  return data as T
+}
+
+/**
  * Map AuthError to a Response. Let all other errors propagate to the route
  * handler's own error boundary (they probably want to return 500).
  */

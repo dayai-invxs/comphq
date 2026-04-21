@@ -17,6 +17,30 @@ vi.mock('@/lib/competition', () => ({
   getCompetitionSlug: vi.fn(async () => 'default'),
 }))
 
+vi.mock('@/lib/auth-competition', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/auth-competition')>()
+  return {
+    ...actual,
+    requireSession: vi.fn(async (session) => {
+      if (!session?.user?.name) throw new actual.AuthError(401, 'Unauthorized')
+      return { id: 1, username: session.user.name, role: 'admin' }
+    }),
+    requireCompetitionMember: vi.fn(async (session, slug, minRole = 'scorekeeper') => {
+      if (!session?.user?.name) throw new actual.AuthError(401, 'Unauthorized')
+      if (!slug) throw new actual.AuthError(404, 'Competition not found')
+      return {
+        user: { id: 1, username: session.user.name, role: 'admin' as const },
+        membership: { userId: 1, competitionId: 1, role: minRole === 'admin' ? ('admin' as const) : ('admin' as const) },
+        competition: { id: 1, name: 'Default', slug },
+      }
+    }),
+    requireSiteAdmin: vi.fn(async (session) => {
+      if (!session?.user?.name) throw new actual.AuthError(401, 'Unauthorized')
+      return { id: 1, username: session.user.name, role: 'admin' as const }
+    }),
+  }
+})
+
 vi.mock('next-auth', () => ({
   getServerSession: vi.fn(),
 }))
