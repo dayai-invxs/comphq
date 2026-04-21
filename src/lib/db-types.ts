@@ -147,6 +147,45 @@ export type Database = {
         }
         Relationships: []
       }
+      CompetitionMember: {
+        Row: {
+          competitionId: number
+          createdAt: string
+          id: number
+          role: string
+          userId: number
+        }
+        Insert: {
+          competitionId: number
+          createdAt?: string
+          id?: number
+          role?: string
+          userId: number
+        }
+        Update: {
+          competitionId?: number
+          createdAt?: string
+          id?: number
+          role?: string
+          userId?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "CompetitionMember_competitionId_fkey"
+            columns: ["competitionId"]
+            isOneToOne: false
+            referencedRelation: "Competition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "CompetitionMember_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Division: {
         Row: {
           competitionId: number
@@ -293,16 +332,19 @@ export type Database = {
         Row: {
           id: number
           password: string
+          role: string
           username: string
         }
         Insert: {
           id?: number
           password: string
+          role?: string
           username: string
         }
         Update: {
           id?: number
           password?: string
+          role?: string
           username?: string
         }
         Relationships: []
