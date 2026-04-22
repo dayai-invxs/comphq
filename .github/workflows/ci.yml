@@ -29,7 +29,8 @@ jobs:
         env:
           SUPABASE_URL: https://build.supabase.co
           SUPABASE_SERVICE_KEY: build-placeholder
-          NEXTAUTH_SECRET: build-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://build.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-placeholder
 
       # Fails if `supabase/migrations/*` has changed without regenerating
       # `src/lib/db-types.ts`. Skipped when the optional access token secret
