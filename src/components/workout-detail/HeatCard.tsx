@@ -48,8 +48,6 @@ export default function HeatCard({
   const [editingAssignment, setEditingAssignment] = useState<number | null>(null)
   const [assignEditHeat, setAssignEditHeat] = useState('')
   const [assignEditLane, setAssignEditLane] = useState('')
-  const [dragOverId, setDragOverId] = useState<number | null>(null)
-
   const containerRef = useRef<HTMLDivElement>(null)
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
 
@@ -92,11 +90,18 @@ export default function HeatCard({
       if (!handle) continue
 
       let ghost: HTMLDivElement | null = null
+      let highlightedRow: HTMLElement | null = null
+
+      function setHighlight(row: HTMLElement | null) {
+        if (highlightedRow === row) return
+        if (highlightedRow) highlightedRow.style.backgroundColor = ''
+        if (row) row.style.backgroundColor = 'rgba(249,115,22,0.12)'
+        highlightedRow = row
+      }
 
       const [d] = Draggable.create(handle, {
         type: 'x,y',
         onDragStart() {
-          setDragOverId(null)
           ghost = document.createElement('div')
           ghost.textContent = assignment.athlete.name
           ghost.style.cssText = [
@@ -110,15 +115,14 @@ export default function HeatCard({
         },
         onDrag() {
           if (ghost) gsap.set(ghost, { x: this.pointerX + 14, y: this.pointerY - 24 })
-          const targetRow = findTargetRow(this.pointerX, this.pointerY, sourceRow)
-          setDragOverId(targetRow ? Number(targetRow.dataset.assignmentId) : null)
+          setHighlight(findTargetRow(this.pointerX, this.pointerY, sourceRow))
         },
         onDragEnd() {
           ghost?.remove(); ghost = null
           const targetRow = findTargetRow(this.pointerX, this.pointerY, sourceRow)
           const targetId = targetRow ? Number(targetRow.dataset.assignmentId) : null
+          setHighlight(null)
           gsap.set(handle, { clearProps: 'x,y' })
-          setDragOverId(null)
           if (targetId) void onSwapAssignments(assignment.id, targetId)
         },
       })
@@ -225,13 +229,12 @@ export default function HeatCard({
             {sorted.map((a) => {
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
               const isEditingThis = editingAssignment === a.id
-              const isDragTarget = dragOverId === a.id
               return (
                 <tr
                   key={a.id}
                   ref={(el) => { if (el) rowRefs.current.set(a.id, el); else rowRefs.current.delete(a.id) }}
                   data-assignment-id={a.id}
-                  className={`border-t border-gray-800 transition-colors ${isEditingThis ? 'bg-gray-800/40' : ''} ${isDragTarget ? 'bg-orange-500/10' : ''}`}
+                  className={`border-t border-gray-800 ${isEditingThis ? 'bg-gray-800/40' : ''}`}
                 >
                   {!isComplete && (
                     <td className="px-2 py-3">
