@@ -127,12 +127,6 @@ export default function AdminHome() {
           </button>
         </form>
       </div>
-
-      <div className="pt-4 border-t border-gray-800">
-        <Link href="/admin/users" className="text-sm text-gray-400 hover:text-white transition-colors">
-          Manage Users →
-        </Link>
-      </div>
     </div>
   )
 }

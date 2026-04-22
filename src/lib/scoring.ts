@@ -1,4 +1,5 @@
 import type { Athlete, Score } from '@/lib/types'
+import { supabase } from '@/lib/supabase'
 
 export type AthleteWithScore = Athlete & { scores: Score[] }
 
@@ -139,4 +140,79 @@ export function calculateRankings(
     return a.tiebreakRawScore - b.tiebreakRawScore
   })
   return sorted.map((s, i) => ({ ...s, points: i + 1 }))
+}
+
+type ScoreRow = {
+  athleteId: number
+  workoutId: number
+  rawScore: number
+  tiebreakRawScore: number | null
+  partBRawScore: number | null
+}
+
+type RankableWorkout = {
+  scoreType: string
+  tiebreakEnabled: boolean
+  partBEnabled: boolean
+  partBScoreType: string
+}
+
+/**
+ * Rank all Score rows for a workout (Part A + optional Part B) and persist
+ * the computed points via a single bulk upsert. Returns the number of
+ * ranked athletes (i.e. rows with non-null points after the call).
+ *
+ * Consolidates identical logic that previously lived in two routes
+ * (/calculate and /heats/[heatNum]/complete).
+ */
+export async function rankAndPersist(
+  workoutId: number,
+  workout: RankableWorkout,
+  scores: ScoreRow[],
+): Promise<{ count: number; error: string | null }> {
+  const rankedA = calculateRankings(
+    scores.map((s) => ({
+      athleteId: s.athleteId,
+      rawScore: s.rawScore,
+      tiebreakRawScore: s.tiebreakRawScore,
+    })),
+    workout.scoreType,
+    workout.tiebreakEnabled,
+  )
+
+  const partBScores = scores.filter((s) => s.partBRawScore != null)
+  const rankedB = workout.partBEnabled && partBScores.length > 0
+    ? calculateRankings(
+        partBScores.map((s) => ({
+          athleteId: s.athleteId,
+          rawScore: s.partBRawScore as number,
+        })),
+        workout.partBScoreType,
+      )
+    : []
+  const partBPointsMap = new Map(rankedB.map(({ athleteId, points }) => [athleteId, points]))
+
+  if (rankedA.length === 0) return { count: 0, error: null }
+
+  // Upsert preserves existing row shape; we only mutate the two point columns.
+  // Build full rows from the input `scores` so rawScore/tiebreak aren't wiped.
+  const scoreByAthlete = new Map(scores.map((s) => [s.athleteId, s]))
+  const rows = rankedA.map(({ athleteId, points }) => {
+    const existing = scoreByAthlete.get(athleteId)!
+    return {
+      athleteId,
+      workoutId,
+      rawScore: existing.rawScore,
+      tiebreakRawScore: existing.tiebreakRawScore,
+      partBRawScore: existing.partBRawScore,
+      points,
+      partBPoints: partBPointsMap.get(athleteId) ?? null,
+    }
+  })
+
+  const { error } = await supabase
+    .from('Score')
+    .upsert(rows, { onConflict: 'athleteId,workoutId' })
+
+  return { count: rankedA.length, error: error?.message ?? null }
 }

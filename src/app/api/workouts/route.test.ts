@@ -1,13 +1,19 @@
-import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { describe, it, expect } from 'vitest'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST } from './route'
+
+const getReq = () => new Request('http://test/api/workouts?slug=default')
+const postReq = (body: Record<string, unknown>) =>
+  new Request('http://test/api/workouts', {
+    method: 'POST',
+    body: JSON.stringify({ slug: 'default', ...body }),
+  })
 
 describe('GET /api/workouts', () => {
   it('returns workouts ordered by number', async () => {
     const rows = [{ id: 1, number: 1, name: 'WOD 1' }]
     mock.queueResult({ data: rows, error: null })
-    const res = await GET(new Request('http://test/api/workouts?slug=test'))
+    const res = await GET(getReq())
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
     expect(mock.lastCall!.table).toBe('Workout')
@@ -17,20 +23,40 @@ describe('GET /api/workouts', () => {
 
 describe('POST /api/workouts', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test', { method: 'POST', body: '{}' }))
+    setAuthUser(null)
+    const res = await POST(postReq({
+      number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
+      heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
+    }))
     expect(res.status).toBe(401)
+  })
+
+  it('rejects malformed body with 400', async () => {
+    const res = await POST(postReq({ number: 'not-a-number', name: 'X', scoreType: 'time', lanes: 5, heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30 }))
+    expect(res.status).toBe(400)
+    expect(await res.text()).toMatch(/number/)
+  })
+
+  it('returns 409 with a friendly message on duplicate workout number', async () => {
+    // Postgres unique_violation surfaces from PostgREST as code 23505.
+    mock.queueResult({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint "Workout_competitionId_number_key"' } as unknown as { message: string },
+    })
+    const res = await POST(postReq({
+      number: 1, name: 'Dup', scoreType: 'time', lanes: 5,
+      heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
+    }))
+    expect(res.status).toBe(409)
+    expect(await res.text()).toMatch(/number 1 already exists/i)
   })
 
   it('inserts workout with defaults and returns 201', async () => {
     const created = { id: 1, number: 1, name: 'WOD 1', status: 'draft' }
     mock.queueResult({ data: created, error: null })
-    const res = await POST(new Request('http://test', {
-      method: 'POST',
-      body: JSON.stringify({
-        slug: 'test', number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
-        heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
-      }),
+    const res = await POST(postReq({
+      number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
+      heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
     }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(created)

@@ -1,14 +1,14 @@
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
+import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 import { formatScore } from '@/lib/scoreFormat'
-
-const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
-  heatIntervalSecs: number; heatStartOverrides: string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; completedHeats: string; scoreType: string
+  heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
+  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string
 }
 
 type Assignment = {
@@ -32,25 +32,37 @@ export async function GET(req: Request) {
     .order('number')
 
   const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
-  const [{ data: assignments }, { data: scores }] = await Promise.all([
+
+  const [assignmentsRes, scoresRes, completedByWorkout] = await Promise.all([
     workoutIds.length > 0
-      ? supabase.from('HeatAssignment').select(ASSIGNMENT_EMBED).in('workoutId', workoutIds).order('heatNumber').order('lane')
-      : Promise.resolve({ data: [] }),
+      ? supabase
+          .from('HeatAssignment')
+          .select(ASSIGNMENT_EMBED)
+          .in('workoutId', workoutIds)
+          .order('heatNumber')
+          .order('lane')
+      : Promise.resolve({ data: [] as Assignment[] }),
     workoutIds.length > 0
       ? supabase.from('Score').select('athleteId, workoutId, rawScore').in('workoutId', workoutIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as Array<{ athleteId: number; workoutId: number; rawScore: number }> }),
+    getCompletedHeatsByWorkout(workoutIds),
   ])
 
+  const assignments = assignmentsRes.data ?? []
+  const scores = scoresRes.data ?? []
+
+  // Pre-format scores per athlete/workout so completed heats can show results
+  // inline without the public page needing to know scoreType rules.
   const scoreMap = new Map<string, string>()
-  for (const s of (scores ?? [])) {
+  for (const s of scores) {
     const row = s as { athleteId: number; workoutId: number; rawScore: number }
-    const workout = (workouts as Workout[]).find((w) => w.id === row.workoutId)
-    if (workout) scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, workout.scoreType))
+    const w = (workouts as Workout[]).find((x) => x.id === row.workoutId)
+    if (w) scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, w.scoreType))
   }
 
   const result = ((workouts ?? []) as Workout[]).map((workout) => {
-    const completedHeats: number[] = JSON.parse(workout.completedHeats || '[]')
-    const wAssignments = ((assignments ?? []) as Assignment[]).filter((a) => a.workoutId === workout.id)
+    const completedHeats = completedByWorkout.get(workout.id) ?? []
+    const wAssignments = (assignments as Assignment[]).filter((a) => a.workoutId === workout.id)
     const heatNums = [...new Set(wAssignments.map((a) => a.heatNumber))].sort((a, b) => a - b)
 
     const heats = heatNums.map((heatNumber) => {
@@ -90,5 +102,7 @@ export async function GET(req: Request) {
     }
   })
 
-  return Response.json({ workouts: result, showBib })
+  return Response.json({ workouts: result, showBib }, {
+    headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' },
+  })
 }

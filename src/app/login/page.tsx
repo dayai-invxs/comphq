@@ -1,15 +1,18 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { signIn } from 'next-auth/react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { ComphqLogo } from '@/components/ComphqLogo'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/admin'
-  const [username, setUsername] = useState('')
+  // Only accept same-origin callback URLs to prevent open redirects.
+  const rawCallback = searchParams.get('callbackUrl') ?? '/admin'
+  const callbackUrl = rawCallback.startsWith('/') ? rawCallback : '/admin'
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -17,35 +20,39 @@ function LoginForm() {
   async function handleSubmit() {
     setLoading(true)
     setError('')
-    const result = await signIn('credentials', {
-      username,
-      password,
-      redirect: false,
-    })
+    const supabase = getSupabaseClient()
+    const { error: authErr } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
-    if (result?.ok) {
-      router.push(callbackUrl)
-    } else {
-      setError('Invalid username or password')
+    if (authErr) {
+      setError('Invalid email or password')
+      return
     }
+    router.push(callbackUrl)
+    router.refresh()
   }
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} className="space-y-4">
       <div>
-        <label className="block text-sm text-gray-400 mb-1">Username</label>
+        <label htmlFor="email" className="block text-sm text-gray-400 mb-1">Email</label>
         <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full bg-gray-800 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
           required
         />
       </div>
       <div>
-        <label className="block text-sm text-gray-400 mb-1">Password</label>
+        <label htmlFor="password" className="block text-sm text-gray-400 mb-1">Password</label>
         <input
+          id="password"
+          name="password"
           type="password"
+          autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full bg-gray-800 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -60,6 +67,11 @@ function LoginForm() {
       >
         {loading ? 'Signing in...' : 'Sign In'}
       </button>
+      <div className="text-center">
+        <Link href="/forgot-password" className="text-sm text-gray-400 hover:text-orange-400 transition-colors">
+          Forgot password?
+        </Link>
+      </div>
     </form>
   )
 }

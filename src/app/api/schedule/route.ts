@@ -1,13 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
-
-const ASSIGNMENT_EMBED = '*, athlete:Athlete(id, name, bibNumber, divisionId, division:Division(id, name, order))'
+import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
+import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 
 type Workout = {
   id: number; number: number; name: string; startTime: string | null
-  heatIntervalSecs: number; heatStartOverrides: string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; completedHeats: string
+  heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
+  callTimeSecs: number; walkoutTimeSecs: number
 }
 
 type Assignment = {
@@ -32,18 +32,24 @@ export async function GET(req: Request) {
     .order('number')
 
   const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
-  const { data: assignments } = workoutIds.length > 0
-    ? await supabase
-        .from('HeatAssignment')
-        .select(ASSIGNMENT_EMBED)
-        .in('workoutId', workoutIds)
-        .order('heatNumber')
-        .order('lane')
-    : { data: [] }
+
+  const [assignmentsRes, completedByWorkout] = await Promise.all([
+    workoutIds.length > 0
+      ? supabase
+          .from('HeatAssignment')
+          .select(ASSIGNMENT_EMBED)
+          .in('workoutId', workoutIds)
+          .order('heatNumber')
+          .order('lane')
+      : Promise.resolve({ data: [] as Assignment[] }),
+    getCompletedHeatsByWorkout(workoutIds),
+  ])
+
+  const assignments = assignmentsRes.data ?? []
 
   const result = ((workouts ?? []) as Workout[]).map((workout) => {
-    const completedHeats: number[] = JSON.parse(workout.completedHeats || '[]')
-    const wAssignments = ((assignments ?? []) as Assignment[]).filter((a) => a.workoutId === workout.id)
+    const completedHeats = completedByWorkout.get(workout.id) ?? []
+    const wAssignments = (assignments as Assignment[]).filter((a) => a.workoutId === workout.id)
 
     const schedule = wAssignments
       .filter((a) => !completedHeats.includes(a.heatNumber))
@@ -71,5 +77,7 @@ export async function GET(req: Request) {
     return { id: workout.id, number: workout.number, name: workout.name, schedule }
   })
 
-  return Response.json({ workouts: result, showBib })
+  return Response.json({ workouts: result, showBib }, {
+    headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' },
+  })
 }

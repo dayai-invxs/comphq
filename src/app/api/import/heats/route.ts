@@ -1,7 +1,5 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { resolveCompetition } from '@/lib/competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 
 interface CsvRow {
   workoutNumber: number; heatNumber: number; laneNumber: number; athleteName: string; lineIndex: number
@@ -43,26 +41,31 @@ function isHeaderRow(cells: string[]): boolean {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
 
   let csvText: string
   let slug = ''
   const contentType = req.headers.get('content-type') ?? ''
-  if (contentType.includes('multipart/form-data')) {
-    const form = await req.formData()
-    const file = form.get('file') as File | null
-    if (!file) return new Response('No file provided', { status: 400 })
-    csvText = await file.text()
-    slug = (form.get('slug') as string) ?? ''
-  } else {
-    const body = await req.json()
-    csvText = body.csv ?? ''
-    slug = body.slug ?? ''
-  }
+  try {
+    if (contentType.includes('multipart/form-data')) {
+      const form = await req.formData()
+      const file = form.get('file') as File | null
+      if (!file) return new Response('No file provided', { status: 400 })
+      csvText = await file.text()
+      slug = (form.get('slug') as string) ?? ''
+    } else {
+      const body = await req.json()
+      csvText = body.csv ?? ''
+      slug = body.slug ?? ''
+    }
 
-  const competition = await resolveCompetition(slug)
-  if (!competition) return new Response('Competition not found', { status: 404 })
+    const { competition } = await requireCompetitionAdmin(slug)
+    return await runImport(csvText, competition.id)
+  } catch (e) {
+    return authErrorResponse(e)
+  }
+}
+
+async function runImport(csvText: string, competitionId: number): Promise<Response> {
 
   if (!csvText.trim()) return new Response('Empty CSV', { status: 400 })
   const allRows = parseCsv(csvText)
@@ -97,8 +100,8 @@ export async function POST(req: Request) {
   if (parsed.length === 0) return Response.json({ ...result, message: 'No valid rows to import' })
 
   const [workoutsRes, athletesRes] = await Promise.all([
-    supabase.from('Workout').select('id, number').eq('competitionId', competition.id),
-    supabase.from('Athlete').select('id, name').eq('competitionId', competition.id),
+    supabase.from('Workout').select('id, number').eq('competitionId', competitionId),
+    supabase.from('Athlete').select('id, name').eq('competitionId', competitionId),
   ])
 
   const workoutByNumber = new Map(
@@ -141,13 +144,16 @@ export async function POST(req: Request) {
 
     if (assignments.length === 0) continue
 
-    await supabase.from('HeatAssignment').delete().eq('workoutId', workoutId)
-    const { error: ierr } = await supabase.from('HeatAssignment').insert(assignments)
+    // Atomic per-workout replace via RPC — failure here doesn't leave other
+    // workouts half-wiped.
+    const { error: ierr } = await supabase.rpc('replace_workout_heat_assignments', {
+      p_workout_id: workoutId,
+      p_assignments: assignments.map(({ athleteId, heatNumber, lane }) => ({ athleteId, heatNumber, lane })),
+    })
     if (ierr) {
-      result.errors.push({ line: rows[0].lineIndex, message: `Insert failed: ${ierr.message}` })
+      result.errors.push({ line: rows[0].lineIndex, message: `Import failed: ${ierr.message}` })
       continue
     }
-    await supabase.from('Workout').update({ heatStartOverrides: '{}' }).eq('id', workoutId)
 
     result.imported += assignments.length
     result.workoutsAffected.push(workoutNumber)

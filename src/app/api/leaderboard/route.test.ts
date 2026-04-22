@@ -2,14 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { supabaseMock as mock } from '@/test/setup'
 import { GET } from './route'
 
+const getReq = () => new Request('http://test/api/leaderboard?slug=default')
+
 describe('GET /api/leaderboard', () => {
   it('returns empty entries when no data', async () => {
     mock.queueResults(
       { data: [], error: null },
       { data: [], error: null },
-      { data: [], error: null },
+      { data: null, error: null }, // tiebreakSetting
     )
-    const res = await GET(new Request('http://test/api/leaderboard?slug=test'))
+    const res = await GET(getReq())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.workouts).toEqual([])
@@ -35,16 +37,17 @@ describe('GET /api/leaderboard', () => {
     mock.queueResults(
       { data: workouts, error: null },
       { data: athletes, error: null },
-      { data: null, error: null },
+      { data: null, error: null }, // tiebreakSetting
       { data: scores, error: null },
     )
 
-    const res = await GET(new Request('http://test/api/leaderboard?slug=test'))
+    const res = await GET(getReq())
     const body = await res.json()
     expect(body.entries).toHaveLength(2)
     expect(body.entries[0].athleteName).toBe('Alice')
     expect(body.entries[0].totalPoints).toBe(2)
     expect(body.entries[1].athleteName).toBe('Bob')
     expect(body.entries[1].totalPoints).toBe(4)
+    expect(res.headers.get('cache-control')).toMatch(/s-maxage=5/)
   })
 })

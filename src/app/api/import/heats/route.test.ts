@@ -1,15 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { describe, it, expect } from 'vitest'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { POST } from './route'
 
-function jsonReq(csv: string) {
-  return new Request('http://test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug: 'test', csv }) })
+function jsonReq(csv: string, slug = 'default') {
+  return new Request('http://test', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ csv, slug }),
+  })
 }
 
 describe('POST /api/import/heats', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await POST(jsonReq('1,1,1,Alice'))
     expect(res.status).toBe(401)
   })
@@ -20,11 +23,9 @@ describe('POST /api/import/heats', () => {
   })
 
   it('reports errors for missing workouts and athletes but imports valid rows', async () => {
-    mock.queueResult({ data: [{ id: 10, number: 1 }], error: null })
-    mock.queueResult({ data: [{ id: 100, name: 'Alice' }], error: null })
-    mock.queueResult({ data: null, error: null })
-    mock.queueResult({ data: null, error: null })
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult({ data: [{ id: 10, number: 1 }], error: null })     // Workout lookup
+    mock.queueResult({ data: [{ id: 100, name: 'Alice' }], error: null }) // Athlete lookup
+    mock.queueResult({ data: null, error: null })                         // RPC replace_workout_heat_assignments
 
     const csv = 'workout,heat,lane,athlete\n1,1,1,Alice\n1,1,2,Unknown\n2,1,1,Alice'
     const res = await POST(jsonReq(csv))
@@ -37,6 +38,9 @@ describe('POST /api/import/heats', () => {
       { line: 3, message: 'Athlete not found: "Unknown"' },
       { line: 4, message: 'Workout #2 not found' },
     ])
+
+    const rpcCall = mock.calls.find(c => c.table === 'rpc:replace_workout_heat_assignments')
+    expect(rpcCall).toBeTruthy()
   })
 
   it('rejects malformed numeric cells', async () => {

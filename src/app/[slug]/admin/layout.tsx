@@ -1,19 +1,57 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter, usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { ComphqLogo } from '@/components/ComphqLogo'
 
 export default function CompetitionAdminLayout({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const { slug } = useParams<{ slug: string }>()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  // 'authorized' = user is super OR admin of this specific comp.
+  // 'forbidden'  = logged in but NOT authorized for this comp.
+  const [status, setStatus] = useState<
+    'loading' | 'authorized' | 'forbidden' | 'unauthenticated'
+  >('loading')
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = getSupabaseClient()
+    ;(async () => {
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (!u) { setStatus('unauthenticated'); return }
+      setUser(u)
+
+      // Check super OR admin-of-this-slug. /api/competitions returns only
+      // comps the caller can admin; if `slug` is in that list, they're in.
+      const [meRes, compsRes] = await Promise.all([
+        fetch('/api/me', { cache: 'no-store' }),
+        fetch('/api/competitions', { cache: 'no-store' }),
+      ])
+      if (cancelled) return
+      if (meRes.ok) {
+        const me = await meRes.json() as { isSuper: boolean }
+        if (me.isSuper) { setStatus('authorized'); return }
+      }
+      if (compsRes.ok) {
+        const comps = await compsRes.json() as { slug: string }[]
+        if (comps.some((c) => c.slug === slug)) { setStatus('authorized'); return }
+      }
+      setStatus('forbidden')
+    })()
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) setStatus('unauthenticated')
+    })
+    return () => { cancelled = true; sub.subscription.unsubscribe() }
+  }, [slug])
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`)
@@ -28,11 +66,29 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
     setMenuOpen(false)
   }, [pathname])
 
-  if (status === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>
+  async function signOut() {
+    await getSupabaseClient().auth.signOut()
+    router.push('/login')
   }
 
-  if (!session) return null
+  if (status === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading…</div>
+  }
+
+  if (status === 'forbidden') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-6">
+        <h1 className="text-2xl font-bold text-white">No access to this competition</h1>
+        <p className="text-gray-400 max-w-md">
+          Your account isn&apos;t an admin of <span className="text-white">{slug}</span>.
+          Ask a super-admin to grant you access.
+        </p>
+        <button onClick={signOut} className="text-sm text-orange-400 hover:text-orange-300">Sign out</button>
+      </div>
+    )
+  }
+
+  if (!user) return null
 
   const base = `/${slug}/admin`
   const navLinks = [
@@ -44,7 +100,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
   ]
 
   const logo = logoUrl ? (
-    <Image src={logoUrl} alt="Competition logo" width={120} height={60} className="max-h-10 w-auto object-contain" unoptimized />
+    <Image src={logoUrl} alt="Competition logo" width={120} height={60} className="max-h-10 w-auto object-contain" />
   ) : (
     <div className="flex items-center gap-2">
       <div className="w-10 h-10"><ComphqLogo /></div>
@@ -76,8 +132,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
             <Link href={`/${slug}`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Competition Schedule</Link>
             <Link href={`/${slug}/athlete-overview`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Athlete Overview</Link>
             <Link href={`/${slug}/athlete-control`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Athlete Control</Link>
-            <Link href="/admin/users" className="text-xs text-gray-500 hover:text-gray-300">Users</Link>
-            <button onClick={() => signOut({ callbackUrl: '/login' })} className="text-xs text-gray-400 hover:text-white transition-colors">
+            <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-white transition-colors">
               Sign out
             </button>
           </div>
@@ -117,7 +172,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
               <Link href={`/${slug}/athlete-overview`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Overview</Link>
               <Link href={`/${slug}/athlete-control`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Control</Link>
               <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={() => signOut()}
                 className="px-2 py-2 text-left text-sm text-gray-400 hover:text-white transition-colors"
               >
                 Sign out

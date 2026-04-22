@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useMemo } from 'react'
 import { SlugNav } from '@/components/SlugNav'
-import { calcHeatStartMs } from '@/lib/heatTime'
+import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
+import { useOps, qk } from '@/lib/queries'
+import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = {
   athleteId: number
@@ -28,18 +30,13 @@ type WorkoutData = {
   timeBetweenHeatsSecs: number
   callTimeSecs: number
   walkoutTimeSecs: number
-  heatStartOverrides: string
+  heatStartOverrides: Record<string, string> | string
   heats: Heat[]
 }
 
 type OpsData = {
   workouts: WorkoutData[]
   showBib: boolean
-}
-
-function fmtMs(ms: number | null): string {
-  if (ms == null) return '—'
-  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
@@ -53,24 +50,11 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
 }
 
 export default function PublicSchedule({ slug }: { slug: string }) {
-  const [data, setData] = useState<OpsData | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const { data, dataUpdatedAt } = useOps<OpsData>(slug)
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
 
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/ops?slug=${slug}`, { cache: 'no-store' })
-      if (res.ok) {
-        setData(await res.json())
-        setLastUpdated(new Date())
-      }
-    } catch {}
-  }, [slug])
-
-  useEffect(() => {
-    void fetchData()
-    const interval = setInterval(fetchData, 10000)
-    return () => clearInterval(interval)
-  }, [fetchData])
+  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug)], [slug])
+  useRealtimeInvalidation(realtimeKeys)
 
   const activeWorkouts = (data?.workouts ?? []).filter((w) => w.status === 'active')
 

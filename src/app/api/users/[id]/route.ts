@@ -1,39 +1,64 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import bcrypt from 'bcryptjs'
+import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { z } from 'zod'
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+const UserUpdate = z.object({
+  isSuper: z.boolean().optional(),
+  competitionIds: z.array(z.number().int().positive()).optional(),
+})
 
-  const { id } = await params
-  const { password } = await req.json() as { password: string }
-  if (!password || password.length < 6) return new Response('Password must be at least 6 characters', { status: 400 })
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const parsed = await parseJson(req, UserUpdate)
+  if (!parsed.ok) return parsed.response
 
-  const hashed = await bcrypt.hash(password, 10)
-  const { data, error } = await supabase
-    .from('User')
-    .update({ password: hashed })
-    .eq('id', Number(id))
-    .select('id, username')
-    .single()
+  try {
+    await requireSiteAdmin()
+    const { id: userId } = await params
+    const { isSuper, competitionIds } = parsed.data
 
-  if (error) return new Response(error.message, { status: 500 })
-  return Response.json(data)
+    if (isSuper !== undefined) {
+      const { error } = await supabase
+        .from('UserProfile')
+        .upsert({ id: userId, isSuper }, { onConflict: 'id' })
+      if (error) return new Response(error.message, { status: 500 })
+    }
+
+    if (competitionIds !== undefined) {
+      // Sync: remove current rows, insert requested.
+      const { error: dErr } = await supabase.from('CompetitionAdmin').delete().eq('userId', userId)
+      if (dErr) return new Response(dErr.message, { status: 500 })
+
+      if (competitionIds.length > 0) {
+        const rows = competitionIds.map((competitionId) => ({ userId, competitionId }))
+        const { error: iErr } = await supabase.from('CompetitionAdmin').insert(rows)
+        if (iErr) return new Response(iErr.message, { status: 500 })
+      }
+    }
+
+    return Response.json({ ok: true })
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  try {
+    const actor = await requireSiteAdmin()
+    const { id: targetId } = await params
 
-  const { id } = await params
+    // Guardrail: a super admin cannot delete themselves. Otherwise they could
+    // lock themselves out of the admin UI entirely.
+    if (actor.id === targetId) {
+      return new Response('Cannot delete your own account', { status: 400 })
+    }
 
-  const { data: all, error: cerr } = await supabase.from('User').select('id')
-  if (cerr) return new Response(cerr.message, { status: 500 })
-  if (!all || all.length <= 1) return new Response('Cannot delete the last user', { status: 400 })
+    const { error } = await supabase.auth.admin.deleteUser(targetId)
+    if (error) return new Response(error.message, { status: 500 })
 
-  const { error } = await supabase.from('User').delete().eq('id', Number(id))
-  if (error) return new Response(error.message, { status: 500 })
-  return new Response(null, { status: 204 })
+    // UserProfile + CompetitionAdmin rows cascade via FK ON DELETE CASCADE.
+    return Response.json({ ok: true })
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 }

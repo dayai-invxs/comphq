@@ -1,62 +1,118 @@
-import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { describe, it, expect } from 'vitest'
+import { supabaseMock as mock, setAuthUser, setAuthSuper } from '@/test/setup'
 import { GET, POST } from './route'
 
-describe('GET /api/users', () => {
+function req(body?: unknown) {
+  return new Request('http://test/api/users', {
+    method: body !== undefined ? 'POST' : 'GET',
+    headers: { 'content-type': 'application/json' },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+}
+
+describe('GET /api/users (super-admin only)', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await GET()
     expect(res.status).toBe(401)
   })
 
-  it('returns users ordered by id (id + username only)', async () => {
-    mock.queueResult({ data: [{ id: 1, username: 'admin' }], error: null })
+  it('rejects non-super user', async () => {
+    setAuthSuper(false)
+    const res = await GET()
+    expect(res.status).toBe(403)
+  })
+
+  it('returns list merging auth email, UserProfile.isSuper, and CompetitionAdmin rows', async () => {
+    // 1. auth.admin.listUsers → two users with email
+    mock.queueResult({
+      data: {
+        users: [
+          { id: 'u1', email: 'super@t.local' },
+          { id: 'u2', email: 'member@t.local' },
+        ],
+      },
+      error: null,
+    })
+    // 2. UserProfile select — isSuper per user
+    mock.queueResult({ data: [{ id: 'u1', isSuper: true }, { id: 'u2', isSuper: false }], error: null })
+    // 3. CompetitionAdmin + Competition join
+    mock.queueResult({
+      data: [
+        { userId: 'u2', competitionId: 1, Competition: { id: 1, name: 'Default', slug: 'default' } },
+      ],
+      error: null,
+    })
+
     const res = await GET()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual([{ id: 1, username: 'admin' }])
-    expect(mock.lastCall!.table).toBe('User')
-    expect(mock.lastCall!.ops.find(o => o.op === 'select')?.args[0]).toBe('id, username')
-    expect(mock.lastCall!.ops.find(o => o.op === 'order')?.args[0]).toBe('id')
+    const body = await res.json()
+    expect(body).toHaveLength(2)
+    expect(body[0]).toMatchObject({ id: 'u1', email: 'super@t.local', isSuper: true, competitions: [] })
+    expect(body[1]).toMatchObject({ id: 'u2', email: 'member@t.local', isSuper: false })
+    expect(body[1].competitions).toEqual([{ id: 1, name: 'Default', slug: 'default' }])
   })
 })
 
 describe('POST /api/users', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'a', password: 'secret1' }) }))
+    setAuthUser(null)
+    const res = await POST(req({ email: 'x@x.com', password: 'xxxxxxxxxxxx' }))
     expect(res.status).toBe(401)
   })
 
-  it('rejects missing username', async () => {
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ password: 'secret1' }) }))
+  it('rejects non-super', async () => {
+    setAuthSuper(false)
+    const res = await POST(req({ email: 'x@x.com', password: 'xxxxxxxxxxxx' }))
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects weak passwords (<12 chars)', async () => {
+    const res = await POST(req({ email: 'x@x.com', password: 'short' }))
     expect(res.status).toBe(400)
   })
 
-  it('rejects short password', async () => {
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'short' }) }))
+  it('rejects missing email', async () => {
+    const res = await POST(req({ password: 'secretpassword12' }))
     expect(res.status).toBe(400)
   })
 
-  it('returns 409 when username taken', async () => {
-    mock.queueResult({ data: { id: 5 }, error: null })
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'taken', password: 'secret1' }) }))
-    expect(res.status).toBe(409)
-  })
+  it('creates user with email_confirm: true and returns id/email/isSuper', async () => {
+    mock.queueResult({ data: { user: { id: 'new-uuid', email: 'new@t.local' } }, error: null })
 
-  it('creates user with hashed password and returns 201', async () => {
-    mock.queueResult({ data: null, error: null })
-    mock.queueResult({ data: { id: 2, username: 'new' }, error: null })
-
-    const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'new', password: 'secret1' }) }))
+    const res = await POST(req({ email: 'new@t.local', password: 'goodpassword12' }))
     expect(res.status).toBe(201)
-    expect(await res.json()).toEqual({ id: 2, username: 'new' })
+    const body = await res.json()
+    expect(body).toMatchObject({ id: 'new-uuid', email: 'new@t.local', isSuper: false })
 
-    const insertCall = mock.calls[1]
-    const insert = insertCall.ops.find(o => o.op === 'insert')!
-    const row = insert.args[0] as { username: string; password: string }
-    expect(row.username).toBe('new')
-    expect(row.password).not.toBe('secret1')
-    expect(row.password.length).toBeGreaterThan(20)
+    const createCall = mock.calls.find((c) => c.table === 'auth:createUser')
+    expect(createCall).toBeTruthy()
+    const args = createCall!.ops[0].args[0] as { email: string; password: string; email_confirm: boolean }
+    expect(args.email).toBe('new@t.local')
+    expect(args.email_confirm).toBe(true)
+  })
+
+  it('upserts UserProfile.isSuper=true when isSuper is requested', async () => {
+    mock.queueResult({ data: { user: { id: 'super-uuid', email: 's@t.local' } }, error: null })
+    mock.queueResult({ data: null, error: null }) // UserProfile upsert
+
+    const res = await POST(req({ email: 's@t.local', password: 'goodpassword12', isSuper: true }))
+    expect(res.status).toBe(201)
+    const upsert = mock.calls.find((c) => c.table === 'UserProfile')
+    expect(upsert).toBeTruthy()
+  })
+
+  it('grants CompetitionAdmin rows when competitionIds supplied', async () => {
+    mock.queueResult({ data: { user: { id: 'comp-uuid', email: 'ca@t.local' } }, error: null })
+    mock.queueResult({ data: null, error: null }) // CompetitionAdmin insert
+
+    const res = await POST(req({
+      email: 'ca@t.local', password: 'goodpassword12', competitionIds: [1, 2],
+    }))
+    expect(res.status).toBe(201)
+    const ins = mock.calls.find((c) => c.table === 'CompetitionAdmin')
+    expect(ins).toBeTruthy()
+    const rows = ins!.ops.find((o) => o.op === 'insert')!.args[0] as unknown[]
+    expect(rows).toHaveLength(2)
   })
 })

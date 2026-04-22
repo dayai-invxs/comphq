@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# comphq
 
-## Getting Started
+CrossFit competition management app. Heats, athletes, scores, live leaderboard.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router, Turbopack) + React 19 + TypeScript
+- **Tailwind 4** (`@theme` config)
+- **Supabase** — Postgres + `@supabase/supabase-js` (PostgREST, server-side only, service-role key)
+- **NextAuth v4** — JWT sessions, credentials provider, bcrypt
+- **Vitest** for unit tests, ~120 tests on pure libs + API routes
+- **Playwright** (planned) for happy-path E2E
+
+## Deployment target
+
+**Vercel.** Caching, preview branches, edge middleware, and `images.remotePatterns` are designed against Vercel's runtime. Self-hosting is possible but would require replacing `unstable_cache` + `Cache-Control` with a proxy-level caching tier.
+
+## Local setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
+# Fill in values (see Supabase dashboard > Project Settings > API)
+npm install
+npm run dev            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Default admin user on an empty DB: `admin` / password from `ADMIN_PASSWORD` env (see `.env.example`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Env vars
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See `.env.example`. Required at runtime (fails fast at boot):
 
-## Learn More
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY` (service role, **server-only**)
+- `NEXTAUTH_SECRET`
+- `ADMIN_PASSWORD` (no default in production)
 
-To learn more about Next.js, take a look at the following resources:
+## Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Migrations live in `supabase/migrations/`. Applied via the Supabase CLI against the linked project:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx supabase login                       # one-time
+npx supabase link --project-ref <ref>    # one-time
+npx supabase db push                     # apply pending migrations
+npx supabase db query --linked -f supabase/seed.sql   # local seed data (gitignored)
+```
 
-## Deploy on Vercel
+Generated TypeScript types live in `src/lib/db-types.ts` (regenerated via `npm run db:types`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| | |
+|---|---|
+| `npm run dev` | Local dev server |
+| `npm run build` | Production build |
+| `npm test` | Vitest unit tests |
+| `npm run lint` | ESLint |
+| `npx tsc --noEmit` | Typecheck |
+| `npm run db:types` | Regenerate `src/lib/db-types.ts` from the linked Supabase project |
+
+## Testing philosophy
+
+- **TDD** — red → green → refactor. New logic / routes get a failing test first.
+- **Unit tests** for pure libs (`src/lib/scoring.ts`, `heatTime.ts`, `scoreFormat.ts`) and API routes (mocked Supabase via `src/test/supabase-mock.ts`).
+- **Integration tests** run against the linked Supabase project. No RLS bypass trickery — the service-role key is server-only.
+- **Playwright** happy-path E2E runs the full create-comp → score → leaderboard flow.
+
+Every PR ships only when `npm test`, `npm run lint`, `npx tsc --noEmit`, and `npm run build` all pass.
+
+## Project structure
+
+```
+src/
+  app/
+    [slug]/          — per-competition routes (admin, ops, athlete-control)
+    admin/           — non-competition admin (users)
+    api/             — Next.js route handlers
+    login/
+  lib/               — pure libs + supabase client + auth
+  components/        — React components
+  test/              — Vitest setup + Supabase mock
+supabase/
+  migrations/        — Postgres DDL applied via `supabase db push`
+```
+
+## Roadmap
+
+Audit issues + execution plan live in Linear: https://linear.app/comphq

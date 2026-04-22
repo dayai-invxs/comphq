@@ -1,199 +1,283 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { getJson, postJson, patchJson, delJson } from '@/lib/http'
 
-type User = { id: number; username: string }
+type Comp = { id: number; name: string; slug: string }
+type UserRow = {
+  id: string
+  email: string | null
+  isSuper: boolean
+  competitions: Comp[]
+}
 
 export default function UsersPage() {
-  const { data: session } = useSession()
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<UserRow[]>([])
+  const [comps, setComps] = useState<Comp[]>([])
+  const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState(false)
+  const [err, setErr] = useState('')
 
-  // add user form
-  const [newUsername, setNewUsername] = useState('')
+  // Add-user form state
+  const [showAdd, setShowAdd] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [addError, setAddError] = useState('')
+  const [newIsSuper, setNewIsSuper] = useState(false)
+  const [newComps, setNewComps] = useState<Set<number>>(new Set())
   const [addLoading, setAddLoading] = useState(false)
 
-  // change password state per user
-  const [changingId, setChangingId] = useState<number | null>(null)
-  const [newPw, setNewPw] = useState('')
-  const [confirmPw, setConfirmPw] = useState('')
-  const [pwError, setPwError] = useState('')
-  const [pwLoading, setPwLoading] = useState(false)
+  // Per-row editing
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editIsSuper, setEditIsSuper] = useState(false)
+  const [editComps, setEditComps] = useState<Set<number>>(new Set())
+  const [editLoading, setEditLoading] = useState(false)
 
-  async function load() {
-    const res = await fetch('/api/users')
-    if (res.ok) setUsers(await res.json())
-  }
+  const refresh = useCallback(async () => {
+    setLoading(true); setErr('')
+    try {
+      const [rows, compsData] = await Promise.all([
+        getJson<UserRow[]>('/api/users'),
+        getJson<Comp[]>('/api/competitions'),
+      ])
+      setUsers(rows)
+      setComps(compsData)
+      setAuthError(false)
+    } catch (e: unknown) {
+      const status = (e as { status?: number })?.status
+      if (status === 403 || status === 401) setAuthError(true)
+      else setErr((e as Error).message || 'Failed to load users')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { void refresh() }, [refresh])
 
-  async function addUser(e: React.FormEvent) {
-    e.preventDefault()
-    setAddError('')
-    if (newPassword.length < 6) { setAddError('Password must be at least 6 characters'); return }
-    setAddLoading(true)
-    const res = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: newUsername.trim(), password: newPassword }),
-    })
-    setAddLoading(false)
-    if (res.ok) {
-      setNewUsername('')
-      setNewPassword('')
-      await load()
-    } else {
-      setAddError(await res.text())
+  async function addUser() {
+    setErr(''); setAddLoading(true)
+    try {
+      await postJson('/api/users', {
+        email: newEmail.trim(),
+        password: newPassword,
+        isSuper: newIsSuper,
+        competitionIds: Array.from(newComps),
+      })
+      setNewEmail(''); setNewPassword(''); setNewIsSuper(false); setNewComps(new Set())
+      setShowAdd(false)
+      await refresh()
+    } catch (e: unknown) {
+      setErr((e as Error).message || 'Failed to add user')
+    } finally {
+      setAddLoading(false)
     }
   }
 
-  function startChangePassword(userId: number) {
-    setChangingId(userId)
-    setNewPw('')
-    setConfirmPw('')
-    setPwError('')
+  function startEdit(u: UserRow) {
+    setEditingId(u.id)
+    setEditIsSuper(u.isSuper)
+    setEditComps(new Set(u.competitions.map((c) => c.id)))
   }
 
-  async function savePassword(userId: number) {
-    setPwError('')
-    if (newPw.length < 6) { setPwError('Password must be at least 6 characters'); return }
-    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
-    setPwLoading(true)
-    const res = await fetch(`/api/users/${userId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: newPw }),
-    })
-    setPwLoading(false)
-    if (res.ok) {
-      setChangingId(null)
-    } else {
-      setPwError(await res.text())
+  async function saveEdit(userId: string) {
+    setErr(''); setEditLoading(true)
+    try {
+      await patchJson(`/api/users/${userId}`, {
+        isSuper: editIsSuper,
+        competitionIds: Array.from(editComps),
+      })
+      setEditingId(null)
+      await refresh()
+    } catch (e: unknown) {
+      setErr((e as Error).message || 'Failed to save')
+    } finally {
+      setEditLoading(false)
     }
   }
 
-  async function deleteUser(userId: number, username: string) {
-    if (!confirm(`Remove user "${username}"?`)) return
-    const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' })
-    if (res.ok) {
-      setUsers((prev) => prev.filter((u) => u.id !== userId))
-    } else {
-      alert(await res.text())
+  async function deleteUser(u: UserRow) {
+    if (!confirm(`Delete user ${u.email}? This cannot be undone.`)) return
+    setErr('')
+    try {
+      await delJson(`/api/users/${u.id}`)
+      await refresh()
+    } catch (e: unknown) {
+      setErr((e as Error).message || 'Failed to delete')
     }
   }
 
-  const currentUsername = session?.user?.name
+  async function sendResetEmail(u: UserRow) {
+    if (!u.email) return
+    setErr('')
+    try {
+      await postJson(`/api/users/${u.id}/reset-password`, {})
+      alert(`Password reset email sent to ${u.email}.`)
+    } catch (e: unknown) {
+      setErr((e as Error).message || 'Failed to send reset email')
+    }
+  }
+
+  if (authError) {
+    return (
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-bold text-white mb-2">Users</h1>
+        <p className="text-red-400">Super-admin access required.</p>
+        <Link href="/admin" className="text-blue-400 hover:text-blue-300 text-sm mt-4 inline-block">← Back to admin</Link>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-8 max-w-lg">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Users</h1>
-        <p className="text-gray-400 mt-1">Manage admin accounts</p>
+    <div className="space-y-8 max-w-4xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Users</h1>
+          <p className="text-gray-400 mt-1">Manage admins and competition access</p>
+        </div>
+        <button
+          onClick={() => setShowAdd((v) => !v)}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors"
+        >
+          {showAdd ? 'Cancel' : 'Add User'}
+        </button>
       </div>
 
-      {/* User list */}
-      <div className="bg-gray-900 rounded-xl overflow-hidden">
-        {users.map((u) => (
-          <div key={u.id} className="border-b border-gray-800 last:border-0">
-            <div className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
-                <span className="text-white font-medium">{u.username}</span>
-                {u.username === currentUsername && (
-                  <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">you</span>
-                )}
+      {err && <div className="bg-red-900/50 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">{err}</div>}
+
+      {showAdd && (
+        <div className="bg-gray-900 rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-white">Add User</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="new-user-email" className="block text-xs text-gray-400 mb-1">Email</label>
+              <input
+                id="new-user-email" name="email"
+                type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="new-user-password" className="block text-xs text-gray-400 mb-1">Password (12+ chars)</label>
+              <input
+                id="new-user-password" name="password"
+                type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                required minLength={12}
+              />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={newIsSuper} onChange={(e) => setNewIsSuper(e.target.checked)} />
+            Super admin (full access to every competition)
+          </label>
+
+          {!newIsSuper && comps.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-400 mb-2">Grant admin on which competitions?</label>
+              <div className="space-y-1">
+                {comps.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newComps.has(c.id)}
+                      onChange={(e) => {
+                        const next = new Set(newComps)
+                        if (e.target.checked) next.add(c.id); else next.delete(c.id)
+                        setNewComps(next)
+                      }}
+                    />
+                    {c.name} <span className="text-xs text-gray-500">({c.slug})</span>
+                  </label>
+                ))}
               </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => changingId === u.id ? setChangingId(null) : startChangePassword(u.id)}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  {changingId === u.id ? 'Cancel' : 'Change Password'}
+            </div>
+          )}
+
+          <button
+            onClick={addUser}
+            disabled={addLoading || !newEmail.trim() || newPassword.length < 12}
+            className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-5 py-2 text-sm transition-colors"
+          >
+            {addLoading ? 'Adding…' : 'Add User'}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-gray-900 rounded-xl overflow-hidden">
+        {loading && <div className="px-5 py-4 text-gray-400">Loading…</div>}
+        {!loading && users.map((u) => (
+          <div key={u.id} className="border-b border-gray-800 last:border-0 px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-white font-medium">{u.email ?? '(no email)'}</span>
+                  {u.isSuper && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">super</span>}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {u.isSuper && <span className="text-xs text-gray-500">all competitions</span>}
+                  {!u.isSuper && u.competitions.length === 0 && <span className="text-xs text-gray-500">no competition access</span>}
+                  {u.competitions.map((c) => (
+                    <span key={c.id} className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded">
+                      {c.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 text-sm">
+                <button onClick={() => sendResetEmail(u)} className="text-blue-400 hover:text-blue-300">Reset pw</button>
+                <button onClick={() => editingId === u.id ? setEditingId(null) : startEdit(u)} className="text-blue-400 hover:text-blue-300">
+                  {editingId === u.id ? 'Cancel' : 'Edit'}
                 </button>
-                <button
-                  onClick={() => deleteUser(u.id, u.username)}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-40"
-                  disabled={users.length <= 1}
-                >
-                  Remove
-                </button>
+                <button onClick={() => deleteUser(u)} className="text-red-400 hover:text-red-300">Delete</button>
               </div>
             </div>
 
-            {changingId === u.id && (
-              <div className="px-5 pb-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+            {editingId === u.id && (
+              <div className="mt-4 space-y-3 bg-gray-800/40 rounded-lg p-4">
+                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                  <input
+                    type="checkbox" checked={editIsSuper}
+                    onChange={(e) => setEditIsSuper(e.target.checked)}
+                  />
+                  Super admin
+                </label>
+                {!editIsSuper && (
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">New Password</label>
-                    <input
-                      type="password"
-                      value={newPw}
-                      onChange={(e) => setNewPw(e.target.value)}
-                      autoFocus
-                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
+                    <div className="text-xs text-gray-400 mb-2">Competitions</div>
+                    <div className="space-y-1">
+                      {comps.map((c) => (
+                        <label key={c.id} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editComps.has(c.id)}
+                            onChange={(e) => {
+                              const next = new Set(editComps)
+                              if (e.target.checked) next.add(c.id); else next.delete(c.id)
+                              setEditComps(next)
+                            }}
+                          />
+                          {c.name} <span className="text-xs text-gray-500">({c.slug})</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Confirm Password</label>
-                    <input
-                      type="password"
-                      value={confirmPw}
-                      onChange={(e) => setConfirmPw(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') savePassword(u.id) }}
-                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-                {pwError && <p className="text-red-400 text-xs">{pwError}</p>}
+                )}
                 <button
-                  onClick={() => savePassword(u.id)}
-                  disabled={pwLoading}
-                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+                  onClick={() => saveEdit(u.id)}
+                  disabled={editLoading}
+                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2"
                 >
-                  {pwLoading ? 'Saving...' : 'Save Password'}
+                  {editLoading ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             )}
           </div>
         ))}
-      </div>
-
-      {/* Add user */}
-      <div className="bg-gray-900 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Add User</h2>
-        <form onSubmit={addUser} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Username</label>
-              <input
-                type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                required
-              />
-            </div>
-          </div>
-          {addError && <p className="text-red-400 text-xs">{addError}</p>}
-          <button
-            type="submit"
-            disabled={addLoading || !newUsername.trim() || !newPassword}
-            className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
-          >
-            {addLoading ? 'Adding...' : 'Add User'}
-          </button>
-        </form>
+        {!loading && users.length === 0 && (
+          <div className="px-5 py-8 text-center text-gray-500">No users yet.</div>
+        )}
       </div>
     </div>
   )

@@ -4,14 +4,9 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { statusStyle } from '@/lib/workoutEnums'
 
 type Workout = { id: number; number: number; name: string; status: string; lanes: number }
-
-const statusColor: Record<string, string> = {
-  draft: 'bg-gray-700 text-gray-300',
-  active: 'bg-green-900 text-green-300',
-  completed: 'bg-blue-900 text-blue-300',
-}
 
 export default function CompetitionDashboard() {
   const { slug } = useParams<{ slug: string }>()
@@ -95,7 +90,7 @@ export default function CompetitionDashboard() {
                   <span className="font-semibold text-white">WOD {w.number}: {w.name}</span>
                   <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes</span>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[w.status] ?? 'bg-gray-700 text-gray-300'}`}>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(w.status).className}`}>
                   {w.status}
                 </span>
               </Link>
@@ -116,7 +111,15 @@ export default function CompetitionDashboard() {
           download
           className="bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
         >
-          Export Data
+          Export (CSV)
+        </a>
+        <a
+          href={`/api/export/zip?slug=${slug}`}
+          download
+          className="bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
+          title="Per-table CSVs + JSON manifest, zipped"
+        >
+          Export (ZIP)
         </a>
       </div>
 
@@ -141,7 +144,7 @@ export default function CompetitionDashboard() {
         {logoUrl ? (
           <div className="space-y-3">
             <div className="bg-gray-800 rounded-lg p-3 flex items-center justify-center h-24">
-              <Image src={logoUrl} alt="Competition logo" width={160} height={80} className="max-h-20 w-auto object-contain" unoptimized />
+              <Image src={logoUrl} alt="Competition logo" width={160} height={80} className="max-h-20 w-auto object-contain" />
             </div>
             <div className="flex gap-3">
               <button onClick={() => fileInputRef.current?.click()} disabled={logoLoading} className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Replace</button>

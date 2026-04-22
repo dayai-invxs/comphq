@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import { getJson, postJson, putJson, delJson } from '@/lib/http'
 
 type Division = { id: number; name: string; order: number }
 
@@ -14,23 +15,34 @@ export default function DivisionsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [editOrder, setEditOrder] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-  async function load() {
-    const res = await fetch(`/api/divisions?slug=${slug}`)
-    if (res.ok) setDivisions(await res.json())
+  async function run<T>(label: string, op: () => Promise<T>): Promise<T | undefined> {
+    setError(null)
+    try {
+      return await op()
+    } catch (e) {
+      setError(`${label}: ${e instanceof Error ? e.message : String(e)}`)
+      return undefined
+    }
   }
 
-  useEffect(() => { void load() }, [slug])
+  const load = useCallback(async () => {
+    await run('Load divisions', async () => {
+      const data = await getJson<Division[]>(`/api/divisions?slug=${slug}`)
+      setDivisions(data)
+    })
+  }, [slug])
+
+  useEffect(() => { void load() }, [load])
 
   async function addDivision(e: React.FormEvent) {
     e.preventDefault()
     if (!newName.trim() || !newOrder) return
     setLoading(true)
-    await fetch('/api/divisions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, name: newName.trim(), order: Number(newOrder) }),
-    })
+    await run('Add division', () =>
+      postJson('/api/divisions', { slug, name: newName.trim(), order: Number(newOrder) }),
+    )
     setNewName(''); setNewOrder('')
     await load()
     setLoading(false)
@@ -41,19 +53,20 @@ export default function DivisionsPage() {
   }
 
   async function saveEdit(id: number) {
-    await fetch(`/api/divisions/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editName.trim(), order: Number(editOrder) }),
-    })
+    await run('Save division', () =>
+      putJson(`/api/divisions/${id}?slug=${slug}`, {
+        name: editName.trim(),
+        order: Number(editOrder),
+      }),
+    )
     setEditingId(null)
     await load()
   }
 
   async function remove(id: number, name: string) {
     if (!confirm(`Delete division "${name}"? Athletes in this division will be unassigned.`)) return
-    await fetch(`/api/divisions/${id}`, { method: 'DELETE' })
-    setDivisions((prev) => prev.filter((d) => d.id !== id))
+    const ok = await run('Delete division', () => delJson(`/api/divisions/${id}?slug=${slug}`))
+    if (ok !== undefined) setDivisions((prev) => prev.filter((d) => d.id !== id))
   }
 
   return (
@@ -62,6 +75,13 @@ export default function DivisionsPage() {
         <h1 className="text-2xl font-bold text-white">Divisions</h1>
         <p className="text-gray-400 mt-1">Division order determines the heat running order — lower order runs first.</p>
       </div>
+
+      {error && (
+        <div role="alert" className="bg-red-950 border border-red-900 text-red-200 rounded-lg px-4 py-3 text-sm">
+          {error}
+          <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-200 underline">dismiss</button>
+        </div>
+      )}
 
       {divisions.length > 0 && (
         <div className="bg-gray-900 rounded-xl overflow-hidden">

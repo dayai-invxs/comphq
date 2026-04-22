@@ -1,22 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
+import { getJson, postJson, patchJson } from '@/lib/http'
+import { toIsoOrNull } from '@/lib/datetime'
 
 type Workout = { id: number; number: number; name: string; scoreType: string; lanes: number; status: string }
-
-const statusColor: Record<string, string> = {
-  draft: 'bg-gray-700 text-gray-300',
-  active: 'bg-green-900 text-green-300',
-  completed: 'bg-blue-900 text-blue-300',
-}
-
-const SCORE_TYPE_LABELS: Record<string, string> = {
-  time: 'Time',
-  rounds_reps: 'Rounds + Reps',
-  weight: 'Weight',
-}
 
 function parseMinSec(val: string): number {
   const [m = '0', s = '0'] = val.split(':')
@@ -50,56 +41,64 @@ export default function WorkoutsPage() {
   const [partBScoreType, setPartBScoreType] = useState('time')
   const [halfWeight, setHalfWeight] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [tiebreakWorkoutId, setTiebreakWorkoutId] = useState<number | null>(null)
+
+  async function run<T>(label: string, op: () => Promise<T>): Promise<T | undefined> {
+    setError(null)
+    try {
+      return await op()
+    } catch (e) {
+      setError(`${label}: ${e instanceof Error ? e.message : String(e)}`)
+      return undefined
+    }
+  }
 
   const [importCsv, setImportCsv] = useState('')
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; workoutsAffected: number[]; errors: { line: number; message: string }[]; warnings: { message: string }[] } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  async function load() {
-    const [workoutsRes, settingsRes] = await Promise.all([
-      fetch(`/api/workouts?slug=${slug}`),
-      fetch(`/api/settings?slug=${slug}`),
-    ])
-    if (workoutsRes.ok) setWorkouts(await workoutsRes.json())
-    if (settingsRes.ok) {
-      const s = await settingsRes.json()
+  const load = useCallback(async () => {
+    await run('Load workouts', async () => {
+      const [w, s] = await Promise.all([
+        getJson<Workout[]>(`/api/workouts?slug=${slug}`),
+        getJson<{ tiebreakWorkoutId: number | null }>(`/api/settings?slug=${slug}`),
+      ])
+      setWorkouts(w)
       setTiebreakWorkoutId(s.tiebreakWorkoutId ?? null)
-    }
-  }
+    })
+  }, [slug])
 
-  useEffect(() => { void load() }, [slug])
+  useEffect(() => { void load() }, [load])
 
   async function saveTiebreakWorkout(workoutId: number | null) {
     setTiebreakWorkoutId(workoutId)
-    await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, tiebreakWorkoutId: workoutId }),
-    })
+    await run('Save tiebreaker', () =>
+      patchJson('/api/settings', { slug, tiebreakWorkoutId: workoutId }),
+    )
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    await fetch('/api/workouts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const created = await run('Create workout', () =>
+      postJson('/api/workouts', {
         slug,
         number: Number(number), name: name.trim(), scoreType, lanes: Number(lanes),
         heatIntervalSecs: parseMinSec(heatInterval),
         timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
         callTimeSecs: parseMinSec(callTime),
         walkoutTimeSecs: parseMinSec(walkoutTime),
-        startTime: startTime || null, mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
+        startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
       }),
-    })
-    setNumber(''); setName(''); setScoreType('time'); setLanes('5')
-    setHeatInterval('10:00'); setTimeBetweenHeats('2:00'); setCallTime('10:00'); setWalkoutTime('2:00')
-    setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false)
-    await load()
+    )
+    if (created !== undefined) {
+      setNumber(''); setName(''); setScoreType('time'); setLanes('5')
+      setHeatInterval('10:00'); setTimeBetweenHeats('2:00'); setCallTime('10:00'); setWalkoutTime('2:00')
+      setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false)
+      await load()
+    }
     setLoading(false)
   }
 
@@ -132,6 +131,13 @@ export default function WorkoutsPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-white">Workouts</h1>
+
+      {error && (
+        <div role="alert" className="bg-red-950 border border-red-900 text-red-200 rounded-lg px-4 py-3 text-sm">
+          {error}
+          <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-200 underline">dismiss</button>
+        </div>
+      )}
 
       <div className="bg-gray-900 rounded-xl p-6 max-w-2xl">
         <h2 className="text-lg font-semibold text-white mb-4">Add Workout</h2>
@@ -184,9 +190,9 @@ export default function WorkoutsPage() {
             <Link key={w.id} href={`${base}/workouts/${w.id}`} className="flex items-center justify-between bg-gray-900 hover:bg-gray-800 rounded-xl px-5 py-4 transition-colors">
               <div>
                 <span className="font-semibold text-white">WOD {w.number}: {w.name}</span>
-                <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes · {SCORE_TYPE_LABELS[w.scoreType] ?? w.scoreType}</span>
+                <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes · {scoreTypeLabel(w.scoreType)}</span>
               </div>
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[w.status] ?? 'bg-gray-700 text-gray-300'}`}>{w.status}</span>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(w.status).className}`}>{w.status}</span>
             </Link>
           ))}
         </div>

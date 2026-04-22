@@ -1,37 +1,44 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { HeatTimeSet } from '@/lib/schemas'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, HeatTimeSet)
+  if (!parsed.ok) return parsed.response
 
-  const { id } = await params
-  const workoutId = Number(id)
-  const { heatNumber, isoTime } = await req.json() as { heatNumber: number; isoTime: string }
+  try {
+    const { competition } = await requireCompetitionAdmin(slug)
+    const { id } = await params
+    const workoutId = Number(id)
+    const workout = await requireWorkoutInCompetition<{ heatStartOverrides: Record<string, string> | string | null }>(
+      workoutId,
+      competition.id,
+      'heatStartOverrides',
+    )
 
-  const { data: workout } = await supabase
-    .from('Workout')
-    .select('*')
-    .eq('id', workoutId)
-    .maybeSingle()
-  if (!workout) return new Response('Not found', { status: 404 })
+    const { heatNumber, isoTime } = parsed.data
 
-  const overrides: Record<string, string> = JSON.parse(
-    (workout as { heatStartOverrides: string }).heatStartOverrides || '{}',
-  )
-  for (const key of Object.keys(overrides)) {
-    if (Number(key) >= heatNumber) delete overrides[key]
+    // Column is jsonb; legacy rows may still surface as a stringified blob.
+    const existing = workout.heatStartOverrides
+    const overrides: Record<string, string> =
+      typeof existing === 'string' ? JSON.parse(existing || '{}') : (existing ?? {})
+    for (const key of Object.keys(overrides)) {
+      if (Number(key) >= heatNumber) delete overrides[key]
+    }
+    overrides[String(heatNumber)] = isoTime
+
+    const { data, error } = await supabase
+      .from('Workout')
+      .update({ heatStartOverrides: overrides })
+      .eq('id', workoutId)
+      .select('*')
+      .single()
+
+    if (error) return new Response(error.message, { status: 500 })
+    return Response.json(data)
+  } catch (e) {
+    return authErrorResponse(e)
   }
-  overrides[String(heatNumber)] = isoTime
-
-  const { data, error } = await supabase
-    .from('Workout')
-    .update({ heatStartOverrides: JSON.stringify(overrides) })
-    .eq('id', workoutId)
-    .select('*')
-    .single()
-
-  if (error) return new Response(error.message, { status: 500 })
-  return Response.json(data)
 }

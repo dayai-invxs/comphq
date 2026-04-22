@@ -1,30 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
+import { useLeaderboard, qk } from '@/lib/queries'
+import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { SlugNav } from '@/components/SlugNav'
-
-type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
-type WorkoutScore = { points: number; display: string } | null
-type Entry = { athleteId: number; athleteName: string; divisionName: string | null; totalPoints: number; workoutScores: Record<number, WorkoutScore> }
 
 export default function PublicLeaderboardPage() {
   const { slug } = useParams<{ slug: string }>()
-  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
-  const [entries, setEntries] = useState<Entry[]>([])
-  const [halfWeightIds, setHalfWeightIds] = useState<number[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading } = useLeaderboard(slug)
 
-  useEffect(() => {
-    fetch(`/api/leaderboard?slug=${slug}`)
-      .then((r) => r.json())
-      .then(({ workouts: ws, entries: es, halfWeightIds: hwIds }) => {
-        setWorkouts(ws)
-        setEntries(es)
-        setHalfWeightIds(hwIds ?? [])
-        setLoading(false)
-      })
-  }, [slug])
+  const realtimeKeys = useMemo(() => [qk.leaderboard(slug)], [slug])
+  useRealtimeInvalidation(realtimeKeys)
+
+  const workouts = data?.workouts ?? []
+  const entries = data?.entries ?? []
+  const halfWeightIds = data?.halfWeightIds ?? []
 
   const divisions = [...new Set(entries.map((e) => e.divisionName))].sort((a, b) => {
     if (a === null) return 1
@@ -34,7 +25,7 @@ export default function PublicLeaderboardPage() {
 
   const workoutIds = workouts.map((w) => w.id)
 
-  function isTrulyTied(a: Entry, b: Entry): boolean {
+  function isTrulyTied(a: typeof entries[number], b: typeof entries[number]): boolean {
     if (a.totalPoints !== b.totalPoints) return false
     return workoutIds.every((wId) => (a.workoutScores[wId]?.points ?? null) === (b.workoutScores[wId]?.points ?? null))
   }
@@ -102,26 +93,26 @@ export default function PublicLeaderboardPage() {
     <div className="min-h-screen flex flex-col">
       <SlugNav slug={slug} />
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
-        {!loading && workouts.length > 0 && (
-          <p className="text-gray-400 mt-1">
-            Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · Lower points = better
-          </p>
-        )}
-      </div>
-
-      {loading && <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>}
-
-      {!loading && workouts.length === 0 && (
-        <div className="text-center text-gray-500 py-20 text-lg">No completed workouts yet.</div>
-      )}
-
-      {!loading && workouts.length > 0 && (
-        <div className="space-y-8">
-          {divisions.map((d) => renderTable(d))}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
+          {!isLoading && workouts.length > 0 && (
+            <p className="text-gray-400 mt-1">
+              Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · Lower points = better
+            </p>
+          )}
         </div>
-      )}
+
+        {isLoading && <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>}
+
+        {!isLoading && workouts.length === 0 && (
+          <div className="text-center text-gray-500 py-20 text-lg">No completed workouts yet.</div>
+        )}
+
+        {!isLoading && workouts.length > 0 && (
+          <div className="space-y-8">
+            {divisions.map((d) => renderTable(d))}
+          </div>
+        )}
       </main>
     </div>
   )

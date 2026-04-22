@@ -1,53 +1,67 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { resolveCompetition } from '@/lib/competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { parseJson } from '@/lib/parseJson'
+import { WorkoutCreate } from '@/lib/schemas'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
-  const competition = await resolveCompetition(slug)
-  if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const { data, error } = await supabase
-    .from('Workout')
-    .select('*')
-    .eq('competitionId', competition.id)
-    .order('number')
-  if (error) return new Response(error.message, { status: 500 })
-  return Response.json(data ?? [])
+  try {
+    const { competition } = await requireCompetitionAdmin(slug)
+
+    const { data, error } = await supabase
+      .from('Workout')
+      .select('*')
+      .eq('competitionId', competition.id)
+      .order('number')
+    if (error) return new Response(error.message, { status: 500 })
+    return Response.json(data ?? [])
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  const parsed = await parseJson(req, WorkoutCreate)
+  if (!parsed.ok) return parsed.response
 
-  const body = await req.json()
-  const competition = await resolveCompetition(body.slug ?? '')
-  if (!competition) return new Response('Competition not found', { status: 404 })
+  try {
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
+    const d = parsed.data
 
-  const { data, error } = await supabase
-    .from('Workout')
-    .insert({
-      competitionId: competition.id,
-      number: Number(body.number),
-      name: body.name.trim(),
-      scoreType: body.scoreType,
-      lanes: Number(body.lanes),
-      heatIntervalSecs: Number(body.heatIntervalSecs),
-      timeBetweenHeatsSecs: body.timeBetweenHeatsSecs != null ? Number(body.timeBetweenHeatsSecs) : 120,
-      callTimeSecs: Number(body.callTimeSecs),
-      walkoutTimeSecs: Number(body.walkoutTimeSecs),
-      startTime: body.startTime ? new Date(body.startTime).toISOString() : null,
-      status: 'draft',
-      mixedHeats: body.mixedHeats !== false,
-      tiebreakEnabled: body.tiebreakEnabled === true,
-      partBEnabled: body.partBEnabled === true,
-      partBScoreType: body.partBScoreType ?? 'time',
-      halfWeight: body.halfWeight === true,
-    })
-    .select('*')
-    .single()
+    const { data, error } = await supabase
+      .from('Workout')
+      .insert({
+        competitionId: competition.id,
+        number: d.number,
+        name: d.name,
+        scoreType: d.scoreType,
+        lanes: d.lanes,
+        heatIntervalSecs: d.heatIntervalSecs,
+        timeBetweenHeatsSecs: d.timeBetweenHeatsSecs ?? 120,
+        callTimeSecs: d.callTimeSecs,
+        walkoutTimeSecs: d.walkoutTimeSecs,
+        startTime: d.startTime ?? null,
+        status: 'draft',
+        mixedHeats: d.mixedHeats !== false,
+        tiebreakEnabled: d.tiebreakEnabled === true,
+        partBEnabled: d.partBEnabled === true,
+        partBScoreType: d.partBScoreType ?? 'time',
+        halfWeight: d.halfWeight === true,
+      })
+      .select('*')
+      .single()
 
-  if (error) return new Response(error.message, { status: 500 })
-  return Response.json(data, { status: 201 })
+    if (error) {
+      // Postgres unique_violation → 409 with actionable message (workout
+      // numbers are unique per competition).
+      if ((error as { code?: string }).code === '23505') {
+        return new Response(`Workout number ${d.number} already exists in this competition.`, { status: 409 })
+      }
+      return new Response(error.message, { status: 500 })
+    }
+    return Response.json(data, { status: 201 })
+  } catch (e) {
+    return authErrorResponse(e)
+  }
 }

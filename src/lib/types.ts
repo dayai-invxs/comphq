@@ -1,56 +1,39 @@
-export type Setting = { key: string; value: string }
+// Single source of truth for domain types: the generated Supabase types.
+//
+// Regenerate after any schema change:
+//   npm run db:types
+//
+// If you find yourself defining a type that mirrors a DB row, re-export it
+// from here instead. `db-types.ts` is auto-generated and never hand-edited.
 
-export type Division = { id: number; name: string; order: number }
+import type { Database } from './db-types'
 
-export type Athlete = {
-  id: number
-  name: string
-  bibNumber: string | null
-  divisionId: number | null
-  division?: Division | null
-}
+type Tables = Database['public']['Tables']
 
-export type Workout = {
-  id: number
-  number: number
-  name: string
-  scoreType: string
-  lanes: number
-  heatIntervalSecs: number
-  timeBetweenHeatsSecs: number
-  callTimeSecs: number
-  walkoutTimeSecs: number
-  startTime: string | null
-  status: string
-  mixedHeats: boolean
-  tiebreakEnabled: boolean
-  partBEnabled: boolean
-  partBScoreType: string
-  heatStartOverrides: string
-  completedHeats: string
-}
+export type Setting = Tables['Setting']['Row']
+export type Division = Tables['Division']['Row']
+export type UserProfile = Tables['UserProfile']['Row']
+export type Competition = Tables['Competition']['Row']
+export type CompetitionAdmin = Tables['CompetitionAdmin']['Row']
+export type HeatCompletion = Tables['HeatCompletion']['Row']
+export type AuditLog = Tables['AuditLog']['Row']
 
-export type HeatAssignment = {
-  id: number
-  workoutId: number
-  athleteId: number
-  heatNumber: number
-  lane: number
+// Athlete carries an optional embedded division (PostgREST `.select('*, division:Division(*)')`).
+export type Athlete = Tables['Athlete']['Row'] & { division?: Division | null }
+
+// Workout row (schema). API responses may include virtual fields like
+// `completedHeats: number[]` (derived from HeatCompletion) — callers add
+// those fields explicitly; they're not part of the DB row.
+export type Workout = Tables['Workout']['Row']
+
+// HeatAssignment with optional embedded athlete + workout.
+export type HeatAssignment = Tables['HeatAssignment']['Row'] & {
   athlete?: Athlete
   workout?: Workout
 }
 
-export type User = { id: number; username: string; password: string }
-
-export type Score = {
-  id: number
-  athleteId: number
-  workoutId: number
-  rawScore: number
-  tiebreakRawScore: number | null
-  points: number | null
-  partBRawScore: number | null
-  partBPoints: number | null
+// Score with optional embedded athlete + workout.
+export type Score = Tables['Score']['Row'] & {
   athlete?: Athlete
   workout?: Workout
 }

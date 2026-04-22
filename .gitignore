@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # next.js
 /.next/
@@ -46,3 +49,6 @@ next-env.d.ts
 
 # supabase seed (local dev data, don't commit)
 /supabase/seed.sql
+
+# claude code local settings
+/.claude/

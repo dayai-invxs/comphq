@@ -65,6 +65,44 @@ export function createSupabaseMock() {
     return makeChain(call)
   })
 
+  // RPC invocations land in `calls` as a synthetic "table" = `rpc:<fn>`.
+  const rpc = vi.fn(async (fn: string, args?: Record<string, unknown>) => {
+    const call: ChainCall = { table: `rpc:${fn}`, ops: [{ op: 'rpc', args: args ? [args] : [] }] }
+    calls.push(call)
+    const next = results.shift() ?? { data: null, error: null }
+    return next
+  })
+
+  // Supabase Auth admin-API surface. Each method records itself in `calls`
+  // and consumes the next queued result.
+  const authAdmin = {
+    listUsers: vi.fn(async (args?: unknown) => {
+      calls.push({ table: 'auth:listUsers', ops: [{ op: 'auth', args: args ? [args] : [] }] })
+      return results.shift() ?? { data: { users: [] }, error: null }
+    }),
+    createUser: vi.fn(async (args?: unknown) => {
+      calls.push({ table: 'auth:createUser', ops: [{ op: 'auth', args: args ? [args] : [] }] })
+      return results.shift() ?? { data: { user: null }, error: null }
+    }),
+    deleteUser: vi.fn(async (id?: unknown) => {
+      calls.push({ table: 'auth:deleteUser', ops: [{ op: 'auth', args: id ? [id] : [] }] })
+      return results.shift() ?? { data: null, error: null }
+    }),
+    updateUserById: vi.fn(async (id: unknown, args?: unknown) => {
+      calls.push({ table: 'auth:updateUserById', ops: [{ op: 'auth', args: [id, args] }] })
+      return results.shift() ?? { data: { user: null }, error: null }
+    }),
+    generateLink: vi.fn(async (args?: unknown) => {
+      calls.push({ table: 'auth:generateLink', ops: [{ op: 'auth', args: args ? [args] : [] }] })
+      return results.shift() ?? { data: null, error: null }
+    }),
+  }
+
+  const authResetPasswordForEmail = vi.fn(async (email: string, opts?: unknown) => {
+    calls.push({ table: 'auth:resetPasswordForEmail', ops: [{ op: 'auth', args: [email, opts] }] })
+    return results.shift() ?? { data: null, error: null }
+  })
+
   const storage = {
     from: vi.fn<(bucket: string) => {
       upload: (path: string, file: unknown, opts?: unknown) => Promise<{ data: { path: string }; error: null }>
@@ -78,7 +116,15 @@ export function createSupabaseMock() {
   }
 
   return {
-    client: { from, storage },
+    client: {
+      from,
+      storage,
+      rpc,
+      auth: {
+        admin: authAdmin,
+        resetPasswordForEmail: authResetPasswordForEmail,
+      },
+    },
     queueResult<T = unknown>(result: SupabaseResult<T>) {
       results.push(result)
     },
@@ -95,6 +141,7 @@ export function createSupabaseMock() {
       results.length = 0
       calls.length = 0
       from.mockClear()
+      rpc.mockClear()
     },
   }
 }

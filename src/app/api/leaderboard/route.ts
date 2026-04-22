@@ -84,5 +84,8 @@ export async function GET(req: Request) {
     return a.athleteName.localeCompare(b.athleteName)
   })
 
-  return Response.json({ workouts: workouts ?? [], entries, tiebreakWorkoutId, halfWeightIds: (workouts ?? []).filter((w) => (w as { halfWeight: boolean }).halfWeight).map((w) => (w as { id: number }).id) })
+  return Response.json(
+    { workouts: workouts ?? [], entries, tiebreakWorkoutId, halfWeightIds: (workouts ?? []).filter((w) => (w as { halfWeight: boolean }).halfWeight).map((w) => (w as { id: number }).id) },
+    { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },
+  )
 }

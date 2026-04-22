@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { getJson, postJson, putJson, delJson } from '@/lib/http'
 
 type Division = { id: number; name: string; order: number }
 type Athlete = { id: number; name: string; bibNumber: string | null; divisionId: number | null; division: Division | null }
@@ -26,36 +27,52 @@ export default function AthletesPage() {
   const [bulkText, setBulkText] = useState('')
   const [bulkDivisionId, setBulkDivisionId] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'single' | 'bulk'>('single')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editState, setEditState] = useState<EditState>({ name: '', bib: '', divisionId: '' })
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
+  async function run<T>(label: string, op: () => Promise<T>): Promise<T | undefined> {
+    setError(null)
+    try {
+      return await op()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`${label}: ${msg}`)
+      return undefined
+    }
+  }
+
   async function load() {
-    const [athleteRes, divisionRes] = await Promise.all([
-      fetch(`/api/athletes?slug=${slug}`),
-      fetch(`/api/divisions?slug=${slug}`),
-    ])
-    const athleteData: Athlete[] = await athleteRes.json()
-    setAthletes(athleteData)
-    setDivisions(await divisionRes.json())
-    setSelected((prev) => {
-      const ids = new Set(athleteData.map((a) => a.id))
-      return new Set([...prev].filter((id) => ids.has(id)))
+    await run('Load athletes', async () => {
+      const [athleteData, divisionData] = await Promise.all([
+        getJson<Athlete[]>(`/api/athletes?slug=${slug}`),
+        getJson<Division[]>(`/api/divisions?slug=${slug}`),
+      ])
+      setAthletes(athleteData)
+      setDivisions(divisionData)
+      setSelected((prev) => {
+        const ids = new Set(athleteData.map((a) => a.id))
+        return new Set([...prev].filter((id) => ids.has(id)))
+      })
     })
   }
 
-  useEffect(() => { void load() }, [slug])
+  useEffect(() => { void load() }, [slug]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     setLoading(true)
-    await fetch('/api/athletes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, name: name.trim(), bibNumber: bib.trim() || null, divisionId: divisionId ? Number(divisionId) : null }),
-    })
+    await run('Add athlete', () =>
+      postJson('/api/athletes', {
+        slug,
+        name: name.trim(),
+        bibNumber: bib.trim() || null,
+        divisionId: divisionId ? Number(divisionId) : null,
+      }),
+    )
     setName(''); setBib(''); setDivisionId('')
     await load()
     setLoading(false)
@@ -68,13 +85,15 @@ export default function AthletesPage() {
     setLoading(true)
     for (const line of lines) {
       const [athleteName, bibNumber] = line.split(',').map((s) => s.trim())
-      if (athleteName) {
-        await fetch('/api/athletes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, name: athleteName, bibNumber: bibNumber || null, divisionId: bulkDivisionId ? Number(bulkDivisionId) : null }),
-        })
-      }
+      if (!athleteName) continue
+      await run(`Import "${athleteName}"`, () =>
+        postJson('/api/athletes', {
+          slug,
+          name: athleteName,
+          bibNumber: bibNumber || null,
+          divisionId: bulkDivisionId ? Number(bulkDivisionId) : null,
+        }),
+      )
     }
     setBulkText('')
     await load()
@@ -88,27 +107,31 @@ export default function AthletesPage() {
 
   async function saveEdit(id: number) {
     if (!editState.name.trim()) return
-    await fetch(`/api/athletes/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editState.name.trim(), bibNumber: editState.bib.trim() || null, divisionId: editState.divisionId ? Number(editState.divisionId) : null }),
-    })
+    await run('Save edit', () =>
+      putJson(`/api/athletes/${id}?slug=${slug}`, {
+        name: editState.name.trim(),
+        bibNumber: editState.bib.trim() || null,
+        divisionId: editState.divisionId ? Number(editState.divisionId) : null,
+      }),
+    )
     setEditingId(null)
     await load()
   }
 
   async function remove(id: number) {
-    if (!confirm('Remove this athlete?')) return
-    await fetch(`/api/athletes/${id}`, { method: 'DELETE' })
-    setAthletes((prev) => prev.filter((a) => a.id !== id))
-    setSelected((prev) => { const s = new Set(prev); s.delete(id); return s })
+    if (!confirm('Remove this athlete?\n\nAll of their scores and heat assignments will also be permanently deleted.')) return
+    const ok = await run('Remove athlete', () => delJson(`/api/athletes/${id}?slug=${slug}`))
+    if (ok !== undefined) {
+      setAthletes((prev) => prev.filter((a) => a.id !== id))
+      setSelected((prev) => { const s = new Set(prev); s.delete(id); return s })
+    }
   }
 
   async function deleteSelected() {
     if (selected.size === 0) return
-    if (!confirm(`Remove ${selected.size} athlete${selected.size > 1 ? 's' : ''}?`)) return
+    if (!confirm(`Remove ${selected.size} athlete${selected.size > 1 ? 's' : ''}?\n\nAll of their scores and heat assignments will also be permanently deleted.`)) return
     setLoading(true)
-    await fetch('/api/athletes', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected] }) })
+    await run('Delete selected', () => delJson('/api/athletes', { ids: [...selected] }))
     setSelected(new Set())
     await load()
     setLoading(false)
@@ -131,6 +154,13 @@ export default function AthletesPage() {
         <h1 className="text-2xl font-bold text-white">Athletes</h1>
         <p className="text-gray-400 mt-1">{athletes.length} registered</p>
       </div>
+
+      {error && (
+        <div role="alert" className="bg-red-950 border border-red-900 text-red-200 rounded-lg px-4 py-3 text-sm">
+          {error}
+          <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-200 underline">dismiss</button>
+        </div>
+      )}
 
       <div className="bg-gray-900 rounded-xl p-6 max-w-xl">
         <div className="flex gap-2 mb-5">
