@@ -1,16 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useGSAP } from '@gsap/react'
-import { gsap } from 'gsap'
-import { Draggable } from 'gsap/Draggable'
+import { useState } from 'react'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import type { Workout, Assignment } from '@/hooks/useWorkoutDetail'
 import type { useScoreInputs } from '@/hooks/useScoreInputs'
 import { PartAInputCell, PartBInputCell } from './ScoreInputCells'
-
-gsap.registerPlugin(Draggable)
 
 type ScoreInputs = ReturnType<typeof useScoreInputs>
 
@@ -25,35 +20,21 @@ type Props = {
   onCompleteHeat: (heatNumber: number) => void
   onUndoHeat: (heatNumber: number) => void
   onSaveAssignment: (id: number, heatNumber: number, lane: number) => Promise<void>
-  onSwapAssignments: (aId: number, bId: number) => Promise<void>
-  onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
-}
 
-function GripIcon() {
-  return (
-    <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" className="text-gray-500 group-hover:text-gray-300 transition-colors">
-      <circle cx="4" cy="4" r="1.5" /><circle cx="8" cy="4" r="1.5" />
-      <circle cx="4" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" />
-      <circle cx="4" cy="12" r="1.5" /><circle cx="8" cy="12" r="1.5" />
-    </svg>
-  )
+  onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
 }
 
 export default function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
-  onSaveHeat, onCompleteHeat, onUndoHeat, onSaveAssignment, onSwapAssignments, onSaveHeatTime,
+  onSaveHeat, onCompleteHeat, onUndoHeat, onSaveAssignment, onSaveHeatTime,
 }: Props) {
   const [editingHeatTime, setEditingHeatTime] = useState(false)
   const [heatTimeInput, setHeatTimeInput] = useState('')
   const [editingAssignment, setEditingAssignment] = useState<number | null>(null)
   const [assignEditHeat, setAssignEditHeat] = useState('')
   const [assignEditLane, setAssignEditLane] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
 
   const sorted = [...entries].sort((a, b) => a.lane - b.lane)
-  // Key changes when assignment positions change — triggers Draggable rebuild
-  const sortedKey = sorted.map((a) => `${a.id}:${a.lane}:${a.heatNumber}`).join(',')
 
   const heatMs = workout.startTime
     ? calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
@@ -61,81 +42,6 @@ export default function HeatCard({
   const startLabel = heatMs != null
     ? new Date(heatMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null
-
-  // ─── GSAP Draggable setup ─────────────────────────────────────────────────
-  useGSAP(() => {
-    if (isComplete || sorted.length === 0) return
-
-    const draggables: ReturnType<typeof Draggable.create> = []
-
-    // elementsFromPoint is unreliable on iOS Safari during touch moves.
-    // Instead, query all [data-assignment-id] rows and compare bounding rects —
-    // this works on all platforms and supports cross-heat drops.
-    function findTargetRow(px: number, py: number, sourceRow: HTMLTableRowElement): HTMLElement | null {
-      const allRows = document.querySelectorAll<HTMLElement>('[data-assignment-id]')
-      for (const row of allRows) {
-        if (row === sourceRow) continue
-        const rect = row.getBoundingClientRect()
-        if (py >= rect.top && py <= rect.bottom && px >= rect.left && px <= rect.right) {
-          return row
-        }
-      }
-      return null
-    }
-
-    for (const assignment of sorted) {
-      if (editingAssignment === assignment.id) continue
-
-      const sourceRow = rowRefs.current.get(assignment.id)
-      if (!sourceRow) continue
-      const handle = sourceRow.querySelector<HTMLElement>('[data-drag-handle]')
-      if (!handle) continue
-
-      let ghost: HTMLDivElement | null = null
-      let highlightedRow: HTMLElement | null = null
-
-      function setHighlight(row: HTMLElement | null) {
-        if (highlightedRow === row) return
-        if (highlightedRow) highlightedRow.style.backgroundColor = ''
-        if (row) row.style.backgroundColor = 'rgba(249,115,22,0.12)'
-        highlightedRow = row
-      }
-
-      const [d] = Draggable.create(handle, {
-        type: 'x,y',
-        allowNativeTouchScrolling: false,
-        onDragStart() {
-          ghost = document.createElement('div')
-          ghost.textContent = assignment.athlete.name
-          ghost.style.cssText = [
-            'position:fixed', 'z-index:9999', 'pointer-events:none',
-            'background:#f97316', 'color:#fff', 'font-size:13px', 'font-weight:600',
-            'padding:6px 14px', 'border-radius:8px', 'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
-            'opacity:0.95', 'white-space:nowrap',
-          ].join(';')
-          document.body.appendChild(ghost)
-          gsap.set(ghost, { x: this.pointerX + 14, y: this.pointerY - 24 })
-        },
-        onDrag() {
-          if (ghost) gsap.set(ghost, { x: this.pointerX + 14, y: this.pointerY - 24 })
-          setHighlight(findTargetRow(this.pointerX, this.pointerY, sourceRow))
-        },
-        onDragEnd() {
-          ghost?.remove(); ghost = null
-          const targetRow = findTargetRow(this.pointerX, this.pointerY, sourceRow)
-          const targetId = targetRow ? Number(targetRow.dataset.assignmentId) : null
-          setHighlight(null)
-          gsap.set(handle, { clearProps: 'x,y' })
-          if (targetId) void onSwapAssignments(assignment.id, targetId)
-        },
-      })
-      draggables.push(d)
-    }
-
-    return () => { draggables.forEach((d) => d.kill()) }
-  }, { dependencies: [sortedKey, isComplete, editingAssignment], scope: containerRef })
-
-  // ─── Heat time edit ───────────────────────────────────────────────────────
 
   function openHeatTimeEdit() {
     if (heatMs == null) return
@@ -153,8 +59,6 @@ export default function HeatCard({
     setEditingHeatTime(false)
   }
 
-  // ─── Assignment edit ──────────────────────────────────────────────────────
-
   function startEditAssignment(a: Assignment) {
     setEditingAssignment(a.id)
     setAssignEditHeat(String(a.heatNumber))
@@ -166,10 +70,8 @@ export default function HeatCard({
     setEditingAssignment(null)
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
-
   return (
-    <div ref={containerRef} className={`rounded-xl overflow-hidden ${isComplete ? 'opacity-60' : 'bg-gray-900'}`}>
+    <div className={`rounded-xl overflow-hidden ${isComplete ? 'opacity-60' : 'bg-gray-900'}`}>
       <div className={`px-5 py-3 flex items-center justify-between ${isComplete ? 'bg-gray-700' : 'bg-gray-800'}`}>
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`font-semibold ${isComplete ? 'text-gray-400' : 'text-orange-400'}`}>Heat {heatNumber}</span>
@@ -217,7 +119,6 @@ export default function HeatCard({
         <table className="w-full text-sm">
           <thead className="bg-gray-800/50">
             <tr>
-              {!isComplete && <th className="w-8 px-2 py-2" />}
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Lane</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Heat</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
@@ -233,23 +134,7 @@ export default function HeatCard({
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
               const isEditingThis = editingAssignment === a.id
               return (
-                <tr
-                  key={a.id}
-                  ref={(el) => { if (el) rowRefs.current.set(a.id, el); else rowRefs.current.delete(a.id) }}
-                  data-assignment-id={a.id}
-                  className={`border-t border-gray-800 ${isEditingThis ? 'bg-gray-800/40' : ''}`}
-                >
-                  {!isComplete && (
-                    <td className="px-2 py-3">
-                      <span
-                        data-drag-handle
-                        className="group flex items-center justify-center w-6 h-8 cursor-grab active:cursor-grabbing touch-none select-none"
-                        title="Drag to swap"
-                      >
-                        <GripIcon />
-                      </span>
-                    </td>
-                  )}
+                <tr key={a.id} className={`border-t border-gray-800 ${isEditingThis ? 'bg-gray-800/40' : ''}`}>
                   <td className="px-3 py-2">
                     {isEditingThis
                       ? <input type="number" min="1" value={assignEditLane} onChange={(e) => setAssignEditLane(e.target.value)} className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500" />

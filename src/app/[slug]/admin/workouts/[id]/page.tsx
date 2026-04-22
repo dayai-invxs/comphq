@@ -201,7 +201,7 @@ export default function WorkoutDetailPage() {
               onCompleteHeat={completeHeat}
               onUndoHeat={detail.undoHeat}
               onSaveAssignment={detail.saveAssignment}
-              onSwapAssignments={detail.swapAssignments}
+
               onSaveHeatTime={detail.saveHeatTime}
             />
           ))}
