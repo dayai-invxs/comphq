@@ -173,6 +173,7 @@ export default function HeatCard({
                       weight={scoreInputs.weightInputs}
                       setWeight={scoreInputs.setWeightInputs}
                       tiebreakEnabled={workout.tiebreakEnabled}
+                      tiebreakScoreType={workout.tiebreakScoreType}
                       tiebreak={scoreInputs.tiebreakInputs}
                       setTiebreak={scoreInputs.setTiebreakInputs}
                     />
@@ -201,7 +202,7 @@ export default function HeatCard({
                           )}
                         </div>
                         {score.rawScore > 0 && <div className="text-xs text-gray-500">{formatScore(score.rawScore, workout.scoreType)}</div>}
-                        {score.tiebreakRawScore != null && <div className="text-xs text-blue-400">TB {formatTiebreak(score.tiebreakRawScore)}</div>}
+                        {score.tiebreakRawScore != null && <div className="text-xs text-blue-400">TB {workout.tiebreakScoreType === 'time' ? formatTiebreak(score.tiebreakRawScore) : formatScore(score.tiebreakRawScore, workout.tiebreakScoreType)}</div>}
                       </div>
                     ) : '—'}
                   </td>

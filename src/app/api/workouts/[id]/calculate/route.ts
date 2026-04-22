@@ -6,6 +6,7 @@ type RankableWorkout = {
   id: number
   scoreType: string
   tiebreakEnabled: boolean
+  tiebreakScoreType: string
   partBEnabled: boolean
   partBScoreType: string
 }
@@ -20,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const workout = await requireWorkoutInCompetition<RankableWorkout>(
       workoutId,
       competition.id,
-      'id, scoreType, tiebreakEnabled, partBEnabled, partBScoreType',
+      'id, scoreType, tiebreakEnabled, tiebreakScoreType, partBEnabled, partBScoreType',
     )
 
     const { data: scores, error: serr } = await supabase

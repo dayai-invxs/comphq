@@ -4,11 +4,12 @@ import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
 import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { lowerIsBetter } from '@/lib/scoring'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
   heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string; tiebreakEnabled: boolean
+  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string; tiebreakEnabled: boolean; tiebreakScoreType: string
 }
 
 type Assignment = {
@@ -61,7 +62,10 @@ export async function GET(req: Request) {
     if (w) {
       scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, w.scoreType))
       if (w.tiebreakEnabled && row.tiebreakRawScore != null) {
-        tiebreakMap.set(`${row.athleteId}-${row.workoutId}`, formatTiebreak(row.tiebreakRawScore))
+        const tbDisplay = w.tiebreakScoreType === 'time'
+          ? formatTiebreak(row.tiebreakRawScore)
+          : formatScore(row.tiebreakRawScore, w.tiebreakScoreType)
+        tiebreakMap.set(`${row.athleteId}-${row.workoutId}`, tbDisplay)
       }
     }
   }

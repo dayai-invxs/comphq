@@ -6,17 +6,16 @@ import { getJson } from '@/lib/http'
 type Division = { id: number; name: string }
 type EquipmentItem = { id: number; item: string; divisionId: number | null; division: Division | null }
 
-type Props = {
-  workoutId: string
-  slug: string
-}
+type Props = { workoutId: string; slug: string }
+
+const ALL = '__all__'
 
 export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
   const [open, setOpen] = useState(false)
   const [equipment, setEquipment] = useState<EquipmentItem[]>([])
   const [divisions, setDivisions] = useState<Division[]>([])
+  const [activeTab, setActiveTab] = useState<string>(ALL)
   const [newItem, setNewItem] = useState('')
-  const [newDivisionId, setNewDivisionId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -30,16 +29,11 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
       ])
       setEquipment(eq)
       setDivisions(divs)
-    } catch {
-      // silently ignore on close
-    }
+    } catch { /* ignore */ }
   }
 
-  useEffect(() => {
-    if (open) void load()
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) void load() }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return
     function handle(e: MouseEvent) {
@@ -52,6 +46,9 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
 
+  // The division to assign when adding — matches the active tab, or null for All
+  const addDivisionId = activeTab === ALL ? null : Number(activeTab)
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault()
     if (!newItem.trim()) return
@@ -61,7 +58,7 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
       const res = await fetch(`/api/workouts/${workoutId}/equipment?slug=${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item: newItem.trim(), divisionId: newDivisionId ? Number(newDivisionId) : null }),
+        body: JSON.stringify({ item: newItem.trim(), divisionId: addDivisionId }),
       })
       if (!res.ok) { setError(await res.text()); return }
       setNewItem('')
@@ -83,21 +80,33 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
     }
   }
 
-  // Group items: null division first (All), then by division name
-  const groups = equipment.reduce<Record<string, { label: string; items: EquipmentItem[] }>>((acc, eq) => {
-    const key = eq.divisionId == null ? '__all__' : String(eq.divisionId)
-    if (!acc[key]) acc[key] = { label: eq.division?.name ?? 'All Divisions', items: [] }
-    acc[key].items.push(eq)
-    return acc
-  }, {})
+  // Items visible in the current tab
+  const visibleItems = activeTab === ALL
+    ? equipment
+    : equipment.filter((eq) => String(eq.divisionId) === activeTab)
 
-  const groupKeys = Object.keys(groups).sort((a, b) => {
-    if (a === '__all__') return -1
-    if (b === '__all__') return 1
-    return groups[a].label.localeCompare(groups[b].label)
-  })
+  // For the All tab, group by division; for a specific division tab, flat list
+  const groups: { key: string; label: string; items: EquipmentItem[] }[] = []
+  if (activeTab === ALL) {
+    const map = new Map<string, { label: string; items: EquipmentItem[] }>()
+    for (const eq of visibleItems) {
+      const key = eq.divisionId == null ? '__none__' : String(eq.divisionId)
+      const label = eq.division?.name ?? 'All Divisions'
+      if (!map.has(key)) map.set(key, { label, items: [] })
+      map.get(key)!.items.push(eq)
+    }
+    // All Divisions group first, then alphabetical
+    const keys = [...map.keys()].sort((a, b) => {
+      if (a === '__none__') return -1
+      if (b === '__none__') return 1
+      return map.get(a)!.label.localeCompare(map.get(b)!.label)
+    })
+    for (const key of keys) groups.push({ key, ...map.get(key)! })
+  } else {
+    groups.push({ key: activeTab, label: '', items: visibleItems })
+  }
 
-  const totalCount = equipment.length
+  const activeDivisionName = activeTab === ALL ? null : divisions.find((d) => String(d.id) === activeTab)?.name ?? null
 
   return (
     <div className="relative">
@@ -108,83 +117,102 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
           open ? 'bg-gray-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
         }`}
       >
-        Equipment{totalCount > 0 && <span className="ml-1.5 text-xs bg-orange-500 text-white rounded-full px-1.5 py-0.5">{totalCount}</span>}
+        Equipment{equipment.length > 0 && (
+          <span className="ml-1.5 text-xs bg-orange-500 text-white rounded-full px-1.5 py-0.5">{equipment.length}</span>
+        )}
       </button>
 
       {open && (
         <div
           ref={panelRef}
           className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col"
-          style={{ maxHeight: '480px' }}
+          style={{ maxHeight: '500px' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
             <h3 className="text-sm font-semibold text-white">Equipment List</h3>
             <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white text-lg leading-none">×</button>
           </div>
 
+          {/* Division tabs */}
+          {divisions.length > 0 && (
+            <div className="flex border-b border-gray-800 shrink-0 overflow-x-auto">
+              {[{ id: ALL, name: 'All' }, ...divisions.map((d) => ({ id: String(d.id), name: d.name }))].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
+                    activeTab === tab.id
+                      ? 'border-orange-500 text-white'
+                      : 'border-transparent text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {tab.name}
+                  {tab.id !== ALL && (
+                    <span className="ml-1 text-gray-600">
+                      ({equipment.filter((eq) => String(eq.divisionId) === tab.id).length})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Item list */}
-          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
-            {equipment.length === 0 && (
-              <p className="text-gray-500 text-xs text-center py-4">No equipment added yet.</p>
+          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4 min-h-0">
+            {visibleItems.length === 0 && (
+              <p className="text-gray-500 text-xs text-center py-4">
+                {activeTab === ALL
+                  ? 'No equipment added yet.'
+                  : `No equipment for ${activeDivisionName ?? 'this division'} yet.`}
+              </p>
             )}
-            {groupKeys.map((key) => {
-              const { label, items } = groups[key]
-              return (
-                <div key={key}>
+            {groups.map(({ key, label, items }) => (
+              <div key={key}>
+                {activeTab === ALL && label && (
                   <p className="text-xs font-semibold text-orange-400 mb-1.5 uppercase tracking-wide">{label}</p>
-                  <ul className="space-y-1">
-                    {items.map((eq) => (
-                      <li key={eq.id} className="flex items-center justify-between gap-2 group">
-                        <span className="text-sm text-gray-200">{eq.item}</span>
-                        <button
-                          onClick={() => removeItem(eq.id)}
-                          disabled={loading}
-                          className="text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors text-base leading-none shrink-0"
-                          aria-label="Remove"
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            })}
+                )}
+                <ul className="space-y-1">
+                  {items.map((eq) => (
+                    <li key={eq.id} className="flex items-center justify-between gap-2">
+                      <span className="text-sm text-gray-200">{eq.item}</span>
+                      <button
+                        onClick={() => removeItem(eq.id)}
+                        disabled={loading}
+                        className="text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors text-base leading-none shrink-0"
+                        aria-label="Remove"
+                      >×</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
 
           {/* Add form */}
-          <div className="border-t border-gray-800 px-4 py-3 space-y-2">
+          <div className="border-t border-gray-800 px-4 py-3 space-y-2 shrink-0">
             {error && <p className="text-xs text-red-400">{error}</p>}
-            <form onSubmit={addItem} className="space-y-2">
+            {activeDivisionName && (
+              <p className="text-xs text-gray-500">Adding to <span className="text-orange-400 font-medium">{activeDivisionName}</span></p>
+            )}
+            {activeTab === ALL && divisions.length > 0 && (
+              <p className="text-xs text-gray-500">Adding to <span className="text-orange-400 font-medium">All Divisions</span> — select a division tab to target one specifically</p>
+            )}
+            <form onSubmit={addItem} className="flex gap-2">
               <input
                 type="text"
                 value={newItem}
                 onChange={(e) => setNewItem(e.target.value)}
-                placeholder="e.g. Barbell, 20kg plates, Jump rope"
-                className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-600"
+                placeholder="e.g. Barbell, 20kg plates…"
+                className="flex-1 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-600"
               />
-              <div className="flex gap-2">
-                {divisions.length > 0 && (
-                  <select
-                    value={newDivisionId}
-                    onChange={(e) => setNewDivisionId(e.target.value)}
-                    className="flex-1 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">All Divisions</option>
-                    {divisions.map((d) => (
-                      <option key={d.id} value={String(d.id)}>{d.name}</option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading || !newItem.trim()}
-                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors shrink-0"
-                >
-                  Add
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={loading || !newItem.trim()}
+                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors shrink-0"
+              >
+                Add
+              </button>
             </form>
           </div>
         </div>

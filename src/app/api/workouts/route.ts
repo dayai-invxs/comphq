@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         status: 'draft',
         mixedHeats: d.mixedHeats !== false,
         tiebreakEnabled: d.tiebreakEnabled === true,
+        tiebreakScoreType: d.tiebreakScoreType ?? 'time',
         partBEnabled: d.partBEnabled === true,
         partBScoreType: d.partBScoreType ?? 'time',
         halfWeight: d.halfWeight === true,

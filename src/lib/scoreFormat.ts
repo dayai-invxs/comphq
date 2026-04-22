@@ -22,7 +22,8 @@ export function scoreToRoundsReps(score: number): { rounds: number; reps: number
 export function formatScore(rawScore: number, scoreType: string): string {
   if (scoreType === 'time' || scoreType === 'lower_is_better') {
     const { mins, secs, ms } = msToTimeParts(rawScore)
-    return `${mins}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`
+    const cs = Math.round(ms / 10)
+    return `${mins}:${String(secs).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
   }
   if (scoreType === 'rounds_reps') {
     const { rounds, reps } = scoreToRoundsReps(rawScore)
@@ -33,5 +34,6 @@ export function formatScore(rawScore: number, scoreType: string): string {
 
 export function formatTiebreak(ms: number): string {
   const { mins, secs, ms: millis } = msToTimeParts(ms)
-  return `${mins}:${String(secs).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
+  const cs = Math.round(millis / 10)
+  return `${mins}:${String(secs).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
 }

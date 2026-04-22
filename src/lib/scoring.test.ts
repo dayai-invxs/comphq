@@ -111,6 +111,7 @@ describe('rankAndPersist', () => {
   const workout = {
     scoreType: 'time',
     tiebreakEnabled: false,
+    tiebreakScoreType: 'time',
     partBEnabled: false,
     partBScoreType: 'time',
   }

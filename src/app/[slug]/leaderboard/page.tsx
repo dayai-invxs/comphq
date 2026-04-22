@@ -159,7 +159,7 @@ export default function PublicLeaderboardPage() {
           )}
         </div>
 
-        {!isLoading && workouts.length > 0 && (
+        {!isLoading && (
           <div className="flex flex-wrap gap-3 mb-6">
             <input
               type="search"

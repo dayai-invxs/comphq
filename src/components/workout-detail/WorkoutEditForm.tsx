@@ -73,6 +73,7 @@ export default function WorkoutEditForm({ workout, loading, locations, onSave, o
   const [startTime, setStartTime] = useState(toLocalDatetime(workout.startTime))
   const [mixedHeats, setMixedHeats] = useState(workout.mixedHeats)
   const [tiebreakEnabled, setTiebreakEnabled] = useState(workout.tiebreakEnabled)
+  const [tiebreakScoreType, setTiebreakScoreType] = useState(workout.tiebreakScoreType ?? 'time')
   const [partBEnabled, setPartBEnabled] = useState(workout.partBEnabled)
   const [partBScoreType, setPartBScoreType] = useState(workout.partBScoreType)
   const [halfWeight, setHalfWeight] = useState(workout.halfWeight)
@@ -84,7 +85,7 @@ export default function WorkoutEditForm({ workout, loading, locations, onSave, o
       name: name.trim(), number: Number(number), scoreType, lanes: Number(lanes),
       heatIntervalSecs: fieldToSecs(heatInterval), timeBetweenHeatsSecs: fieldToSecs(timeBetweenHeats),
       callTimeSecs: fieldToSecs(callTime), walkoutTimeSecs: fieldToSecs(walkoutTime),
-      startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled,
+      startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, tiebreakScoreType,
       partBEnabled, partBScoreType, halfWeight,
       locationId: locationId ? Number(locationId) : null,
     })
@@ -122,7 +123,15 @@ export default function WorkoutEditForm({ workout, loading, locations, onSave, o
         <TimeInput label="Walk Out (before heat)" value={walkoutTime} onChange={setWalkoutTime} />
         <div><label className="block text-xs text-gray-400 mb-1">Start Time</label><input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" /></div>
         <Toggle on={mixedHeats} onToggle={() => setMixedHeats((v) => !v)} title="Mixed Heats" subtitle={mixedHeats ? 'Athletes from different divisions can share a heat' : 'Each heat contains only one division'} />
-        <Toggle on={tiebreakEnabled} onToggle={() => setTiebreakEnabled((v) => !v)} title="Tie Break Time" subtitle="Enter a tiebreak time per athlete — lowest time wins ties" />
+        <Toggle on={tiebreakEnabled} onToggle={() => setTiebreakEnabled((v) => !v)} title="Tie Break Score" subtitle="Enter a tiebreak score per athlete to break ties" />
+        {tiebreakEnabled && (
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Tie Break Score Type</label>
+            <select value={tiebreakScoreType} onChange={(e) => setTiebreakScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              {SCORE_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        )}
         <Toggle on={partBEnabled} onToggle={() => setPartBEnabled((v) => !v)} title="Part A / Part B" subtitle="Add a second score (Part B) to each athlete" />
         {partBEnabled && (
           <div className="col-span-2">

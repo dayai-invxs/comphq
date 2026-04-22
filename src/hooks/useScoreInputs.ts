@@ -9,17 +9,19 @@ export type RRField = { rounds: string; reps: string }
 function parseTimeInput(str: string): number {
   const s = str.trim()
   if (!s) return 0
-  const m = s.match(/^(\d+):(\d{1,2})(?:[.:](\d{1,3}))?$/)
+  const m = s.match(/^(\d+):(\d{1,2})(?:[.:](\d{1,2}))?$/)
   if (!m) return 0
   const mins = parseInt(m[1]) || 0, secs = parseInt(m[2]) || 0
-  const ms = m[3] ? parseInt(m[3].padEnd(3, '0')) : 0
-  return timeToMs(mins, secs, ms)
+  // Fractional part is centiseconds (hundredths); multiply by 10 to get ms
+  const cs = m[3] ? parseInt(m[3].padEnd(2, '0')) : 0
+  return timeToMs(mins, secs, cs * 10)
 }
 
 export function formatTimeInput(ms: number): string {
   const { mins, secs, ms: millis } = msToTimeParts(ms)
   const ss = String(secs).padStart(2, '0')
-  if (millis > 0) return `${mins}:${ss}.${String(millis).padStart(3, '0')}`
+  const cs = Math.round(millis / 10)
+  if (cs > 0) return `${mins}:${ss}.${String(cs).padStart(2, '0')}`
   return `${mins}:${ss}`
 }
 
@@ -42,9 +44,13 @@ export function useScoreInputs(workout: Workout | null) {
       } else if (w.scoreType === 'rounds_reps') {
         const rr = scoreToRoundsReps(s.rawScore)
         rI[s.athleteId] = { rounds: String(rr.rounds), reps: String(rr.reps) }
-        if (s.tiebreakRawScore != null) tbI[s.athleteId] = formatTimeInput(s.tiebreakRawScore)
       } else {
         wI[s.athleteId] = String(s.rawScore)
+      }
+      if (w.tiebreakEnabled && s.tiebreakRawScore != null) {
+        tbI[s.athleteId] = w.tiebreakScoreType === 'time'
+          ? formatTimeInput(s.tiebreakRawScore)
+          : String(s.tiebreakRawScore)
       }
       if (s.partBRawScore != null) {
         if (w.partBScoreType === 'time') bTI[s.athleteId] = formatTimeInput(s.partBRawScore)
@@ -79,14 +85,19 @@ export function useScoreInputs(workout: Workout | null) {
       const r = rrInputs[athleteId]
       if (!r) return null
       rawScore = roundsRepsToScore(Number(r.rounds) || 0, Number(r.reps) || 0)
-      if (workout.tiebreakEnabled) {
-        const tb = tiebreakInputs[athleteId]
-        if (tb) tiebreakRawScore = parseTimeInput(tb) || null
-      }
     } else {
       const raw = weightInputs[athleteId]
       if (raw === undefined || raw === '') return null
       rawScore = Number(raw)
+    }
+
+    if (workout.tiebreakEnabled) {
+      const tb = tiebreakInputs[athleteId]
+      if (tb) {
+        tiebreakRawScore = workout.tiebreakScoreType === 'time'
+          ? parseTimeInput(tb) || null
+          : parseFloat(tb) || null
+      }
     }
 
     if (workout.partBEnabled) {

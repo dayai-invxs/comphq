@@ -19,8 +19,10 @@ describe('roundsReps round-trip', () => {
 })
 
 describe('formatScore', () => {
-  it('formats time scores as m:ss.mmm', () => {
-    expect(formatScore(3 * 60000 + 5 * 1000 + 12, 'time')).toBe('3:05.012')
+  it('formats time scores as m:ss.cc (centiseconds)', () => {
+    expect(formatScore(3 * 60000 + 5 * 1000 + 120, 'time')).toBe('3:05.12')
+    expect(formatScore(3 * 60000 + 5 * 1000 + 500, 'time')).toBe('3:05.50')
+    expect(formatScore(3 * 60000 + 5 * 1000, 'time')).toBe('3:05.00')
   })
   it('formats rounds_reps', () => {
     expect(formatScore(roundsRepsToScore(4, 15), 'rounds_reps')).toBe('4r + 15')
@@ -31,7 +33,8 @@ describe('formatScore', () => {
 })
 
 describe('formatTiebreak', () => {
-  it('formats like time', () => {
-    expect(formatTiebreak(2 * 60000 + 7 * 1000 + 4)).toBe('2:07.004')
+  it('formats like time in centiseconds', () => {
+    expect(formatTiebreak(2 * 60000 + 7 * 1000 + 40)).toBe('2:07.04')
+    expect(formatTiebreak(2 * 60000 + 7 * 1000)).toBe('2:07.00')
   })
 })

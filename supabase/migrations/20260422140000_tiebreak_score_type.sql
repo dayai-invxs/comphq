@@ -1,0 +1,2 @@
+ALTER TABLE "Workout"
+  ADD COLUMN IF NOT EXISTS "tiebreakScoreType" TEXT NOT NULL DEFAULT 'time';

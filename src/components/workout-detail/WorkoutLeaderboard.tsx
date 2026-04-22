@@ -27,7 +27,7 @@ export default function WorkoutLeaderboard({ workout }: { workout: Workout }) {
               <td className="px-5 py-3 text-white font-medium">{s.athlete.name}</td>
               <td className="px-5 py-3 text-gray-300">
                 {formatScore(s.rawScore, workout.scoreType)}
-                {s.tiebreakRawScore != null && <span className="text-xs text-blue-400 ml-1">TB {formatTiebreak(s.tiebreakRawScore)}</span>}
+                {s.tiebreakRawScore != null && <span className="text-xs text-blue-400 ml-1">TB {workout.tiebreakScoreType === 'time' ? formatTiebreak(s.tiebreakRawScore) : formatScore(s.tiebreakRawScore, workout.tiebreakScoreType)}</span>}
               </td>
               <td className="px-5 py-3">
                 <span className={`font-bold ${s.points === 1 ? 'text-yellow-400' : s.points !== null && s.points <= 3 ? 'text-orange-400' : 'text-white'}`}>

@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { rankAndPersist } from '@/lib/scoring'
 
-type WorkoutRow = { id: number; scoreType: string; tiebreakEnabled: boolean; partBEnabled: boolean; partBScoreType: string; status: string }
+type WorkoutRow = { id: number; scoreType: string; tiebreakEnabled: boolean; tiebreakScoreType: string; partBEnabled: boolean; partBScoreType: string; status: string }
 type ScoreRow = { athleteId: number; workoutId: number; rawScore: number; tiebreakRawScore: number | null; partBRawScore: number | null }
 
 async function getCompetitionAndAthlete(slug: string, id: number) {
@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { data: workouts } = await supabase
       .from('Workout')
-      .select('id, scoreType, tiebreakEnabled, partBEnabled, partBScoreType, status')
+      .select('id, scoreType, tiebreakEnabled, tiebreakScoreType, partBEnabled, partBScoreType, status')
       .eq('competitionId', competition.id)
       .in('status', ['active', 'completed'])
 

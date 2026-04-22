@@ -127,17 +127,19 @@ export function lowerIsBetter(scoreType: string): boolean {
 export function calculateRankings(
   scores: Array<{ athleteId: number; rawScore: number; tiebreakRawScore?: number | null }>,
   scoreType: string,
-  tiebreakEnabled = false
+  tiebreakEnabled = false,
+  tiebreakScoreType = 'time'
 ): Array<{ athleteId: number; rawScore: number; points: number }> {
   const sorted = [...scores].sort((a, b) => {
     const primary = lowerIsBetter(scoreType) ? a.rawScore - b.rawScore : b.rawScore - a.rawScore
     if (primary !== 0) return primary
     if (!tiebreakEnabled) return 0
-    // Tiebreak: lower time wins; null tiebreak goes last
     if (a.tiebreakRawScore == null && b.tiebreakRawScore == null) return 0
     if (a.tiebreakRawScore == null) return 1
     if (b.tiebreakRawScore == null) return -1
-    return a.tiebreakRawScore - b.tiebreakRawScore
+    return lowerIsBetter(tiebreakScoreType)
+      ? a.tiebreakRawScore - b.tiebreakRawScore
+      : b.tiebreakRawScore - a.tiebreakRawScore
   })
   return sorted.map((s, i) => ({ ...s, points: i + 1 }))
 }
@@ -153,6 +155,7 @@ type ScoreRow = {
 type RankableWorkout = {
   scoreType: string
   tiebreakEnabled: boolean
+  tiebreakScoreType: string
   partBEnabled: boolean
   partBScoreType: string
 }
@@ -178,6 +181,7 @@ export async function rankAndPersist(
     })),
     workout.scoreType,
     workout.tiebreakEnabled,
+    workout.tiebreakScoreType,
   )
 
   const partBScores = scores.filter((s) => s.partBRawScore != null)

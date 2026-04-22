@@ -8,6 +8,7 @@ type RankableWorkout = {
   status: string
   scoreType: string
   tiebreakEnabled: boolean
+  tiebreakScoreType: string
   partBEnabled: boolean
   partBScoreType: string
 }

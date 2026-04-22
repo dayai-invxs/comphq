@@ -38,6 +38,7 @@ export default function WorkoutsPage() {
   const [startTime, setStartTime] = useState('')
   const [mixedHeats, setMixedHeats] = useState(true)
   const [tiebreakEnabled, setTiebreakEnabled] = useState(false)
+  const [tiebreakScoreType, setTiebreakScoreType] = useState('time')
   const [partBEnabled, setPartBEnabled] = useState(false)
   const [partBScoreType, setPartBScoreType] = useState('time')
   const [halfWeight, setHalfWeight] = useState(false)
@@ -95,14 +96,14 @@ export default function WorkoutsPage() {
         timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
         callTimeSecs: parseMinSec(callTime),
         walkoutTimeSecs: parseMinSec(walkoutTime),
-        startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
+        startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, tiebreakScoreType, partBEnabled, partBScoreType, halfWeight,
         locationId: locationId ? Number(locationId) : null,
       }),
     )
     if (created !== undefined) {
       setNumber(''); setName(''); setScoreType('time'); setLanes('5')
       setHeatInterval('10:00'); setTimeBetweenHeats('2:00'); setCallTime('10:00'); setWalkoutTime('2:00')
-      setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false); setLocationId('')
+      setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setTiebreakScoreType('time'); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false); setLocationId('')
       await load()
     }
     setLoading(false)
@@ -174,9 +175,12 @@ export default function WorkoutsPage() {
           <div className="col-span-2">
             <label className="flex items-center gap-3 cursor-pointer select-none">
               <div onClick={() => setTiebreakEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${tiebreakEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${tiebreakEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div>
-              <div><span className="text-sm text-white font-medium">Tie Break Time</span><p className="text-xs text-gray-500">Enter a tiebreak time per athlete — lowest time wins ties</p></div>
+              <div><span className="text-sm text-white font-medium">Tie Break Score</span><p className="text-xs text-gray-500">Enter a tiebreak score per athlete to break ties</p></div>
             </label>
           </div>
+          {tiebreakEnabled && (
+            <div className="col-span-2"><label className="block text-xs text-gray-400 mb-1">Tie Break Score Type</label><select value={tiebreakScoreType} onChange={(e) => setTiebreakScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"><option value="time">Time (lower is better)</option><option value="rounds_reps">Rounds + Reps (higher is better)</option><option value="weight">Weight (higher is better)</option></select></div>
+          )}
           <div className="col-span-2">
             <label className="flex items-center gap-3 cursor-pointer select-none">
               <div onClick={() => setPartBEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${partBEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${partBEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div>

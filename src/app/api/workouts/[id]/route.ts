@@ -64,6 +64,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.status !== undefined) patch.status = d.status
     if (d.mixedHeats !== undefined) patch.mixedHeats = d.mixedHeats
     if (d.tiebreakEnabled !== undefined) patch.tiebreakEnabled = d.tiebreakEnabled
+    if (d.tiebreakScoreType !== undefined) patch.tiebreakScoreType = d.tiebreakScoreType
     if (d.partBEnabled !== undefined) patch.partBEnabled = d.partBEnabled
     if (d.partBScoreType !== undefined) patch.partBScoreType = d.partBScoreType
     if (d.number !== undefined) patch.number = d.number
