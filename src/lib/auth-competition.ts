@@ -2,13 +2,10 @@ import { supabase } from '@/lib/supabase'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { resolveCompetition } from '@/lib/competition'
 
-export type Role = 'admin' | 'scorekeeper'
-export type SiteRole = 'admin' | 'user'
-
-export type AuthedUser = { id: string; email: string | null; role: SiteRole }
-export type Membership = { userId: string; competitionId: number; role: Role }
+export type AuthedUser = { id: string; email: string | null; isSuper: boolean }
 export type Competition = { id: number; name: string; slug: string }
-export type AuthContext = { user: AuthedUser; membership: Membership; competition: Competition }
+export type CompAdminMembership = { userId: string; competitionId: number }
+export type AuthContext = { user: AuthedUser; membership: CompAdminMembership; competition: Competition }
 
 export class AuthError extends Error {
   constructor(readonly status: 401 | 403 | 404, message: string) {
@@ -19,73 +16,78 @@ export class AuthError extends Error {
 
 /**
  * Read the logged-in user from the Supabase session cookie and load their
- * UserProfile row (for the site-wide role). Throws AuthError(401) if no
- * valid session or the profile row is missing.
+ * UserProfile row (for the super-admin flag). Throws AuthError(401) if no
+ * valid session. UserProfile row is auto-created by the on-auth-insert
+ * trigger; if somehow missing, we default isSuper=false.
  */
 export async function requireSession(): Promise<AuthedUser> {
   const client = await createSupabaseServerClient()
   const { data: { user }, error } = await client.auth.getUser()
   if (error || !user) throw new AuthError(401, 'Unauthorized')
 
-  // UserProfile is server-only (RLS deny-all to anon/authenticated).
-  // Load it with the service-role client.
   const { data: profile } = await supabase
     .from('UserProfile')
-    .select('role')
+    .select('isSuper')
     .eq('id', user.id)
     .maybeSingle()
 
   return {
     id: user.id,
     email: user.email ?? null,
-    role: ((profile as { role?: SiteRole } | null)?.role ?? 'user') as SiteRole,
+    isSuper: (profile as { isSuper?: boolean } | null)?.isSuper === true,
   }
 }
 
 /**
- * Gates a route on (a) session present, (b) competition exists, (c) user
- * is a member, (d) role meets `minRole`. Default minRole is 'scorekeeper'
- * (any member is OK). Pass 'admin' for destructive ops.
+ * Gates a route on (a) session present, (b) competition exists, (c) caller
+ * is either a super-admin OR an admin of this specific competition.
+ *
+ * Super admins bypass the CompetitionAdmin row check — they can manage
+ * any comp on the site.
  */
-export async function requireCompetitionMember(
-  slug: string,
-  minRole: Role = 'scorekeeper',
-): Promise<AuthContext> {
+export async function requireCompetitionAdmin(slug: string): Promise<AuthContext> {
   const user = await requireSession()
 
   const competition = await resolveCompetition(slug)
   if (!competition) throw new AuthError(404, 'Competition not found')
 
+  // Super admin → skip the row check. Synthesize a membership record for
+  // callers that want to log the action.
+  if (user.isSuper) {
+    return {
+      user,
+      membership: { userId: user.id, competitionId: competition.id },
+      competition,
+    }
+  }
+
   const { data } = await supabase
-    .from('CompetitionMember')
-    .select('userId, competitionId, role')
+    .from('CompetitionAdmin')
+    .select('userId, competitionId')
     .eq('userId', user.id)
     .eq('competitionId', competition.id)
     .maybeSingle()
 
-  if (!data) throw new AuthError(403, 'Not a member of this competition')
+  if (!data) throw new AuthError(403, 'Not an admin of this competition')
 
-  const membership = data as Membership
-  if (minRole === 'admin' && membership.role !== 'admin') {
-    throw new AuthError(403, 'Admin role required for this action')
-  }
-
-  return { user, membership, competition }
+  return { user, membership: data as CompAdminMembership, competition }
 }
 
 /**
- * Site-wide admin gate. 'admin' can CRUD competitions + users; 'user' cannot.
+ * Site-wide super-admin gate. Super admins can create / rename / delete
+ * competitions and manage user accounts.
  */
 export async function requireSiteAdmin(): Promise<AuthedUser> {
   const user = await requireSession()
-  if (user.role !== 'admin') throw new AuthError(403, 'Site admin required')
+  if (!user.isSuper) throw new AuthError(403, 'Super-admin required')
   return user
 }
 
 /**
- * Verifies that a Workout belongs to the given competition. Returns the
- * workout row or throws AuthError(404). Cheap cross-tenant defense for
- * every nested /api/workouts/[id]/* route.
+ * Verifies a Workout belongs to the given competition. Cheap cross-tenant
+ * defense for nested /api/workouts/[id]/* routes. Combined with
+ * requireCompetitionAdmin this prevents admin-of-comp-A from editing
+ * workouts of comp-B.
  */
 export async function requireWorkoutInCompetition<T = Record<string, unknown>>(
   workoutId: number,

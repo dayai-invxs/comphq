@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AthleteBulkDelete, AthleteCreate } from '@/lib/schemas'
 
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
 
     const { data, error } = await supabase
       .from('Athlete')
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(parsed.data.slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
 
     const { data, error } = await supabase
       .from('Athlete')
@@ -54,7 +54,7 @@ export async function DELETE(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(parsed.data.slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
 
     const { data, error } = await supabase
       .from('Athlete')

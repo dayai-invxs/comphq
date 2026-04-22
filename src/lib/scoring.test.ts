@@ -60,7 +60,7 @@ describe('calcCumulativePoints', () => {
   it('sums points only for completed workouts', () => {
     const athletes: AthleteWithScore[] = [
       {
-        id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null,
+        id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null,
         scores: [
           { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null },
           { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null },

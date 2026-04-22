@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { DivisionUpdate } from '@/lib/schemas'
 
@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
 
     const patch: Record<string, unknown> = {}
@@ -36,7 +36,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const { error } = await supabase
       .from('Division')

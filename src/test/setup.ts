@@ -42,20 +42,20 @@ vi.mock('@/lib/auth-competition', async (importOriginal) => {
     ...actual,
     requireSession: vi.fn(async () => {
       if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
-      return { id: authUser.id, email: authUser.email, role: 'admin' as const }
+      return { id: authUser.id, email: authUser.email, isSuper: true }
     }),
-    requireCompetitionMember: vi.fn(async (slug: string, minRole: 'admin' | 'scorekeeper' = 'scorekeeper') => {
+    requireCompetitionAdmin: vi.fn(async (slug: string) => {
       if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
       if (!slug) throw new actual.AuthError(404, 'Competition not found')
       return {
-        user: { id: authUser.id, email: authUser.email, role: 'admin' as const },
-        membership: { userId: authUser.id, competitionId: 1, role: minRole === 'admin' ? ('admin' as const) : ('admin' as const) },
+        user: { id: authUser.id, email: authUser.email, isSuper: true },
+        membership: { userId: authUser.id, competitionId: 1 },
         competition: { id: 1, name: 'Default', slug },
       }
     }),
     requireSiteAdmin: vi.fn(async () => {
       if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
-      return { id: authUser.id, email: authUser.email, role: 'admin' as const }
+      return { id: authUser.id, email: authUser.email, isSuper: true }
     }),
   }
 })

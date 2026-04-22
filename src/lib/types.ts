@@ -14,7 +14,7 @@ export type Setting = Tables['Setting']['Row']
 export type Division = Tables['Division']['Row']
 export type UserProfile = Tables['UserProfile']['Row']
 export type Competition = Tables['Competition']['Row']
-export type CompetitionMember = Tables['CompetitionMember']['Row']
+export type CompetitionAdmin = Tables['CompetitionAdmin']['Row']
 export type HeatCompletion = Tables['HeatCompletion']['Row']
 export type AuditLog = Tables['AuditLog']['Row']
 

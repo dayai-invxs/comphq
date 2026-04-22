@@ -6,16 +6,17 @@ import { CompetitionCreate } from '@/lib/schemas'
 export async function GET() {
   try {
     const user = await requireSession()
-    // Site admins see everything; other users only see comps they're a member of.
-    if (user.role === 'admin') {
+    // Super admins see everything; other users only see comps where they're
+    // a CompetitionAdmin.
+    if (user.isSuper) {
       const { data, error } = await supabase.from('Competition').select('*').order('id')
       if (error) return new Response(error.message, { status: 500 })
       return Response.json(data ?? [])
     }
     const { data, error } = await supabase
       .from('Competition')
-      .select('*, CompetitionMember!inner(userId)')
-      .eq('CompetitionMember.userId', user.id)
+      .select('*, CompetitionAdmin!inner(userId)')
+      .eq('CompetitionAdmin.userId', user.id)
       .order('id')
     if (error) return new Response(error.message, { status: 500 })
     return Response.json(data ?? [])
@@ -47,10 +48,9 @@ export async function POST(req: Request) {
 
     // Creator becomes admin of the competition they just created.
     const created = data as { id: number }
-    await supabase.from('CompetitionMember').insert({
+    await supabase.from('CompetitionAdmin').insert({
       userId: user.id,
       competitionId: created.id,
-      role: 'admin',
     })
 
     return Response.json(data, { status: 201 })

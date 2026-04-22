@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
 
 function esc(val: string | number | null | undefined): string {
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   let competition: { id: number; name: string; slug: string }
   try {
-    ({ competition } = await requireCompetitionMember(slug))
+    ({ competition } = await requireCompetitionAdmin(slug))
   } catch (e) {
     return authErrorResponse(e)
   }

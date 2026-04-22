@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { ScoreUpsert } from '@/lib/schemas'
 import { SCORE_EMBED } from '@/lib/embeds'
@@ -8,7 +8,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id, 'id')
@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id, 'id')
@@ -63,7 +63,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id, 'id')

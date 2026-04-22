@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
-import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { SettingsPatch } from '@/lib/schemas'
 
@@ -35,7 +35,7 @@ export async function PATCH(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(parsed.data.slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
     const d = parsed.data
 
     const upserts = []

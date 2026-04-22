@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
-import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentPatch, AssignmentRegen } from '@/lib/schemas'
 import { ASSIGNMENT_EMBED } from '@/lib/embeds'
@@ -10,7 +10,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id, 'id')
@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(
@@ -106,7 +106,7 @@ export async function PATCH(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id: assignmentId, heatNumber, lane } = parsed.data
 
     // Verify the assignment belongs to a workout in the caller's competition.

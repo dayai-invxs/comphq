@@ -46,6 +46,7 @@ export type Database = {
           divisionId: number | null
           id: number
           name: string
+          userId: string | null
         }
         Insert: {
           bibNumber?: string | null
@@ -53,6 +54,7 @@ export type Database = {
           divisionId?: number | null
           id?: number
           name: string
+          userId?: string | null
         }
         Update: {
           bibNumber?: string | null
@@ -60,6 +62,7 @@ export type Database = {
           divisionId?: number | null
           id?: number
           name?: string
+          userId?: string | null
         }
         Relationships: [
           {
@@ -140,23 +143,20 @@ export type Database = {
         }
         Relationships: []
       }
-      CompetitionMember: {
+      CompetitionAdmin: {
         Row: {
           competitionId: number
           createdAt: string
-          role: string
           userId: string
         }
         Insert: {
           competitionId: number
           createdAt?: string
-          role?: string
           userId: string
         }
         Update: {
           competitionId?: number
           createdAt?: string
-          role?: string
           userId?: string
         }
         Relationships: [
@@ -344,17 +344,17 @@ export type Database = {
         Row: {
           createdAt: string
           id: string
-          role: string
+          isSuper: boolean
         }
         Insert: {
           createdAt?: string
           id: string
-          role?: string
+          isSuper?: boolean
         }
         Update: {
           createdAt?: string
           id?: string
-          role?: string
+          isSuper?: boolean
         }
         Relationships: []
       }

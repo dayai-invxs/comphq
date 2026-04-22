@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { HeatTimeSet } from '@/lib/schemas'
 
@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition<{ heatStartOverrides: Record<string, string> | string | null }>(

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 
 interface CsvRow {
   workoutNumber: number; heatNumber: number; laneNumber: number; athleteName: string; lineIndex: number
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       slug = body.slug ?? ''
     }
 
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     return await runImport(csvText, competition.id)
   } catch (e) {
     return authErrorResponse(e)

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { rankAndPersist } from '@/lib/scoring'
-import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
 type RankableWorkout = {
   id: number
@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(slug, 'admin')
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition<RankableWorkout>(
