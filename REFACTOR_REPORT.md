@@ -83,14 +83,65 @@ A few items from the "leverage moves" list that weren't in any of the four audit
 
 ---
 
-## What's still open
+## Running the end-to-end test yourself
 
-Not everything on the original plan is finished. Being honest about what's still pending:
+We added an automated script that drives a real Chrome browser through the whole flow — log in, create a competition, add athletes, create a workout, generate heats, enter scores, complete the heat, and verify the leaderboard updates correctly. It runs in under 30 seconds.
 
-- **Error tracking** (Sentry or similar): not installed. The first bug in production will be reported by a texting organizer, not by a pager. **~30 min of work, big payoff.**
-- **A separate production Supabase database**: right now everything runs against the same test database we've been using during development. Before real money changes hands, stand up a prod project.
-- **Competition-member invite UI**: the backend has roles and membership, but there's no admin screen yet to actually send "please join my competition" invites. A dev needs to add a row manually.
-- **Atomic design refactor (COM-7)**: this audit is about 30% done. The big page was split, shared helpers were extracted, but a proper component library with design tokens is still ahead.
-- **UX / accessibility audit (COM-8)**: never started.
+You don't need to understand the code to run it. Three ways to use it, from "show me a pretty UI" to "just tell me pass/fail."
 
-See the branch's pull request for the full commit history and the Linear issues (COM-5, 6, 9, 10, 14, 15 all marked Done) for the detailed per-finding trail.
+### One-time setup (only if you haven't already)
+
+Open a terminal, navigate to the repo folder, and run:
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+The first command installs the app's dependencies. The second downloads a clean copy of Chrome that Playwright uses for testing. You only need to do this once per machine.
+
+Make sure `.env.local` exists in the repo root with the Supabase credentials. If it doesn't, copy it from wherever you got the project, or ask me.
+
+### Option A: watch it happen in a browser window (recommended)
+
+```bash
+npm run test:e2e -- --headed
+```
+
+A real Chrome window pops up and you watch the whole test run in front of you. You'll see it navigate to the login page, type the credentials, click through to create a competition, and so on. Takes about 20 seconds.
+
+### Option B: the interactive UI (most useful for debugging)
+
+```bash
+npm run test:e2e -- --ui
+```
+
+This opens Playwright's own UI — a sidebar with the test steps, the browser view, network requests, and screenshots at each step. You can click any step to see exactly what the page looked like at that moment. Click the play button to run the test; click individual steps to inspect them.
+
+This is the most powerful mode if you want to actually understand what the test is doing.
+
+### Option C: just run it and tell me if it passed
+
+```bash
+npm run test:e2e
+```
+
+No window pops up. When it finishes, the terminal prints either `1 passed` in green or a failure with the error message. Fastest mode — use this if you just want confirmation that nothing is broken.
+
+### Seeing a report after the fact
+
+After any of the above, you can look at a detailed HTML report (with screenshots and a video of what happened) by running:
+
+```bash
+npx playwright show-report
+```
+
+This opens a page in your browser with every step and any failures. Screenshots and video are especially useful if something broke — you can see exactly where.
+
+### If the test fails
+
+Don't panic. The report from `npx playwright show-report` will show you which step failed and include a screenshot + video. Common reasons:
+
+- The dev server isn't running and something's wrong with auto-starting it — try `npm run dev` in a separate terminal first, then run the test.
+- The test database has stale data from a previous run — the test uses a fresh competition slug (`e2e-{timestamp}`) every run, so this is rare, but if in doubt you can delete the competition row manually.
+- Something was actually broken by a change. This is the signal the test is designed to catch — time to look at what the most recent commit changed.
