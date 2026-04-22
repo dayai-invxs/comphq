@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { HttpError } from '@/lib/http'
+import { buildWorkoutMutations } from './useWorkoutDetail.mutations'
 
 type Division = { id: number; name: string; order: number }
 type Athlete = { id: number; name: string; bibNumber: string | null; division: Division | null }
@@ -31,155 +33,183 @@ type Options = {
   onSuccess?: (msg: string) => void
 }
 
+function errorMessage(e: unknown): string {
+  if (e instanceof HttpError) return e.message || `HTTP ${e.status}`
+  if (e instanceof Error) return e.message
+  return 'Unknown error'
+}
+
 export function useWorkoutDetail(workoutId: string, opts: Options) {
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
+  const [error, setError] = useState('')
 
   const { slug } = opts
-  const qs = `?slug=${encodeURIComponent(slug)}`
+  const api = useMemo(() => buildWorkoutMutations(workoutId, slug), [workoutId, slug])
 
-  // Keep the latest callback refs so memoized fetch functions can call them
-  // without invalidating on every render of the parent.
   const optsRef = useRef(opts)
   useEffect(() => { optsRef.current = opts }, [opts])
 
   const onSuccess = useCallback((m: string) => {
-    setMsg(m)
+    setMsg(m); setError('')
     optsRef.current.onSuccess?.(m)
   }, [])
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/workouts/${workoutId}${qs}`, { cache: 'no-store' })
-    if (!res.ok) return optsRef.current.onNotFound()
-    const data: Workout = await res.json()
-    setWorkout(data)
-    return data
-  }, [workoutId, qs])
+    try {
+      const data = await api.load<Workout>()
+      setWorkout(data)
+      return data
+    } catch {
+      optsRef.current.onNotFound()
+    }
+  }, [api])
 
   useEffect(() => { void load() }, [load])
 
   const setStatus = useCallback(async (status: string) => {
-    await fetch(`/api/workouts/${workoutId}${qs}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-    await load()
-  }, [workoutId, qs, load])
+    try { await api.setStatus(status); await load() }
+    catch (e) { setError(errorMessage(e)) }
+  }, [api, load])
 
   const generateAssignments = useCallback(async (useCumulative: boolean) => {
-    setLoading(true); setMsg('')
-    const res = await fetch(`/api/workouts/${workoutId}/assignments${qs}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ useCumulative }),
-    })
-    if (res.ok) onSuccess('Heat assignments generated.')
-    await load(); setLoading(false)
-  }, [workoutId, qs, load, onSuccess])
+    setLoading(true); setMsg(''); setError('')
+    try {
+      await api.generateAssignments(useCumulative)
+      await load()
+      onSuccess('Heat assignments generated.')
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
 
   const saveHeatTime = useCallback(async (heatNumber: number, isoTime: string) => {
-    await fetch(`/api/workouts/${workoutId}/heat-times${qs}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ heatNumber, isoTime }),
-    })
-    await load()
-  }, [workoutId, qs, load])
+    try { await api.saveHeatTime(heatNumber, isoTime); await load() }
+    catch (e) { setError(errorMessage(e)) }
+  }, [api, load])
 
   const saveAssignment = useCallback(async (id: number, heatNumber: number, lane: number) => {
-    await fetch(`/api/workouts/${workoutId}/assignments${qs}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, heatNumber, lane }),
-    })
-    await load()
-  }, [workoutId, qs, load])
+    try { await api.saveAssignment(id, heatNumber, lane); await load() }
+    catch (e) { setError(errorMessage(e)) }
+  }, [api, load])
 
   const swapAssignments = useCallback(async (aId: number, bId: number) => {
     if (aId === bId || !workout) return
     const a = workout.assignments.find((x) => x.id === aId)
     const b = workout.assignments.find((x) => x.id === bId)
     if (!a || !b) return
-    setLoading(true)
-    await Promise.all([
-      fetch(`/api/workouts/${workoutId}/assignments${qs}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: aId, heatNumber: b.heatNumber, lane: b.lane }),
-      }),
-      fetch(`/api/workouts/${workoutId}/assignments${qs}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: bId, heatNumber: a.heatNumber, lane: a.lane }),
-      }),
-    ])
-    await load(); setLoading(false)
-  }, [workoutId, qs, workout, load])
-
-  const saveScorePayload = useCallback(async (payload: ScorePayload) => {
-    await fetch(`/api/workouts/${workoutId}/scores${qs}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-  }, [workoutId, qs])
+    setLoading(true); setError('')
+    try {
+      await Promise.all([
+        api.saveAssignment(aId, b.heatNumber, b.lane),
+        api.saveAssignment(bId, a.heatNumber, a.lane),
+      ])
+      await load()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, workout, load])
 
   const saveMany = useCallback(async (payloads: ScorePayload[], successMsg: string) => {
-    setLoading(true)
-    await Promise.all(payloads.map(saveScorePayload))
-    await load(); setLoading(false); onSuccess(successMsg)
-  }, [load, saveScorePayload, onSuccess])
+    setLoading(true); setError('')
+    try {
+      await api.saveAll(payloads)
+      await load()
+      onSuccess(successMsg)
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
 
   const completeHeat = useCallback(async (heatNumber: number, payloads: ScorePayload[]) => {
-    setLoading(true)
-    await Promise.all(payloads.map(saveScorePayload))
-    await fetch(`/api/workouts/${workoutId}/heats/${heatNumber}/complete${qs}`, { method: 'POST' })
-    onSuccess(`Heat ${heatNumber} completed. Rankings updated.`)
-    await load(); setLoading(false)
-  }, [workoutId, qs, load, saveScorePayload, onSuccess])
+    setLoading(true); setError('')
+    try {
+      await api.saveAll(payloads)
+      await api.completeHeat(heatNumber)
+      onSuccess(`Heat ${heatNumber} completed. Rankings updated.`)
+      await load()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
 
   const undoHeat = useCallback(async (heatNumber: number) => {
-    setLoading(true)
-    await fetch(`/api/workouts/${workoutId}/heats/${heatNumber}/complete${qs}`, { method: 'DELETE' })
-    onSuccess(`Heat ${heatNumber} reopened.`)
-    await load(); setLoading(false)
-  }, [workoutId, qs, load, onSuccess])
+    setLoading(true); setError('')
+    try {
+      await api.undoHeat(heatNumber)
+      onSuccess(`Heat ${heatNumber} reopened.`)
+      await load()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
 
   const clearScores = useCallback(async () => {
-    setLoading(true)
-    await fetch(`/api/workouts/${workoutId}/scores${qs}`, { method: 'DELETE' })
-    onSuccess('All scores cleared.')
-    await load(); setLoading(false)
-  }, [workoutId, qs, load, onSuccess])
+    setLoading(true); setError('')
+    try {
+      await api.clearScores()
+      onSuccess('All scores cleared.')
+      await load()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
 
   const calculateRankings = useCallback(async (payloads: ScorePayload[]) => {
-    setLoading(true)
-    await Promise.all(payloads.map(saveScorePayload))
-    const res = await fetch(`/api/workouts/${workoutId}/calculate${qs}`, { method: 'POST' })
-    if (res.ok) onSuccess('Rankings calculated. Workout marked as completed.')
-    await load(); setLoading(false)
-  }, [workoutId, qs, load, saveScorePayload, onSuccess])
+    setLoading(true); setError('')
+    try {
+      // Saves first; if any fail, we bail BEFORE calculating. This is the
+      // whole point of the refactor — a partial save used to leave the
+      // workout half-ranked with silent errors in the console.
+      await api.saveAll(payloads)
+      await api.calculate()
+      onSuccess('Rankings calculated. Workout marked as completed.')
+      await load()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
 
   const deleteWorkout = useCallback(async () => {
-    await fetch(`/api/workouts/${workoutId}${qs}`, { method: 'DELETE' })
-  }, [workoutId, qs])
+    try { await api.deleteWorkout() }
+    catch (e) { setError(errorMessage(e)) }
+  }, [api])
 
-  // PUT a partial update (settings edit). Returns true on success.
   const updateSettings = useCallback(async (patch: Record<string, unknown>) => {
-    setLoading(true)
-    const res = await fetch(`/api/workouts/${workoutId}${qs}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    })
-    if (!res.ok) {
-      setMsg('Error saving settings.')
-      setLoading(false)
+    setLoading(true); setError('')
+    try {
+      await api.updateSettings(patch)
+      onSuccess('Settings saved.')
+      await load()
+      return true
+    } catch (e) {
+      setError(errorMessage(e))
       return false
+    } finally {
+      setLoading(false)
     }
-    onSuccess('Settings saved.')
-    await load(); setLoading(false)
-    return true
-  }, [workoutId, qs, load, onSuccess])
+  }, [api, load, onSuccess])
 
   return {
     workout,
     loading,
     msg,
+    error,
     setMsg,
     load,
     setStatus,

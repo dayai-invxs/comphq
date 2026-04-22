@@ -121,7 +121,8 @@ export default function WorkoutDetailPage() {
         />
       )}
 
-      {detail.msg && <div className="bg-green-900/50 border border-green-700 text-green-300 rounded-lg px-4 py-3 text-sm">{detail.msg}</div>}
+      {detail.error && <div className="bg-red-900/50 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">Error: {detail.error}</div>}
+      {!detail.error && detail.msg && <div className="bg-green-900/50 border border-green-700 text-green-300 rounded-lg px-4 py-3 text-sm">{detail.msg}</div>}
 
       <div className="bg-gray-900 rounded-xl p-5">
         <h2 className="text-lg font-semibold text-white mb-4">Heat Assignments</h2>
