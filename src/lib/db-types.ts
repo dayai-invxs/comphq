@@ -384,7 +384,7 @@ export type Database = {
           competitionId: number
           halfWeight: boolean
           heatIntervalSecs: number
-          heatStartOverrides: string
+          heatStartOverrides: Json
           id: number
           lanes: number
           mixedHeats: boolean
@@ -404,7 +404,7 @@ export type Database = {
           competitionId: number
           halfWeight?: boolean
           heatIntervalSecs: number
-          heatStartOverrides?: string
+          heatStartOverrides?: Json
           id?: number
           lanes: number
           mixedHeats?: boolean
@@ -424,7 +424,7 @@ export type Database = {
           competitionId?: number
           halfWeight?: boolean
           heatIntervalSecs?: number
-          heatStartOverrides?: string
+          heatStartOverrides?: Json
           id?: number
           lanes?: number
           mixedHeats?: boolean
@@ -454,7 +454,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      replace_workout_heat_assignments: {
+        Args: { p_assignments: Json; p_workout_id: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

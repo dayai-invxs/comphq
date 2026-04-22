@@ -6,7 +6,7 @@ import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 
 type Workout = {
   id: number; number: number; name: string; startTime: string | null
-  heatIntervalSecs: number; heatStartOverrides: string; timeBetweenHeatsSecs: number
+  heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
   callTimeSecs: number; walkoutTimeSecs: number
 }
 

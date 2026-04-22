@@ -21,7 +21,7 @@ type WorkoutData = {
   timeBetweenHeatsSecs: number
   callTimeSecs: number
   walkoutTimeSecs: number
-  heatStartOverrides: string
+  heatStartOverrides: Record<string, string> | string
   heats: Heat[]
 }
 

@@ -15,7 +15,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { competition } = await requireCompetitionMember(session, slug, 'admin')
     const { id } = await params
     const workoutId = Number(id)
-    const workout = await requireWorkoutInCompetition<{ heatStartOverrides: string }>(
+    const workout = await requireWorkoutInCompetition<{ heatStartOverrides: Record<string, string> | string | null }>(
       workoutId,
       competition.id,
       'heatStartOverrides',
@@ -23,7 +23,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { heatNumber, isoTime } = parsed.data
 
-    const overrides: Record<string, string> = JSON.parse(workout.heatStartOverrides || '{}')
+    // Column is jsonb; legacy rows may still surface as a stringified blob.
+    const existing = workout.heatStartOverrides
+    const overrides: Record<string, string> =
+      typeof existing === 'string' ? JSON.parse(existing || '{}') : (existing ?? {})
     for (const key of Object.keys(overrides)) {
       if (Number(key) >= heatNumber) delete overrides[key]
     }
@@ -31,7 +34,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { data, error } = await supabase
       .from('Workout')
-      .update({ heatStartOverrides: JSON.stringify(overrides) })
+      .update({ heatStartOverrides: overrides })
       .eq('id', workoutId)
       .select('*')
       .single()
