@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, PUT, DELETE } from './route'
 

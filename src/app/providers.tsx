@@ -1,12 +1,7 @@
 'use client'
 
-import { SessionProvider } from 'next-auth/react'
 import QueryProvider from '@/lib/QueryProvider'
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <SessionProvider>
-      <QueryProvider>{children}</QueryProvider>
-    </SessionProvider>
-  )
+  return <QueryProvider>{children}</QueryProvider>
 }

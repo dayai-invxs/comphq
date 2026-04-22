@@ -1,5 +1,5 @@
-import type { Session } from 'next-auth'
 import { supabase } from './supabase'
+import type { AuthedUser } from './auth-competition'
 
 export type AuditEntry = {
   action: string
@@ -15,15 +15,15 @@ export type AuditEntry = {
  * Fire-and-forget audit trail. Errors are swallowed so the main operation
  * is never blocked by a logging failure; they're logged to stderr for ops.
  *
- * No-op when session is null (unauthenticated attempts are logged via
+ * No-op when user is null (unauthenticated attempts are logged via
  * middleware in a later phase, not here).
  */
-export async function logAudit(session: Session | null, entry: AuditEntry): Promise<void> {
-  if (!session?.user) return
+export async function logAudit(user: AuthedUser | null, entry: AuditEntry): Promise<void> {
+  if (!user) return
 
   const { error } = await supabase.from('AuditLog').insert({
-    userId: typeof session.user === 'object' && 'id' in session.user ? Number(session.user.id) : null,
-    userName: session.user.name ?? null,
+    userId: user.id,           // UUID from auth.users
+    userName: user.email,      // email is what Supabase Auth gives us
     competitionId: entry.resource.competitionId,
     action: entry.action,
     resourceType: entry.resource.type,

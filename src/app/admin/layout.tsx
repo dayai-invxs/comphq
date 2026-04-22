@@ -1,24 +1,44 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { ComphqLogo } from '@/components/ComphqLogo'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
+  const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading')
+
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    void supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      setStatus(data.user ? 'authenticated' : 'unauthenticated')
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setStatus(session?.user ? 'authenticated' : 'unauthenticated')
+    })
+    return () => { sub.subscription.unsubscribe() }
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push(`/login?callbackUrl=${encodeURIComponent('/admin')}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
+  async function signOut() {
+    await getSupabaseClient().auth.signOut()
+    router.push('/login')
+  }
+
   if (status === 'loading') {
     return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>
   }
 
-  if (!session) return null
+  if (!user) return null
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -29,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="text-orange-400 font-bold text-lg">comphq</span>
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            onClick={signOut}
             className="text-xs text-gray-400 hover:text-white transition-colors"
           >
             Sign out

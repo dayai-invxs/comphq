@@ -1,37 +1,43 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createRateLimiter } from '@/lib/rate-limit'
+import { createServerClient } from '@supabase/ssr'
 
-// 5 login attempts per 60 seconds per IP. Reasonable for real users,
-// crushes naive brute-force attempts.
-const loginLimiter = createRateLimiter({ windowMs: 60_000, max: 5 })
-
-function clientIp(req: NextRequest): string {
-  const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  return req.headers.get('x-real-ip') ?? 'local'
-}
-
+/**
+ * Supabase session refresh on every request.
+ *
+ * Supabase cookies have short lifespans and get refreshed via the
+ * refresh-token flow. Next.js middleware is the right place to make
+ * that refresh happen so server components see a fresh session on
+ * the next request.
+ *
+ * Rate-limiting on login: Supabase Auth enforces its own rate limits
+ * on `/auth/v1/token` at the service level, so we no longer need the
+ * custom limiter that protected the old NextAuth credentials endpoint.
+ */
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return NextResponse.next()
 
-  if (pathname === '/api/auth/callback/credentials' && req.method === 'POST') {
-    const result = loginLimiter.check(clientIp(req))
-    if (!result.ok) {
-      const retryAfter = Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))
-      return new NextResponse('Too many login attempts. Try again later.', {
-        status: 429,
-        headers: {
-          'retry-after': String(retryAfter),
-          'x-ratelimit-remaining': '0',
-        },
-      })
-    }
-  }
+  const res = NextResponse.next()
+  const client = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll()
+      },
+      setAll(cookies) {
+        for (const { name, value, options } of cookies) {
+          res.cookies.set(name, value, options)
+        }
+      },
+    },
+  })
 
-  return NextResponse.next()
+  // Triggers the refresh-token exchange if the access token is expiring.
+  await client.auth.getUser()
+  return res
 }
 
-// Only run middleware on auth routes — keep other paths on the fast path.
+// Run on all pages + API routes; skip Next internals and static assets.
 export const config = {
-  matcher: ['/api/auth/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 }

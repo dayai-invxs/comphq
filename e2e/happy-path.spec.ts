@@ -13,12 +13,12 @@ import { test, expect, type Page } from '@playwright/test'
  * Creates a unique `e2e-{timestamp}` competition; deletes it at the end.
  */
 
-const ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME ?? 'admin'
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'crossfit123'
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@test.local'
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'crossfit123456'
 
 async function login(page: Page) {
   await page.goto('/login')
-  await page.getByLabel('Username').fill(ADMIN_USERNAME)
+  await page.getByLabel('Email').fill(ADMIN_EMAIL)
   await page.getByLabel('Password').fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: 'Sign In' }).click()
   await page.waitForURL('**/admin')
