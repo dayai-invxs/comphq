@@ -68,15 +68,17 @@ export default function HeatCard({
 
     const draggables: ReturnType<typeof Draggable.create> = []
 
-    // GSAP physically moves the handle via CSS transform, so elementFromPoint
-    // at the drop position returns the handle itself (child of the SOURCE row).
-    // elementsFromPoint gives the full stack — we skip the source row to find
-    // the actual target row underneath.
+    // elementsFromPoint is unreliable on iOS Safari during touch moves.
+    // Instead, query all [data-assignment-id] rows and compare bounding rects —
+    // this works on all platforms and supports cross-heat drops.
     function findTargetRow(px: number, py: number, sourceRow: HTMLTableRowElement): HTMLElement | null {
-      const stack = document.elementsFromPoint(px, py)
-      for (const el of stack) {
-        const row = (el as HTMLElement).closest<HTMLElement>('[data-assignment-id]')
-        if (row && row !== sourceRow) return row
+      const allRows = document.querySelectorAll<HTMLElement>('[data-assignment-id]')
+      for (const row of allRows) {
+        if (row === sourceRow) continue
+        const rect = row.getBoundingClientRect()
+        if (py >= rect.top && py <= rect.bottom && px >= rect.left && px <= rect.right) {
+          return row
+        }
       }
       return null
     }
@@ -101,6 +103,7 @@ export default function HeatCard({
 
       const [d] = Draggable.create(handle, {
         type: 'x,y',
+        allowNativeTouchScrolling: false,
         onDragStart() {
           ghost = document.createElement('div')
           ghost.textContent = assignment.athlete.name
