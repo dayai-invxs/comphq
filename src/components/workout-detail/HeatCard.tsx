@@ -1,11 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useGSAP } from '@gsap/react'
+import { gsap } from 'gsap'
+import { Draggable } from 'gsap/Draggable'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import type { Workout, Assignment } from '@/hooks/useWorkoutDetail'
 import type { useScoreInputs } from '@/hooks/useScoreInputs'
 import { PartAInputCell, PartBInputCell } from './ScoreInputCells'
+
+gsap.registerPlugin(Draggable)
 
 type ScoreInputs = ReturnType<typeof useScoreInputs>
 
@@ -24,6 +29,16 @@ type Props = {
   onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
 }
 
+function GripIcon() {
+  return (
+    <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" className="text-gray-500 group-hover:text-gray-300 transition-colors">
+      <circle cx="4" cy="4" r="1.5" /><circle cx="8" cy="4" r="1.5" />
+      <circle cx="4" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" />
+      <circle cx="4" cy="12" r="1.5" /><circle cx="8" cy="12" r="1.5" />
+    </svg>
+  )
+}
+
 export default function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
   onSaveHeat, onCompleteHeat, onUndoHeat, onSaveAssignment, onSwapAssignments, onSaveHeatTime,
@@ -33,10 +48,14 @@ export default function HeatCard({
   const [editingAssignment, setEditingAssignment] = useState<number | null>(null)
   const [assignEditHeat, setAssignEditHeat] = useState('')
   const [assignEditLane, setAssignEditLane] = useState('')
-  const [draggedId, setDraggedId] = useState<number | null>(null)
   const [dragOverId, setDragOverId] = useState<number | null>(null)
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
+
   const sorted = [...entries].sort((a, b) => a.lane - b.lane)
+  // Key changes when assignment positions change — triggers Draggable rebuild
+  const sortedKey = sorted.map((a) => `${a.id}:${a.lane}:${a.heatNumber}`).join(',')
 
   const heatMs = workout.startTime
     ? calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
@@ -44,6 +63,65 @@ export default function HeatCard({
   const startLabel = heatMs != null
     ? new Date(heatMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null
+
+  // ─── GSAP Draggable setup ─────────────────────────────────────────────────
+  useGSAP(() => {
+    if (isComplete || sorted.length === 0) return
+
+    const draggables: ReturnType<typeof Draggable.create> = []
+
+    for (const assignment of sorted) {
+      if (editingAssignment === assignment.id) continue
+
+      const row = rowRefs.current.get(assignment.id)
+      if (!row) continue
+      const handle = row.querySelector<HTMLElement>('[data-drag-handle]')
+      if (!handle) continue
+
+      let ghost: HTMLDivElement | null = null
+
+      const [d] = Draggable.create(handle, {
+        type: 'x,y',
+        onDragStart() {
+          ghost = document.createElement('div')
+          ghost.textContent = assignment.athlete.name
+          ghost.style.cssText = [
+            'position:fixed', 'z-index:9999', 'pointer-events:none',
+            'background:#f97316', 'color:#fff', 'font-size:13px', 'font-weight:600',
+            'padding:6px 14px', 'border-radius:8px', 'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
+            'opacity:0.95', 'white-space:nowrap',
+          ].join(';')
+          document.body.appendChild(ghost)
+          gsap.set(ghost, { x: this.pointerX + 14, y: this.pointerY - 24 })
+        },
+        onDrag() {
+          if (ghost) gsap.set(ghost, { x: this.pointerX + 14, y: this.pointerY - 24 })
+          const el = document.elementFromPoint(this.pointerX, this.pointerY)
+          const targetRow = el?.closest<HTMLElement>('[data-assignment-id]')
+          const targetId = targetRow ? Number(targetRow.dataset.assignmentId) : null
+          setDragOverId(targetId !== assignment.id ? targetId : null)
+        },
+        onDragEnd() {
+          ghost?.remove(); ghost = null
+          gsap.set(handle, { clearProps: 'x,y' })
+
+          const el = document.elementFromPoint(this.pointerX, this.pointerY)
+          const targetRow = el?.closest<HTMLElement>('[data-assignment-id]')
+          const targetId = targetRow ? Number(targetRow.dataset.assignmentId) : null
+          setDragOverId(null)
+
+          if (targetId && targetId !== assignment.id) {
+            void onSwapAssignments(assignment.id, targetId)
+          }
+        },
+      })
+      draggables.push(d)
+    }
+
+    return () => { draggables.forEach((d) => d.kill()) }
+  }, { dependencies: [sortedKey, isComplete, editingAssignment], scope: containerRef })
+
+  // ─── Heat time edit ───────────────────────────────────────────────────────
 
   function openHeatTimeEdit() {
     if (heatMs == null) return
@@ -61,6 +139,8 @@ export default function HeatCard({
     setEditingHeatTime(false)
   }
 
+  // ─── Assignment edit ──────────────────────────────────────────────────────
+
   function startEditAssignment(a: Assignment) {
     setEditingAssignment(a.id)
     setAssignEditHeat(String(a.heatNumber))
@@ -72,8 +152,10 @@ export default function HeatCard({
     setEditingAssignment(null)
   }
 
+  // ─── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <div className={`rounded-xl overflow-hidden ${isComplete ? 'opacity-60' : 'bg-gray-900'}`}>
+    <div ref={containerRef} className={`rounded-xl overflow-hidden ${isComplete ? 'opacity-60' : 'bg-gray-900'}`}>
       <div className={`px-5 py-3 flex items-center justify-between ${isComplete ? 'bg-gray-700' : 'bg-gray-800'}`}>
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`font-semibold ${isComplete ? 'text-gray-400' : 'text-orange-400'}`}>Heat {heatNumber}</span>
@@ -91,8 +173,7 @@ export default function HeatCard({
           {editingHeatTime ? (
             <div className="flex items-center gap-2">
               <input
-                type="time"
-                value={heatTimeInput}
+                type="time" value={heatTimeInput}
                 onChange={(e) => setHeatTimeInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') void commitHeatTime(); if (e.key === 'Escape') setEditingHeatTime(false) }}
                 autoFocus
@@ -117,10 +198,12 @@ export default function HeatCard({
           )}
         </div>
       </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-800/50">
             <tr>
+              {!isComplete && <th className="w-8 px-2 py-2" />}
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Lane</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Heat</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
@@ -135,21 +218,25 @@ export default function HeatCard({
             {sorted.map((a) => {
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
               const isEditingThis = editingAssignment === a.id
+              const isDragTarget = dragOverId === a.id
               return (
                 <tr
                   key={a.id}
-                  draggable={!isEditingThis}
-                  onDragStart={() => setDraggedId(a.id)}
-                  onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverId(a.id) }}
-                  onDragLeave={() => setDragOverId(null)}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (draggedId != null) void onSwapAssignments(draggedId, a.id)
-                    setDraggedId(null); setDragOverId(null)
-                  }}
-                  className={`border-t border-gray-800 cursor-grab active:cursor-grabbing transition-opacity ${isEditingThis ? 'bg-gray-800/40 cursor-default' : ''} ${draggedId === a.id ? 'opacity-40' : ''} ${dragOverId === a.id && draggedId !== a.id ? 'bg-orange-500/10 border-orange-500/50' : ''}`}
+                  ref={(el) => { if (el) rowRefs.current.set(a.id, el); else rowRefs.current.delete(a.id) }}
+                  data-assignment-id={a.id}
+                  className={`border-t border-gray-800 transition-colors ${isEditingThis ? 'bg-gray-800/40' : ''} ${isDragTarget ? 'bg-orange-500/10' : ''}`}
                 >
+                  {!isComplete && (
+                    <td className="px-2 py-3">
+                      <span
+                        data-drag-handle
+                        className="group flex items-center justify-center w-6 h-8 cursor-grab active:cursor-grabbing touch-none select-none"
+                        title="Drag to swap"
+                      >
+                        <GripIcon />
+                      </span>
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     {isEditingThis
                       ? <input type="number" min="1" value={assignEditLane} onChange={(e) => setAssignEditLane(e.target.value)} className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500" />
