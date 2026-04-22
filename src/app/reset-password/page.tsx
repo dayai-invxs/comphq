@@ -13,19 +13,25 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [status, setStatus] = useState<'checking' | 'ready' | 'saving' | 'done'>('checking')
 
-  // Ensure the user got here via a reset-link callback. The /auth/callback
-  // route exchanges the code for a session cookie before landing here, so
-  // getUser() should return the pending user.
   useEffect(() => {
     const supabase = getSupabaseClient()
-    void supabase.auth.getUser().then(({ data, error: err }) => {
-      if (err || !data.user) {
-        setError('Reset link is invalid or expired.')
+    const code = new URLSearchParams(window.location.search).get('code')
+
+    if (code) {
+      // PKCE flow: Supabase landed here with ?code= — exchange it for a session.
+      void supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
+        if (err) setError('Reset link is invalid or expired.')
         setStatus('ready')
-      } else {
+        // Remove the code from the URL so a refresh doesn't re-attempt the exchange.
+        window.history.replaceState({}, '', '/reset-password')
+      })
+    } else {
+      // Fallback: arrived via /auth/callback which already exchanged the code.
+      void supabase.auth.getUser().then(({ data, error: err }) => {
+        if (err || !data.user) setError('Reset link is invalid or expired.')
         setStatus('ready')
-      }
-    })
+      })
+    }
   }, [])
 
   async function handleSubmit() {
