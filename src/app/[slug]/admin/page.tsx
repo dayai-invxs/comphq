@@ -111,7 +111,15 @@ export default function CompetitionDashboard() {
           download
           className="bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
         >
-          Export Data
+          Export (CSV)
+        </a>
+        <a
+          href={`/api/export/zip?slug=${slug}`}
+          download
+          className="bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
+          title="Per-table CSVs + JSON manifest, zipped"
+        >
+          Export (ZIP)
         </a>
       </div>
 
