@@ -149,16 +149,18 @@ export default function UsersPage() {
           <h2 className="text-lg font-semibold text-white">Add User</h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Email</label>
+              <label htmlFor="new-user-email" className="block text-xs text-gray-400 mb-1">Email</label>
               <input
+                id="new-user-email" name="email"
                 type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
                 className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Password (12+ chars)</label>
+              <label htmlFor="new-user-password" className="block text-xs text-gray-400 mb-1">Password (12+ chars)</label>
               <input
+                id="new-user-password" name="password"
                 type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                 required minLength={12}
