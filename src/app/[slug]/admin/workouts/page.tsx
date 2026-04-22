@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
 import { getJson, postJson, patchJson } from '@/lib/http'
+import { toIsoOrNull } from '@/lib/datetime'
 
 type Workout = { id: number; number: number; name: string; scoreType: string; lanes: number; status: string }
 
@@ -89,7 +90,7 @@ export default function WorkoutsPage() {
         timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
         callTimeSecs: parseMinSec(callTime),
         walkoutTimeSecs: parseMinSec(walkoutTime),
-        startTime: startTime || null, mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
+        startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
       }),
     )
     if (created !== undefined) {
