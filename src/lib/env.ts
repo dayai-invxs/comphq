@@ -3,17 +3,11 @@ import { z } from 'zod'
 const baseSchema = z.object({
   SUPABASE_URL: z.url(),
   SUPABASE_SERVICE_KEY: z.string().min(1),
-  NEXTAUTH_SECRET: z.string().min(1),
-  NEXTAUTH_URL: z.url().optional(),
-  ADMIN_USERNAME: z.string().optional(),
-  ADMIN_PASSWORD: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_URL: z.url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 })
 
-// Note: ADMIN_PASSWORD-required-in-production is enforced at runtime in
-// src/lib/auth.ts#ensureSeedUser. Keeping it out of the schema lets
-// `next build` (which sets NODE_ENV=production) succeed without a real
-// password in the build environment.
 export const envSchema = baseSchema
 
 export type Env = z.infer<typeof envSchema>

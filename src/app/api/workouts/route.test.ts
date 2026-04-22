@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST } from './route'
 
 const getReq = () => new Request('http://test/api/workouts?slug=default')
@@ -24,7 +23,7 @@ describe('GET /api/workouts', () => {
 
 describe('POST /api/workouts', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await POST(postReq({
       number: 1, name: 'WOD 1', scoreType: 'time', lanes: 5,
       heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,

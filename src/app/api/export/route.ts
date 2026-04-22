@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
@@ -20,11 +18,10 @@ function section(title: string): string {
 }
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   let competition: { id: number; name: string; slug: string }
   try {
-    ({ competition } = await requireCompetitionMember(session, slug))
+    ({ competition } = await requireCompetitionMember(slug))
   } catch (e) {
     return authErrorResponse(e)
   }

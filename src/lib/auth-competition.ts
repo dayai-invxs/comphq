@@ -1,13 +1,14 @@
-import type { Session } from 'next-auth'
 import { supabase } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { resolveCompetition } from '@/lib/competition'
 
 export type Role = 'admin' | 'scorekeeper'
+export type SiteRole = 'admin' | 'user'
 
-export type User = { id: number; username: string; role: 'admin' | 'user' }
-export type Membership = { userId: number; competitionId: number; role: Role }
+export type AuthedUser = { id: string; email: string | null; role: SiteRole }
+export type Membership = { userId: string; competitionId: number; role: Role }
 export type Competition = { id: number; name: string; slug: string }
-export type AuthContext = { user: User; membership: Membership; competition: Competition }
+export type AuthContext = { user: AuthedUser; membership: Membership; competition: Competition }
 
 export class AuthError extends Error {
   constructor(readonly status: 401 | 403 | 404, message: string) {
@@ -17,34 +18,40 @@ export class AuthError extends Error {
 }
 
 /**
- * Looks up the User row for the authenticated session.
- * Throws AuthError(401) if no session or the username isn't in the DB.
+ * Read the logged-in user from the Supabase session cookie and load their
+ * UserProfile row (for the site-wide role). Throws AuthError(401) if no
+ * valid session or the profile row is missing.
  */
-export async function requireSession(session: Session | null): Promise<User> {
-  const username = session?.user?.name
-  if (!username) throw new AuthError(401, 'Unauthorized')
+export async function requireSession(): Promise<AuthedUser> {
+  const client = await createSupabaseServerClient()
+  const { data: { user }, error } = await client.auth.getUser()
+  if (error || !user) throw new AuthError(401, 'Unauthorized')
 
-  const { data } = await supabase
-    .from('User')
-    .select('id, username, role')
-    .eq('username', username)
+  // UserProfile is server-only (RLS deny-all to anon/authenticated).
+  // Load it with the service-role client.
+  const { data: profile } = await supabase
+    .from('UserProfile')
+    .select('role')
+    .eq('id', user.id)
     .maybeSingle()
 
-  if (!data) throw new AuthError(401, 'Unauthorized')
-  return data as User
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    role: ((profile as { role?: SiteRole } | null)?.role ?? 'user') as SiteRole,
+  }
 }
 
 /**
- * Gates a route on (a) session present, (b) competition exists, (c) user is a
- * member, (d) role meets `minRole`. Default minRole is 'scorekeeper' (any
- * member is OK). Pass 'admin' for destructive ops.
+ * Gates a route on (a) session present, (b) competition exists, (c) user
+ * is a member, (d) role meets `minRole`. Default minRole is 'scorekeeper'
+ * (any member is OK). Pass 'admin' for destructive ops.
  */
 export async function requireCompetitionMember(
-  session: Session | null,
   slug: string,
   minRole: Role = 'scorekeeper',
 ): Promise<AuthContext> {
-  const user = await requireSession(session)
+  const user = await requireSession()
 
   const competition = await resolveCompetition(slug)
   if (!competition) throw new AuthError(404, 'Competition not found')
@@ -69,8 +76,8 @@ export async function requireCompetitionMember(
 /**
  * Site-wide admin gate. 'admin' can CRUD competitions + users; 'user' cannot.
  */
-export async function requireSiteAdmin(session: Session | null): Promise<User> {
-  const user = await requireSession(session)
+export async function requireSiteAdmin(): Promise<AuthedUser> {
+  const user = await requireSession()
   if (user.role !== 'admin') throw new AuthError(403, 'Site admin required')
   return user
 }

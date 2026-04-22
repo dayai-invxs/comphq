@@ -1,12 +1,15 @@
 'use client'
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Browser-safe Supabase client using the anon key. Reads are gated by the
-// RLS policies in supabase/migrations/20260421170000_rls_public_read.sql —
-// this client can SELECT from public tables (Score, HeatCompletion,
-// HeatAssignment, Workout, Athlete, Division, Competition) and can subscribe
-// to Realtime on Score + HeatCompletion. It cannot write anything.
+// Browser-side Supabase client. Uses the anon key + the session cookie
+// that @supabase/ssr manages. The client handles:
+//   • auth.signInWithPassword / signOut / resetPasswordForEmail
+//   • Realtime subscriptions (Score, HeatCompletion) — RLS-gated
+//   • Any direct DB reads from RLS-accessible tables
+//
+// Memoized so components all share one WebSocket for Realtime.
 
 let client: SupabaseClient | null = null
 
@@ -16,12 +19,9 @@ export function getSupabaseClient(): SupabaseClient {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) {
     throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY — client-side Realtime requires both.',
+      'Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY — client auth + Realtime need both.',
     )
   }
-  client = createClient(url, anonKey, {
-    auth: { persistSession: false },
-    realtime: { params: { eventsPerSecond: 10 } },
-  })
+  client = createBrowserClient(url, anonKey)
   return client
 }

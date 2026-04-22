@@ -12,7 +12,7 @@ type Tables = Database['public']['Tables']
 
 export type Setting = Tables['Setting']['Row']
 export type Division = Tables['Division']['Row']
-export type User = Tables['User']['Row']
+export type UserProfile = Tables['UserProfile']['Row']
 export type Competition = Tables['Competition']['Row']
 export type CompetitionMember = Tables['CompetitionMember']['Row']
 export type HeatCompletion = Tables['HeatCompletion']['Row']

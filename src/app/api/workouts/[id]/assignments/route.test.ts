@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST, PATCH } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -27,7 +26,7 @@ describe('GET /api/workouts/[id]/assignments', () => {
 
 describe('POST /api/workouts/[id]/assignments', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await POST(req('POST', {}), params('1'))
     expect(res.status).toBe(401)
   })
@@ -59,7 +58,7 @@ describe('POST /api/workouts/[id]/assignments', () => {
 
 describe('PATCH /api/workouts/[id]/assignments', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await PATCH(req('PATCH', { id: 1, heatNumber: 1, lane: 1 }))
     expect(res.status).toBe(401)
   })

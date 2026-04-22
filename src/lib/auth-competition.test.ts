@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import type { Session } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 
-// Setup mocks the public API of this module. For the module's OWN tests we
-// want the real implementation, so un-mock before importing.
+// These tests exercise the real helpers. setup.ts mocks the module's public
+// API so routes get predictable stubs; unmock to pull the real code for
+// these unit tests.
 vi.unmock('@/lib/auth-competition')
 
 const {
@@ -14,60 +14,72 @@ const {
   requireSiteAdmin,
 } = await vi.importActual<typeof import('./auth-competition')>('./auth-competition')
 
-const adminSession = { user: { name: 'admin' } } as Session
-const userSession = { user: { name: 'bob' } } as Session
-
 describe('requireSession', () => {
-  it('throws 401 on null session', async () => {
-    await expect(requireSession(null)).rejects.toMatchObject({ status: 401 })
+  it('throws 401 when no Supabase session', async () => {
+    setAuthUser(null)
+    await expect(requireSession()).rejects.toMatchObject({ status: 401 })
   })
 
-  it('returns the user when session + DB row match', async () => {
-    mock.queueResult({ data: { id: 1, username: 'admin', role: 'admin' }, error: null })
-    const user = await requireSession(adminSession)
-    expect(user).toMatchObject({ id: 1, username: 'admin', role: 'admin' })
+  it('returns the user + role from UserProfile when session is valid', async () => {
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult({ data: { role: 'admin' }, error: null })
+    const user = await requireSession()
+    expect(user).toMatchObject({ id: 'user-1', email: 'admin@test.local', role: 'admin' })
   })
 
-  it('throws 401 when session references an unknown user', async () => {
+  it('defaults role to "user" when no UserProfile row exists yet', async () => {
+    setAuthUser({ id: 'user-2', email: 'new@test.local' })
     mock.queueResult({ data: null, error: null })
-    await expect(requireSession(adminSession)).rejects.toMatchObject({ status: 401 })
+    const user = await requireSession()
+    expect(user.role).toBe('user')
   })
 })
 
 describe('requireCompetitionMember', () => {
-  it('throws 404 when slug resolves to no competition', async () => {
-    mock.queueResult({ data: { id: 1, username: 'admin', role: 'admin' }, error: null })
-    // resolveCompetition is mocked to return null for empty slug
-    await expect(requireCompetitionMember(adminSession, '')).rejects.toMatchObject({ status: 404 })
+  it('throws 401 when no Supabase session', async () => {
+    setAuthUser(null)
+    await expect(requireCompetitionMember('default')).rejects.toMatchObject({ status: 401 })
   })
 
-  it('throws 403 when the user is not a member', async () => {
-    mock.queueResult({ data: { id: 2, username: 'bob', role: 'admin' }, error: null }) // user lookup
-    mock.queueResult({ data: null, error: null })                                       // membership lookup
-    await expect(requireCompetitionMember(userSession, 'default')).rejects.toMatchObject({ status: 403 })
+  it('throws 404 when the slug resolves to no competition', async () => {
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult({ data: { role: 'admin' }, error: null }) // UserProfile
+    // resolveCompetition is mocked to return null for empty slug (see setup.ts)
+    await expect(requireCompetitionMember('')).rejects.toMatchObject({ status: 404 })
   })
 
-  it('returns context for a member', async () => {
-    mock.queueResult({ data: { id: 1, username: 'admin', role: 'admin' }, error: null })
-    mock.queueResult({ data: { userId: 1, competitionId: 1, role: 'admin' }, error: null })
+  it('throws 403 when the user is not a member of the competition', async () => {
+    setAuthUser({ id: 'user-2', email: 'bob@test.local' })
+    mock.queueResult({ data: { role: 'user' }, error: null })         // UserProfile
+    mock.queueResult({ data: null, error: null })                     // CompetitionMember lookup (none)
+    await expect(requireCompetitionMember('default')).rejects.toMatchObject({ status: 403 })
+  })
 
-    const ctx = await requireCompetitionMember(adminSession, 'default')
+  it('returns the auth context for a valid member', async () => {
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult({ data: { role: 'admin' }, error: null })
+    mock.queueResult({ data: { userId: 'user-1', competitionId: 1, role: 'admin' }, error: null })
+
+    const ctx = await requireCompetitionMember('default')
     expect(ctx.competition.slug).toBe('default')
     expect(ctx.membership.role).toBe('admin')
-    expect(ctx.user.username).toBe('admin')
+    expect(ctx.user.email).toBe('admin@test.local')
   })
 
-  it('rejects scorekeeper when minRole=admin', async () => {
-    mock.queueResult({ data: { id: 1, username: 'sk', role: 'admin' }, error: null })
-    mock.queueResult({ data: { userId: 1, competitionId: 1, role: 'scorekeeper' }, error: null })
+  it('rejects scorekeeper role when minRole=admin', async () => {
+    setAuthUser({ id: 'user-3', email: 'sk@test.local' })
+    mock.queueResult({ data: { role: 'user' }, error: null })
+    mock.queueResult({ data: { userId: 'user-3', competitionId: 1, role: 'scorekeeper' }, error: null })
 
-    await expect(requireCompetitionMember(adminSession, 'default', 'admin')).rejects.toMatchObject({ status: 403 })
+    await expect(requireCompetitionMember('default', 'admin')).rejects.toMatchObject({ status: 403 })
   })
 
-  it('accepts admin when minRole=admin', async () => {
-    mock.queueResult({ data: { id: 1, username: 'admin', role: 'admin' }, error: null })
-    mock.queueResult({ data: { userId: 1, competitionId: 1, role: 'admin' }, error: null })
-    await expect(requireCompetitionMember(adminSession, 'default', 'admin')).resolves.toMatchObject({
+  it('accepts admin membership when minRole=admin', async () => {
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult({ data: { role: 'admin' }, error: null })
+    mock.queueResult({ data: { userId: 'user-1', competitionId: 1, role: 'admin' }, error: null })
+
+    await expect(requireCompetitionMember('default', 'admin')).resolves.toMatchObject({
       membership: { role: 'admin' },
     })
   })
@@ -75,13 +87,20 @@ describe('requireCompetitionMember', () => {
 
 describe('requireSiteAdmin', () => {
   it('returns the user for site admins', async () => {
-    mock.queueResult({ data: { id: 1, username: 'admin', role: 'admin' }, error: null })
-    await expect(requireSiteAdmin(adminSession)).resolves.toMatchObject({ role: 'admin' })
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult({ data: { role: 'admin' }, error: null })
+    await expect(requireSiteAdmin()).resolves.toMatchObject({ role: 'admin' })
   })
 
   it('throws 403 for non-admin site roles', async () => {
-    mock.queueResult({ data: { id: 1, username: 'bob', role: 'user' }, error: null })
-    await expect(requireSiteAdmin(userSession)).rejects.toMatchObject({ status: 403 })
+    setAuthUser({ id: 'user-2', email: 'bob@test.local' })
+    mock.queueResult({ data: { role: 'user' }, error: null })
+    await expect(requireSiteAdmin()).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('throws 401 when unauthenticated', async () => {
+    setAuthUser(null)
+    await expect(requireSiteAdmin()).rejects.toMatchObject({ status: 401 })
   })
 })
 
@@ -94,13 +113,5 @@ describe('authErrorResponse', () => {
 
   it('rethrows unknown errors', () => {
     expect(() => authErrorResponse(new Error('boom'))).toThrow(/boom/)
-  })
-})
-
-describe('integration: mocked resolveCompetition', () => {
-  it('uses the mocked resolveCompetition from setup.ts', async () => {
-    const { resolveCompetition } = await import('./competition')
-    expect(resolveCompetition).toBeDefined()
-    expect(vi.isMockFunction(resolveCompetition)).toBe(true)
   })
 })

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { PUT } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -12,7 +11,7 @@ const req = (body: Record<string, unknown>) =>
 
 describe('PUT /api/workouts/[id]/heat-times', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await PUT(req({ heatNumber: 1, isoTime: '2026-01-01T10:00:00Z' }), params('1'))
     expect(res.status).toBe(401)
   })

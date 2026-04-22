@@ -1,11 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST } from './route'
 
 describe('GET /api/users', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await GET()
     expect(res.status).toBe(401)
   })
@@ -23,7 +22,7 @@ describe('GET /api/users', () => {
 
 describe('POST /api/users', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await POST(new Request('http://test', { method: 'POST', body: JSON.stringify({ username: 'a', password: 'twelve-chars-minimum' }) }))
     expect(res.status).toBe(401)
   })

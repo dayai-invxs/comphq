@@ -1,17 +1,14 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionUpdate } from '@/lib/schemas'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const parsed = await parseJson(req, CompetitionUpdate)
   if (!parsed.ok) return parsed.response
 
   try {
-    await requireSiteAdmin(session)
+    await requireSiteAdmin()
     const { id } = await params
     const updates: Record<string, string> = {}
     if (parsed.data.name) updates.name = parsed.data.name
@@ -38,9 +35,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   try {
-    await requireSiteAdmin(session)
+    await requireSiteAdmin()
     const { id } = await params
     const { error } = await supabase.from('Competition').delete().eq('id', Number(id))
     if (error) return new Response(error.message, { status: 500 })

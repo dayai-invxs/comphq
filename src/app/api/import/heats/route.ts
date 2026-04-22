@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
 
@@ -43,7 +41,6 @@ function isHeaderRow(cells: string[]): boolean {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
 
   let csvText: string
   let slug = ''
@@ -61,7 +58,7 @@ export async function POST(req: Request) {
       slug = body.slug ?? ''
     }
 
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     return await runImport(csvText, competition.id)
   } catch (e) {
     return authErrorResponse(e)

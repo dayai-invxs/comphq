@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST, DELETE } from './route'
 
 describe('GET /api/logo', () => {
@@ -19,7 +18,7 @@ describe('GET /api/logo', () => {
 
 describe('POST /api/logo', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const form = new FormData()
     const res = await POST(new Request('http://test', { method: 'POST', body: form }))
     expect(res.status).toBe(401)
@@ -84,7 +83,7 @@ describe('POST /api/logo', () => {
 
 describe('DELETE /api/logo', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await DELETE()
     expect(res.status).toBe(401)
   })

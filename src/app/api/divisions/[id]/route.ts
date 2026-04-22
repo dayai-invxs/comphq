@@ -1,18 +1,15 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { DivisionUpdate } from '@/lib/schemas'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const parsed = await parseJson(req, DivisionUpdate)
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id } = await params
 
     const patch: Record<string, unknown> = {}
@@ -36,11 +33,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id } = await params
     const { error } = await supabase
       .from('Division')

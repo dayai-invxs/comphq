@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
@@ -8,11 +6,10 @@ import { WorkoutUpdate } from '@/lib/schemas'
 import { ASSIGNMENT_EMBED, SCORE_EMBED } from '@/lib/embeds'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug)
+    const { competition } = await requireCompetitionMember(slug)
     const { id } = await params
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition(workoutId, competition.id)
@@ -46,13 +43,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const parsed = await parseJson(req, WorkoutUpdate)
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id } = await params
     const d = parsed.data
     const patch: Record<string, unknown> = {}
@@ -99,11 +95,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id } = await params
     const { error } = await supabase
       .from('Workout')

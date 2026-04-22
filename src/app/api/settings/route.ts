@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
 import { authErrorResponse, requireCompetitionMember } from '@/lib/auth-competition'
@@ -33,12 +31,11 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions)
   const parsed = await parseJson(req, SettingsPatch)
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, parsed.data.slug, 'admin')
+    const { competition } = await requireCompetitionMember(parsed.data.slug, 'admin')
     const d = parsed.data
 
     const upserts = []

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -27,7 +26,7 @@ describe('GET /api/workouts/[id]/scores', () => {
 
 describe('POST /api/workouts/[id]/scores', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await POST(req('POST', { athleteId: 1, rawScore: 95 }), params('1'))
     expect(res.status).toBe(401)
   })
@@ -45,7 +44,7 @@ describe('POST /api/workouts/[id]/scores', () => {
 
 describe('DELETE /api/workouts/[id]/scores', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await DELETE(req('DELETE'), params('1'))
     expect(res.status).toBe(401)
   })

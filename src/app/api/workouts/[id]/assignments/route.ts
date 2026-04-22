@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
@@ -9,11 +7,10 @@ import { AssignmentPatch, AssignmentRegen } from '@/lib/schemas'
 import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug)
+    const { competition } = await requireCompetitionMember(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id, 'id')
@@ -32,11 +29,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id } = await params
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(
@@ -105,13 +101,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const parsed = await parseJson(req, AssignmentPatch)
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id: assignmentId, heatNumber, lane } = parsed.data
 
     // Verify the assignment belongs to a workout in the caller's competition.

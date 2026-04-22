@@ -1,14 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { unzipSync, strFromU8 } from 'fflate'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET } from './route'
 
 const req = (slug = 'default') => new Request(`http://test/api/export/zip?slug=${slug}`)
 
 describe('GET /api/export/zip', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await GET(req())
     expect(res.status).toBe(401)
   })

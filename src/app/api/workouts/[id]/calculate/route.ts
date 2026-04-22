@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { rankAndPersist } from '@/lib/scoring'
 import { authErrorResponse, requireCompetitionMember, requireWorkoutInCompetition } from '@/lib/auth-competition'
@@ -13,11 +11,10 @@ type RankableWorkout = {
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionMember(session, slug, 'admin')
+    const { competition } = await requireCompetitionMember(slug, 'admin')
     const { id } = await params
     const workoutId = Number(id)
     const workout = await requireWorkoutInCompetition<RankableWorkout>(

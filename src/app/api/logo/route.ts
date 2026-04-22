@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 
 const BUCKET = 'logos'
 const LOGO_KEY = 'logoUrl'
@@ -21,8 +20,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  try { await requireSession() } catch (e) { return authErrorResponse(e) }
 
   const formData = await req.formData()
   const file = formData.get('logo') as File | null
@@ -53,8 +51,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
+  try { await requireSession() } catch (e) { return authErrorResponse(e) }
 
   const { data: row } = await supabase.from('Setting').select('value').eq('key', LOGO_KEY).maybeSingle()
   if (row) {

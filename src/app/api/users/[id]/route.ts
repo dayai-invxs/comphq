@@ -1,5 +1,3 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
@@ -7,12 +5,11 @@ import { parseJson } from '@/lib/parseJson'
 import { UserUpdate } from '@/lib/schemas'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   const parsed = await parseJson(req, UserUpdate)
   if (!parsed.ok) return parsed.response
 
   try {
-    await requireSiteAdmin(session)
+    await requireSiteAdmin()
     const { id } = await params
 
     const hashed = await bcrypt.hash(parsed.data.password, 10)
@@ -31,9 +28,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
   try {
-    await requireSiteAdmin(session)
+    await requireSiteAdmin()
     const { id } = await params
 
     // Count site admins — don't let the last one delete themselves.

@@ -87,7 +87,7 @@ export type Database = {
           id: number
           resourceId: string | null
           resourceType: string
-          userId: number | null
+          userId: string | null
           userName: string | null
         }
         Insert: {
@@ -98,7 +98,7 @@ export type Database = {
           id?: number
           resourceId?: string | null
           resourceType: string
-          userId?: number | null
+          userId?: string | null
           userName?: string | null
         }
         Update: {
@@ -109,7 +109,7 @@ export type Database = {
           id?: number
           resourceId?: string | null
           resourceType?: string
-          userId?: number | null
+          userId?: string | null
           userName?: string | null
         }
         Relationships: [
@@ -118,13 +118,6 @@ export type Database = {
             columns: ["competitionId"]
             isOneToOne: false
             referencedRelation: "Competition"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "AuditLog_userId_fkey"
-            columns: ["userId"]
-            isOneToOne: false
-            referencedRelation: "User"
             referencedColumns: ["id"]
           },
         ]
@@ -151,23 +144,20 @@ export type Database = {
         Row: {
           competitionId: number
           createdAt: string
-          id: number
           role: string
-          userId: number
+          userId: string
         }
         Insert: {
           competitionId: number
           createdAt?: string
-          id?: number
           role?: string
-          userId: number
+          userId: string
         }
         Update: {
           competitionId?: number
           createdAt?: string
-          id?: number
           role?: string
-          userId?: number
+          userId?: string
         }
         Relationships: [
           {
@@ -175,13 +165,6 @@ export type Database = {
             columns: ["competitionId"]
             isOneToOne: false
             referencedRelation: "Competition"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "CompetitionMember_userId_fkey"
-            columns: ["userId"]
-            isOneToOne: false
-            referencedRelation: "User"
             referencedColumns: ["id"]
           },
         ]
@@ -357,24 +340,21 @@ export type Database = {
           },
         ]
       }
-      User: {
+      UserProfile: {
         Row: {
-          id: number
-          password: string
+          createdAt: string
+          id: string
           role: string
-          username: string
         }
         Insert: {
-          id?: number
-          password: string
+          createdAt?: string
+          id: string
           role?: string
-          username: string
         }
         Update: {
-          id?: number
-          password?: string
+          createdAt?: string
+          id?: string
           role?: string
-          username?: string
         }
         Relationships: []
       }

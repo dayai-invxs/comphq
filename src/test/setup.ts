@@ -3,11 +3,30 @@ import { createSupabaseMock } from './supabase-mock'
 
 process.env.SUPABASE_URL ??= 'https://test.supabase.co'
 process.env.SUPABASE_SERVICE_KEY ??= 'test-service-key'
-process.env.NEXTAUTH_SECRET ??= 'test-secret'
+process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://test.supabase.co'
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'test-anon-key'
 
 export const supabaseMock = createSupabaseMock()
 
+// Simulated Supabase Auth state. Tests call setAuthUser(...) to flip between
+// "logged in as X" and "no session." Defaults to a logged-in admin so
+// existing route tests keep working.
+type AuthUserShape = { id: string; email: string | null } | null
+let authUser: AuthUserShape = { id: 'user-1', email: 'admin@test.local' }
+export function setAuthUser(u: AuthUserShape) { authUser = u }
+
 vi.mock('@/lib/supabase', () => ({ supabase: supabaseMock.client }))
+
+vi.mock('@/lib/supabase-server', () => ({
+  createSupabaseServerClient: vi.fn(async () => ({
+    auth: {
+      getUser: vi.fn(async () => ({
+        data: { user: authUser },
+        error: authUser ? null : { message: 'No user', status: 401 },
+      })),
+    },
+  })),
+}))
 
 vi.mock('@/lib/competition', () => ({
   resolveCompetition: vi.fn(async (slug?: string) => {
@@ -21,32 +40,28 @@ vi.mock('@/lib/auth-competition', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/auth-competition')>()
   return {
     ...actual,
-    requireSession: vi.fn(async (session) => {
-      if (!session?.user?.name) throw new actual.AuthError(401, 'Unauthorized')
-      return { id: 1, username: session.user.name, role: 'admin' }
+    requireSession: vi.fn(async () => {
+      if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
+      return { id: authUser.id, email: authUser.email, role: 'admin' as const }
     }),
-    requireCompetitionMember: vi.fn(async (session, slug, minRole = 'scorekeeper') => {
-      if (!session?.user?.name) throw new actual.AuthError(401, 'Unauthorized')
+    requireCompetitionMember: vi.fn(async (slug: string, minRole: 'admin' | 'scorekeeper' = 'scorekeeper') => {
+      if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
       if (!slug) throw new actual.AuthError(404, 'Competition not found')
       return {
-        user: { id: 1, username: session.user.name, role: 'admin' as const },
-        membership: { userId: 1, competitionId: 1, role: minRole === 'admin' ? ('admin' as const) : ('admin' as const) },
+        user: { id: authUser.id, email: authUser.email, role: 'admin' as const },
+        membership: { userId: authUser.id, competitionId: 1, role: minRole === 'admin' ? ('admin' as const) : ('admin' as const) },
         competition: { id: 1, name: 'Default', slug },
       }
     }),
-    requireSiteAdmin: vi.fn(async (session) => {
-      if (!session?.user?.name) throw new actual.AuthError(401, 'Unauthorized')
-      return { id: 1, username: session.user.name, role: 'admin' as const }
+    requireSiteAdmin: vi.fn(async () => {
+      if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
+      return { id: authUser.id, email: authUser.email, role: 'admin' as const }
     }),
   }
 })
 
-vi.mock('next-auth', () => ({
-  getServerSession: vi.fn(),
-}))
-
-beforeEach(async () => {
+beforeEach(() => {
   supabaseMock.reset()
-  const { getServerSession } = await import('next-auth')
-  vi.mocked(getServerSession).mockResolvedValue({ user: { name: 'admin' } } as never)
+  // Default: logged-in admin. Tests that need the unauthed case call setAuthUser(null).
+  setAuthUser({ id: 'user-1', email: 'admin@test.local' })
 })

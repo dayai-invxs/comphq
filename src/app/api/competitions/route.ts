@@ -1,14 +1,11 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSession, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionCreate } from '@/lib/schemas'
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
   try {
-    const user = await requireSession(session)
+    const user = await requireSession()
     // Site admins see everything; other users only see comps they're a member of.
     if (user.role === 'admin') {
       const { data, error } = await supabase.from('Competition').select('*').order('id')
@@ -28,12 +25,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
   const parsed = await parseJson(req, CompetitionCreate)
   if (!parsed.ok) return parsed.response
 
   try {
-    const user = await requireSiteAdmin(session)
+    const user = await requireSiteAdmin()
     const { name, slug } = parsed.data
 
     const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')

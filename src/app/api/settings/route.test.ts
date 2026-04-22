@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
-import { getServerSession } from 'next-auth'
+import { supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { GET, PATCH } from './route'
 
 const getReq = () => new Request('http://test/api/settings?slug=default')
@@ -35,7 +34,7 @@ describe('GET /api/settings', () => {
 
 describe('PATCH /api/settings', () => {
   it('rejects unauthenticated', async () => {
-    vi.mocked(getServerSession).mockResolvedValueOnce(null)
+    setAuthUser(null)
     const res = await PATCH(patchReq({ showBib: true }))
     expect(res.status).toBe(401)
   })
