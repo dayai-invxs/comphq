@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Workout } from '@/hooks/useWorkoutDetail'
 import { SCORE_TYPE_OPTIONS } from '@/lib/workoutEnums'
+import { toIsoOrNull } from '@/lib/datetime'
 
 type TimeField = string
 
@@ -79,7 +80,7 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
       name: name.trim(), number: Number(number), scoreType, lanes: Number(lanes),
       heatIntervalSecs: fieldToSecs(heatInterval), timeBetweenHeatsSecs: fieldToSecs(timeBetweenHeats),
       callTimeSecs: fieldToSecs(callTime), walkoutTimeSecs: fieldToSecs(walkoutTime),
-      startTime: startTime || null, mixedHeats, tiebreakEnabled,
+      startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled,
       partBEnabled, partBScoreType, halfWeight,
     })
     if (ok) onCancel()
