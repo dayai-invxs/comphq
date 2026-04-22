@@ -1,12 +1,14 @@
 import { defineConfig, devices } from '@playwright/test'
+import { config } from 'dotenv'
+import { resolve } from 'node:path'
+
+// Load .env.local so tests that use Supabase admin APIs (creating throwaway
+// users for access-gate coverage) see SUPABASE_URL / SUPABASE_SERVICE_KEY.
+config({ path: resolve(process.cwd(), '.env.local') })
 
 /**
- * Playwright config for comphq happy-path E2E.
- *
- * Assumes a dev server at localhost:3000 with ADMIN_USERNAME=admin and the
- * dev fallback password 'crossfit123' (auth.ts#ensureSeedUser). E2E tests
- * mutate the linked Supabase test DB — run them against a fresh branch or
- * staging, not prod.
+ * Playwright config. E2E tests mutate the linked Supabase test DB — run
+ * them against a fresh branch or staging, not prod.
  */
 export default defineConfig({
   testDir: './e2e',
