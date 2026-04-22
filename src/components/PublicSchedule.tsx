@@ -25,6 +25,7 @@ type WorkoutData = {
   number: number
   name: string
   status: string
+  locationName: string | null
   startTime: string | null
   heatIntervalSecs: number
   timeBetweenHeatsSecs: number
@@ -90,6 +91,7 @@ export default function PublicSchedule({ slug }: { slug: string }) {
           <div key={workout.id} className="mb-10">
             <h2 className="text-xl font-bold text-white mb-4">
               Workout {workout.number}: {workout.name}
+              {workout.locationName && <span className="ml-2 text-sm font-normal text-gray-400">· {workout.locationName}</span>}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pendingHeats.map((heat) => {

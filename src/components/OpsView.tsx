@@ -28,6 +28,7 @@ type WorkoutData = {
   number: number
   name: string
   status: string
+  locationName: string | null
   startTime: string | null
   heatIntervalSecs: number
   timeBetweenHeatsSecs: number
@@ -127,6 +128,7 @@ export default function OpsView({ slug }: { slug: string }) {
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-white">
                 Workout {workout.number}: {workout.name}
+                {workout.locationName && <span className="ml-2 text-sm font-normal text-gray-400">· {workout.locationName}</span>}
               </h2>
               <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${badge.className}`}>
                 {badge.label}

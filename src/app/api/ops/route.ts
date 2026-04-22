@@ -10,6 +10,7 @@ type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
   heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
   callTimeSecs: number; walkoutTimeSecs: number; scoreType: string; tiebreakEnabled: boolean; tiebreakScoreType: string
+  location: { name: string } | null
 }
 
 type Assignment = {
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
 
   const { data: workouts } = await supabase
     .from('Workout')
-    .select('*')
+    .select('*, location:WorkoutLocation(name)')
     .eq('competitionId', competition.id)
     .order('number')
 
@@ -106,6 +107,7 @@ export async function GET(req: Request) {
 
     return {
       id: workout.id, number: workout.number, name: workout.name, status: workout.status,
+      locationName: workout.location?.name ?? null,
       startTime: workout.startTime, heatIntervalSecs: workout.heatIntervalSecs,
       timeBetweenHeatsSecs: workout.timeBetweenHeatsSecs, callTimeSecs: workout.callTimeSecs,
       walkoutTimeSecs: workout.walkoutTimeSecs, heatStartOverrides: workout.heatStartOverrides,
