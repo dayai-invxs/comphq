@@ -83,6 +83,102 @@ A few items from the "leverage moves" list that weren't in any of the four audit
 
 ---
 
+## Testing this branch locally
+
+This branch replaces the whole auth layer, so a few things need one-time setup on your machine before the app will run. Order matters — do these in sequence.
+
+### 1. Check out the branch
+
+From the repo root:
+
+```bash
+git fetch origin
+git checkout audit/full-audit-mvp
+```
+
+If you want Claude Code to work on this branch with you, open the repo folder and run `claude` in the terminal — it picks up the branch automatically.
+
+### 2. Install new dependencies
+
+```bash
+npm install
+```
+
+New packages on this branch: `@supabase/ssr` (for auth cookies), `@tanstack/react-query` (data fetching), `@supabase/supabase-js` version bump, `fflate` (ZIP export), `@vercel/analytics`.
+
+Removed: `next-auth`, `bcryptjs`, `puppeteer`.
+
+### 3. Environment variables
+
+Open `.env.local`. Make sure these are present:
+
+```
+SUPABASE_URL=<your-project-url>
+SUPABASE_SERVICE_KEY=<your-service-role-key>
+NEXT_PUBLIC_SUPABASE_URL=<same-as-above>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+```
+
+Remove these (no longer used):
+
+```
+NEXTAUTH_SECRET
+NEXTAUTH_URL
+ADMIN_USERNAME
+ADMIN_PASSWORD
+```
+
+### 4. The database migrations are already applied
+
+The linked Supabase project already has every migration from this branch applied (I did that as part of the work). You don't need to run `npx supabase db push` unless you're pointing the app at a fresh Supabase project.
+
+**Heads up**: if you switch back to `main` later, the code will be out of sync with the DB — `main` expects a `User` table that no longer exists, and a `CompetitionMember.userId` that's an integer instead of a UUID. You'll get runtime errors until either (a) the branch merges into main or (b) you roll the DB back.
+
+### 5. Create your Supabase admin user
+
+The old `admin` / `crossfit123` default is gone. Auth now goes through Supabase Auth, so you need a real user in the Supabase dashboard.
+
+1. Open the Supabase dashboard, go to **Authentication → Users → Add user**.
+2. Enter your email + a password (12+ chars).
+3. Check **"Auto Confirm User"** so you don't have to click a confirmation email.
+4. Click **Create user**. Copy the user's UUID from the row that appears (it looks like `8fb50b4a-3ee1-4247-9743-...`).
+
+A `UserProfile` row auto-creates for them with role `user`. You need to bump that to `admin` and grant them access to the default competition. Go to **SQL Editor** and run:
+
+```sql
+-- Make this user a site-admin (can create competitions, manage settings).
+UPDATE "UserProfile" SET role = 'admin' WHERE id = '<paste-uuid-here>';
+
+-- Grant them admin access to the default competition.
+INSERT INTO "CompetitionMember" ("userId", "competitionId", role)
+VALUES ('<paste-uuid-here>', 1, 'admin');
+```
+
+There's already a test user in the DB from when I verified the flow — `admin@test.local` with password `crossfit123456`. You can use that to log in, or create your own.
+
+### 6. Start the app
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000/login` and sign in with the email + password you just set.
+
+### What to try
+
+Once you're logged in, a quick tour to confirm everything works:
+
+- **Basic admin flow** — go to `/default/admin`, create a test athlete, create a test workout, generate heat assignments, enter a score, complete the heat, check the leaderboard.
+- **Live leaderboard** — open `/default/leaderboard` in one browser tab, the admin workout detail in another, enter/edit a score, watch the leaderboard tab update within about a second without a refresh.
+- **Forgot password** — sign out, go to `/login`, click "Forgot password?", enter your email. Check the inbox of that email address for the reset link. Click it, set a new password, confirm you can log back in with the new one.
+- **Sign out** — the nav has a Sign Out link. Confirms the cookie is cleared and you bounce back to `/login`.
+- **Session persistence** — sign in, close the browser, re-open it, go back to `/default/admin`. You should still be signed in (session cookie lives 8h by default).
+- **The end-to-end automated test** — run `npm run test:e2e -- --headed` to watch Claude's automated browser run through the full competition flow. Details in the next section.
+
+If any of those don't work, the browser devtools Network tab + Supabase dashboard's "Logs → Auth" tab are the two places to look first.
+
+---
+
 ## Running the end-to-end test yourself
 
 We added an automated script that drives a real Chrome browser through the whole flow — log in, create a competition, add athletes, create a workout, generate heats, enter scores, complete the heat, and verify the leaderboard updates correctly. It runs in under 30 seconds.
