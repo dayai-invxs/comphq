@@ -70,12 +70,25 @@ export default function HeatCard({
 
     const draggables: ReturnType<typeof Draggable.create> = []
 
+    // GSAP physically moves the handle via CSS transform, so elementFromPoint
+    // at the drop position returns the handle itself (child of the SOURCE row).
+    // elementsFromPoint gives the full stack — we skip the source row to find
+    // the actual target row underneath.
+    function findTargetRow(px: number, py: number, sourceRow: HTMLTableRowElement): HTMLElement | null {
+      const stack = document.elementsFromPoint(px, py)
+      for (const el of stack) {
+        const row = (el as HTMLElement).closest<HTMLElement>('[data-assignment-id]')
+        if (row && row !== sourceRow) return row
+      }
+      return null
+    }
+
     for (const assignment of sorted) {
       if (editingAssignment === assignment.id) continue
 
-      const row = rowRefs.current.get(assignment.id)
-      if (!row) continue
-      const handle = row.querySelector<HTMLElement>('[data-drag-handle]')
+      const sourceRow = rowRefs.current.get(assignment.id)
+      if (!sourceRow) continue
+      const handle = sourceRow.querySelector<HTMLElement>('[data-drag-handle]')
       if (!handle) continue
 
       let ghost: HTMLDivElement | null = null
@@ -83,6 +96,7 @@ export default function HeatCard({
       const [d] = Draggable.create(handle, {
         type: 'x,y',
         onDragStart() {
+          setDragOverId(null)
           ghost = document.createElement('div')
           ghost.textContent = assignment.athlete.name
           ghost.style.cssText = [
@@ -96,23 +110,16 @@ export default function HeatCard({
         },
         onDrag() {
           if (ghost) gsap.set(ghost, { x: this.pointerX + 14, y: this.pointerY - 24 })
-          const el = document.elementFromPoint(this.pointerX, this.pointerY)
-          const targetRow = el?.closest<HTMLElement>('[data-assignment-id]')
-          const targetId = targetRow ? Number(targetRow.dataset.assignmentId) : null
-          setDragOverId(targetId !== assignment.id ? targetId : null)
+          const targetRow = findTargetRow(this.pointerX, this.pointerY, sourceRow)
+          setDragOverId(targetRow ? Number(targetRow.dataset.assignmentId) : null)
         },
         onDragEnd() {
           ghost?.remove(); ghost = null
-          gsap.set(handle, { clearProps: 'x,y' })
-
-          const el = document.elementFromPoint(this.pointerX, this.pointerY)
-          const targetRow = el?.closest<HTMLElement>('[data-assignment-id]')
+          const targetRow = findTargetRow(this.pointerX, this.pointerY, sourceRow)
           const targetId = targetRow ? Number(targetRow.dataset.assignmentId) : null
+          gsap.set(handle, { clearProps: 'x,y' })
           setDragOverId(null)
-
-          if (targetId && targetId !== assignment.id) {
-            void onSwapAssignments(assignment.id, targetId)
-          }
+          if (targetId) void onSwapAssignments(assignment.id, targetId)
         },
       })
       draggables.push(d)

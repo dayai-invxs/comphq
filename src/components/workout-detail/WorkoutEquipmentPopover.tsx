@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { getJson } from '@/lib/http'
 
 type Division = { id: number; name: string }
@@ -16,6 +16,7 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
   const [newDivisionId, setNewDivisionId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({})
   const panelRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -31,6 +32,21 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
   }
 
   useEffect(() => { if (open) void load() }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compute viewport-clamped position whenever the popover opens
+  useEffect(() => {
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const margin = 8
+    const width = Math.min(320, window.innerWidth - margin * 2)
+    const top = rect.bottom + 6
+    const maxHeight = window.innerHeight - top - margin
+    // Align right edge with button, then clamp left edge into viewport
+    let left = rect.right - width
+    if (left < margin) left = margin
+    if (left + width > window.innerWidth - margin) left = window.innerWidth - width - margin
+    setPanelStyle({ position: 'fixed', top, left, width, maxHeight })
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -110,8 +126,8 @@ export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col"
-          style={{ maxHeight: '500px' }}
+          className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col"
+          style={panelStyle}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
