@@ -3,11 +3,12 @@ import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
 import { ASSIGNMENT_EMBED } from '@/lib/embeds'
+import { formatScore } from '@/lib/scoreFormat'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
   heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number
+  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string
 }
 
 type Assignment = {
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
 
   const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
 
-  const [assignmentsRes, completedByWorkout] = await Promise.all([
+  const [assignmentsRes, scoresRes, completedByWorkout] = await Promise.all([
     workoutIds.length > 0
       ? supabase
           .from('HeatAssignment')
@@ -41,10 +42,23 @@ export async function GET(req: Request) {
           .order('heatNumber')
           .order('lane')
       : Promise.resolve({ data: [] as Assignment[] }),
+    workoutIds.length > 0
+      ? supabase.from('Score').select('athleteId, workoutId, rawScore').in('workoutId', workoutIds)
+      : Promise.resolve({ data: [] as Array<{ athleteId: number; workoutId: number; rawScore: number }> }),
     getCompletedHeatsByWorkout(workoutIds),
   ])
 
   const assignments = assignmentsRes.data ?? []
+  const scores = scoresRes.data ?? []
+
+  // Pre-format scores per athlete/workout so completed heats can show results
+  // inline without the public page needing to know scoreType rules.
+  const scoreMap = new Map<string, string>()
+  for (const s of scores) {
+    const row = s as { athleteId: number; workoutId: number; rawScore: number }
+    const w = (workouts as Workout[]).find((x) => x.id === row.workoutId)
+    if (w) scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, w.scoreType))
+  }
 
   const result = ((workouts ?? []) as Workout[]).map((workout) => {
     const completedHeats = completedByWorkout.get(workout.id) ?? []
@@ -67,6 +81,7 @@ export async function GET(req: Request) {
           bibNumber: a.athlete.bibNumber,
           divisionName: a.athlete.division?.name ?? null,
           lane: a.lane,
+          scoreDisplay: scoreMap.get(`${a.athleteId}-${workout.id}`) ?? null,
         }))
       return {
         heatNumber,

@@ -1,9 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { useOps, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
@@ -48,11 +47,6 @@ export default function AthleteControl({ slug }: { slug: string }) {
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
   const [heatTimeInput, setHeatTimeInput] = useState('')
-  const pathname = usePathname()
-
-  const parts = pathname.split('/').filter(Boolean)
-  const opsHref = parts.length >= 2 ? `/${parts[0]}/ops` : '/ops'
-  const adminHref = parts.length >= 1 ? `/${parts[0]}/admin` : '/admin'
 
   const qc = useQueryClient()
   const realtimeKeys = useMemo(() => [qk.ops(slug)], [slug])
@@ -114,23 +108,17 @@ export default function AthleteControl({ slug }: { slug: string }) {
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-3xl mx-auto">
+    <div className="min-h-screen flex flex-col">
+      <SlugNav slug={slug} />
+      <main className="flex-1 p-6 max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-white">Athlete Control</h1>
-        <div className="flex items-center gap-4">
-          <Link href={opsHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Ops View
-          </Link>
-          <Link href={adminHref} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Admin
-          </Link>
-          <div className="text-xs text-gray-500 text-right">
-            <div className="flex items-center gap-2 justify-end">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              Live
-            </div>
-            {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
+        <div className="text-xs text-gray-500 text-right">
+          <div className="flex items-center gap-2 justify-end">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            Live
           </div>
+          {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
         </div>
       </div>
 
@@ -268,6 +256,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
           </section>
         )
       })}
-    </main>
+      </main>
+    </div>
   )
 }

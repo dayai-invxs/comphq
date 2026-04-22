@@ -2,9 +2,9 @@
 
 import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { useLeaderboard, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
+import { SlugNav } from '@/components/SlugNav'
 
 export default function PublicLeaderboardPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -90,9 +90,10 @@ export default function PublicLeaderboardPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
+    <div className="min-h-screen flex flex-col">
+      <SlugNav slug={slug} />
+      <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
           {!isLoading && workouts.length > 0 && (
             <p className="text-gray-400 mt-1">
@@ -100,27 +101,19 @@ export default function PublicLeaderboardPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <Link href={`/${slug}`} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Schedule
-          </Link>
-          <Link href={`/${slug}/admin`} className="text-sm px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-            Admin
-          </Link>
-        </div>
-      </div>
 
-      {isLoading && <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>}
+        {isLoading && <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>}
 
-      {!isLoading && workouts.length === 0 && (
-        <div className="text-center text-gray-500 py-20 text-lg">No completed workouts yet.</div>
-      )}
+        {!isLoading && workouts.length === 0 && (
+          <div className="text-center text-gray-500 py-20 text-lg">No completed workouts yet.</div>
+        )}
 
-      {!isLoading && workouts.length > 0 && (
-        <div className="space-y-8">
-          {divisions.map((d) => renderTable(d))}
-        </div>
-      )}
-    </main>
+        {!isLoading && workouts.length > 0 && (
+          <div className="space-y-8">
+            {divisions.map((d) => renderTable(d))}
+          </div>
+        )}
+      </main>
+    </div>
   )
 }
