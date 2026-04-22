@@ -37,6 +37,20 @@ describe('POST /api/workouts', () => {
     expect(await res.text()).toMatch(/number/)
   })
 
+  it('returns 409 with a friendly message on duplicate workout number', async () => {
+    // Postgres unique_violation surfaces from PostgREST as code 23505.
+    mock.queueResult({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint "Workout_competitionId_number_key"' } as unknown as { message: string },
+    })
+    const res = await POST(postReq({
+      number: 1, name: 'Dup', scoreType: 'time', lanes: 5,
+      heatIntervalSecs: 300, callTimeSecs: 60, walkoutTimeSecs: 30,
+    }))
+    expect(res.status).toBe(409)
+    expect(await res.text()).toMatch(/number 1 already exists/i)
+  })
+
   it('inserts workout with defaults and returns 201', async () => {
     const created = { id: 1, number: 1, name: 'WOD 1', status: 'draft' }
     mock.queueResult({ data: created, error: null })

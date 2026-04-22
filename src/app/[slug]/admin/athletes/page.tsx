@@ -108,7 +108,7 @@ export default function AthletesPage() {
   async function saveEdit(id: number) {
     if (!editState.name.trim()) return
     await run('Save edit', () =>
-      putJson(`/api/athletes/${id}`, {
+      putJson(`/api/athletes/${id}?slug=${slug}`, {
         name: editState.name.trim(),
         bibNumber: editState.bib.trim() || null,
         divisionId: editState.divisionId ? Number(editState.divisionId) : null,
@@ -120,7 +120,7 @@ export default function AthletesPage() {
 
   async function remove(id: number) {
     if (!confirm('Remove this athlete?\n\nAll of their scores and heat assignments will also be permanently deleted.')) return
-    const ok = await run('Remove athlete', () => delJson(`/api/athletes/${id}`))
+    const ok = await run('Remove athlete', () => delJson(`/api/athletes/${id}?slug=${slug}`))
     if (ok !== undefined) {
       setAthletes((prev) => prev.filter((a) => a.id !== id))
       setSelected((prev) => { const s = new Set(prev); s.delete(id); return s })

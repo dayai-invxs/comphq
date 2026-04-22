@@ -52,7 +52,14 @@ export async function POST(req: Request) {
       .select('*')
       .single()
 
-    if (error) return new Response(error.message, { status: 500 })
+    if (error) {
+      // Postgres unique_violation → 409 with actionable message (workout
+      // numbers are unique per competition).
+      if ((error as { code?: string }).code === '23505') {
+        return new Response(`Workout number ${d.number} already exists in this competition.`, { status: 409 })
+      }
+      return new Response(error.message, { status: 500 })
+    }
     return Response.json(data, { status: 201 })
   } catch (e) {
     return authErrorResponse(e)

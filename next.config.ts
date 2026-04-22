@@ -3,9 +3,12 @@ import type { NextConfig } from "next"
 // Strict-ish CSP. 'unsafe-inline' on script-src is required for Next.js
 // hydration until we wire nonces; SVG XSS (the primary concern) is
 // addressed at the upload layer.
+// Vercel Analytics loads a tiny client script from `va.vercel-scripts.com`
+// and beacons to `/_vercel/insights/*` on the same origin — script-src needs
+// the CDN domain; connect-src does not.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
