@@ -8,6 +8,7 @@ import { getJson, postJson, patchJson } from '@/lib/http'
 import { toIsoOrNull } from '@/lib/datetime'
 
 type Workout = { id: number; number: number; name: string; scoreType: string; lanes: number; status: string }
+type WorkoutLocation = { id: number; name: string }
 
 function parseMinSec(val: string): number {
   const [m = '0', s = '0'] = val.split(':')
@@ -40,6 +41,8 @@ export default function WorkoutsPage() {
   const [partBEnabled, setPartBEnabled] = useState(false)
   const [partBScoreType, setPartBScoreType] = useState('time')
   const [halfWeight, setHalfWeight] = useState(false)
+  const [locationId, setLocationId] = useState<string>('')
+  const [locations, setLocations] = useState<WorkoutLocation[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tiebreakWorkoutId, setTiebreakWorkoutId] = useState<number | null>(null)
@@ -61,12 +64,14 @@ export default function WorkoutsPage() {
 
   const load = useCallback(async () => {
     await run('Load workouts', async () => {
-      const [w, s] = await Promise.all([
+      const [w, s, locs] = await Promise.all([
         getJson<Workout[]>(`/api/workouts?slug=${slug}`),
         getJson<{ tiebreakWorkoutId: number | null }>(`/api/settings?slug=${slug}`),
+        getJson<WorkoutLocation[]>(`/api/workout-locations?slug=${slug}`),
       ])
       setWorkouts(w)
       setTiebreakWorkoutId(s.tiebreakWorkoutId ?? null)
+      setLocations(locs)
     })
   }, [slug])
 
@@ -91,12 +96,13 @@ export default function WorkoutsPage() {
         callTimeSecs: parseMinSec(callTime),
         walkoutTimeSecs: parseMinSec(walkoutTime),
         startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, partBEnabled, partBScoreType, halfWeight,
+        locationId: locationId ? Number(locationId) : null,
       }),
     )
     if (created !== undefined) {
       setNumber(''); setName(''); setScoreType('time'); setLanes('5')
       setHeatInterval('10:00'); setTimeBetweenHeats('2:00'); setCallTime('10:00'); setWalkoutTime('2:00')
-      setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false)
+      setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false); setLocationId('')
       await load()
     }
     setLoading(false)
@@ -145,6 +151,14 @@ export default function WorkoutsPage() {
           <div><label className="block text-xs text-gray-400 mb-1">Workout #</label><input type="number" value={number} onChange={(e) => setNumber(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
           <div><label className="block text-xs text-gray-400 mb-1">Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
           <div><label className="block text-xs text-gray-400 mb-1">Score Type</label><select value={scoreType} onChange={(e) => setScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"><option value="time">Time (lower is better)</option><option value="rounds_reps">Rounds + Reps (higher is better)</option><option value="weight">Weight (higher is better)</option></select></div>
+          {locations.length > 0 && (
+            <div><label className="block text-xs text-gray-400 mb-1">Location</label>
+              <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">No location</option>
+                {locations.map((l) => <option key={l.id} value={String(l.id)}>{l.name}</option>)}
+              </select>
+            </div>
+          )}
           <div><label className="block text-xs text-gray-400 mb-1">Lanes</label><input type="number" value={lanes} onChange={(e) => setLanes(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
           <TimeInput label="Heat Interval" value={heatInterval} onChange={setHeatInterval} />
           <TimeInput label="Time Between Heats" value={timeBetweenHeats} onChange={setTimeBetweenHeats} />
@@ -157,14 +171,12 @@ export default function WorkoutsPage() {
               <div><span className="text-sm text-white font-medium">Mixed Heats</span><p className="text-xs text-gray-500">{mixedHeats ? 'Athletes from different divisions can share a heat' : 'Each heat contains only one division'}</p></div>
             </label>
           </div>
-          {scoreType === 'rounds_reps' && (
-            <div className="col-span-2">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div onClick={() => setTiebreakEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${tiebreakEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${tiebreakEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div>
-                <div><span className="text-sm text-white font-medium">Tie Break Time</span><p className="text-xs text-gray-500">Enter a tiebreak time per athlete — lowest time wins ties</p></div>
-              </label>
-            </div>
-          )}
+          <div className="col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div onClick={() => setTiebreakEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${tiebreakEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${tiebreakEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div>
+              <div><span className="text-sm text-white font-medium">Tie Break Time</span><p className="text-xs text-gray-500">Enter a tiebreak time per athlete — lowest time wins ties</p></div>
+            </label>
+          </div>
           <div className="col-span-2">
             <label className="flex items-center gap-3 cursor-pointer select-none">
               <div onClick={() => setPartBEnabled((v) => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${partBEnabled ? 'bg-orange-500' : 'bg-gray-700'}`}><span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${partBEnabled ? 'translate-x-5' : 'translate-x-1'}`} /></div>

@@ -56,6 +56,20 @@ export const AthleteBulkDelete = z.object({
   ids: z.array(Id).min(1).max(500),
 })
 
+export const VolunteerCreate = z.object({
+  slug: Slug,
+  name: NonEmptyString.max(120),
+  roleId: Id.nullable().optional(),
+})
+export const VolunteerUpdate = z.object({
+  name: NonEmptyString.max(120),
+  roleId: Id.nullable().optional(),
+})
+export const VolunteerBulkDelete = z.object({
+  slug: Slug,
+  ids: z.array(Id).min(1).max(500),
+})
+
 // ─── Divisions ────────────────────────────────────────────────────────────
 
 export const DivisionCreate = z.object({
@@ -67,6 +81,26 @@ export const DivisionUpdate = z.object({
   name: NonEmptyString.max(60).optional(),
   order: NumericInt.pipe(z.number().int().nonnegative()).optional(),
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
+
+// ─── Workout Locations ────────────────────────────────────────────────────
+
+export const WorkoutLocationCreate = z.object({
+  slug: Slug,
+  name: NonEmptyString.max(80),
+})
+export const WorkoutLocationUpdate = z.object({
+  name: NonEmptyString.max(80),
+})
+
+// ─── Volunteer Roles ──────────────────────────────────────────────────────
+
+export const VolunteerRoleCreate = z.object({
+  slug: Slug,
+  name: NonEmptyString.max(80),
+})
+export const VolunteerRoleUpdate = z.object({
+  name: NonEmptyString.max(80),
+})
 
 // ─── Workouts ─────────────────────────────────────────────────────────────
 
@@ -86,6 +120,7 @@ export const WorkoutCreate = z.object({
   partBEnabled: z.boolean().optional(),
   partBScoreType: ScoreType.optional(),
   halfWeight: z.boolean().optional(),
+  locationId: Id.nullable().optional(),
 })
 
 export const WorkoutUpdate = z.object({
@@ -104,7 +139,13 @@ export const WorkoutUpdate = z.object({
   partBScoreType: ScoreType.optional(),
   number: NumericInt.pipe(z.number().int().positive()).optional(),
   halfWeight: z.boolean().optional(),
+  locationId: Id.nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
+
+export const WorkoutEquipmentCreate = z.object({
+  item: NonEmptyString.max(200),
+  divisionId: Id.nullable().optional(),
+})
 
 // ─── Workout nested ───────────────────────────────────────────────────────
 
@@ -136,6 +177,7 @@ export const SettingsPatch = z.object({
   slug: Slug,
   showBib: z.boolean().optional(),
   tiebreakWorkoutId: Id.nullable().optional(),
+  leaderboardVisibility: z.enum(['per_heat', 'per_workout']).optional(),
 })
 
 export const CsvImport = z.object({

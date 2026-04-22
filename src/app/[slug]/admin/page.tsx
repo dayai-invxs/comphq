@@ -15,13 +15,17 @@ export default function CompetitionDashboard() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoLoading, setLogoLoading] = useState(false)
   const [showBib, setShowBib] = useState(true)
+  const [leaderboardVisibility, setLeaderboardVisibility] = useState<'per_heat' | 'per_workout'>('per_workout')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch(`/api/workouts?slug=${slug}`).then((r) => r.json()).then(setWorkouts)
     fetch(`/api/athletes?slug=${slug}`).then((r) => r.json()).then((a) => setAthleteCount(a.length))
     fetch('/api/logo').then((r) => r.json()).then((d) => setLogoUrl(d.url))
-    fetch(`/api/settings?slug=${slug}`).then((r) => r.json()).then((d) => setShowBib(d.showBib))
+    fetch(`/api/settings?slug=${slug}`).then((r) => r.json()).then((d) => {
+      setShowBib(d.showBib)
+      setLeaderboardVisibility(d.leaderboardVisibility ?? 'per_workout')
+    })
   }, [slug])
 
   async function toggleShowBib() {
@@ -31,6 +35,16 @@ export default function CompetitionDashboard() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, showBib: next }),
+    })
+  }
+
+  async function toggleLeaderboardVisibility() {
+    const next: 'per_heat' | 'per_workout' = leaderboardVisibility === 'per_workout' ? 'per_heat' : 'per_workout'
+    setLeaderboardVisibility(next)
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, leaderboardVisibility: next }),
     })
   }
 
@@ -123,8 +137,8 @@ export default function CompetitionDashboard() {
         </a>
       </div>
 
-      <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
-        <h2 className="text-lg font-semibold text-white mb-4">Competition Schedule Settings</h2>
+      <div className="bg-gray-900 rounded-xl p-6 max-w-sm space-y-4">
+        <h2 className="text-lg font-semibold text-white">Competition Settings</h2>
         <label className="flex items-center gap-3 cursor-pointer select-none">
           <div
             onClick={toggleShowBib}
@@ -135,6 +149,22 @@ export default function CompetitionDashboard() {
           <div>
             <span className="text-sm text-white font-medium">Show Bib Numbers</span>
             <p className="text-xs text-gray-500">Display bib numbers on the public schedule</p>
+          </div>
+        </label>
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div
+            onClick={toggleLeaderboardVisibility}
+            className={`relative w-10 h-6 rounded-full transition-colors ${leaderboardVisibility === 'per_heat' ? 'bg-orange-500' : 'bg-gray-700'}`}
+          >
+            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${leaderboardVisibility === 'per_heat' ? 'translate-x-5' : 'translate-x-1'}`} />
+          </div>
+          <div>
+            <span className="text-sm text-white font-medium">Live Leaderboard</span>
+            <p className="text-xs text-gray-500">
+              {leaderboardVisibility === 'per_heat'
+                ? 'Leaderboard updates after each completed heat'
+                : 'Leaderboard only shows after a full workout is completed'}
+            </p>
           </div>
         </label>
       </div>

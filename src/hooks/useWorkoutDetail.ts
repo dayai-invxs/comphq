@@ -15,7 +15,7 @@ export type Workout = {
   id: number; number: number; name: string; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean
-  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; heatStartOverrides: Record<string, string> | string
+  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; locationId: number | null; heatStartOverrides: Record<string, string> | string
   completedHeats: number[]
   assignments: Assignment[]; scores: Score[]
 }

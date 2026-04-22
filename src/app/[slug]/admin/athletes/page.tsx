@@ -1,12 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { getJson, postJson, putJson, delJson } from '@/lib/http'
 
 type Division = { id: number; name: string; order: number }
-type Athlete = { id: number; name: string; bibNumber: string | null; divisionId: number | null; division: Division | null }
-type EditState = { name: string; bib: string; divisionId: string }
+type VolunteerRole = { id: number; name: string }
+type Athlete = { id: number; name: string; bibNumber: string | null; divisionId: number | null; division: Division | null; withdrawn: boolean }
+type Volunteer = { id: number; name: string; roleId: number | null; role: VolunteerRole | null }
+
+type Tab = 'athletes' | 'volunteers'
+
+// ─── Shared helpers ────────────────────────────────────────────────────────
+
+function RoleSelect({ value, onChange, className, roles }: { value: string; onChange: (v: string) => void; className?: string; roles: VolunteerRole[] }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={`bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${className ?? ''}`}>
+      <option value="">No role</option>
+      {roles.map((r) => <option key={r.id} value={String(r.id)}>{r.name}</option>)}
+    </select>
+  )
+}
 
 function DivisionSelect({ value, onChange, className, divisions }: { value: string; onChange: (v: string) => void; className?: string; divisions: Division[] }) {
   return (
@@ -17,64 +31,133 @@ function DivisionSelect({ value, onChange, className, divisions }: { value: stri
   )
 }
 
-export default function AthletesPage() {
+// ─── Page ──────────────────────────────────────────────────────────────────
+
+export default function PeoplePage() {
   const { slug } = useParams<{ slug: string }>()
+  const [tab, setTab] = useState<Tab>('athletes')
+
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [divisions, setDivisions] = useState<Division[]>([])
-  const [name, setName] = useState('')
-  const [bib, setBib] = useState('')
-  const [divisionId, setDivisionId] = useState<string>('')
-  const [bulkText, setBulkText] = useState('')
-  const [bulkDivisionId, setBulkDivisionId] = useState<string>('')
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([])
+  const [roles, setRoles] = useState<VolunteerRole[]>([])
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'single' | 'bulk'>('single')
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editState, setEditState] = useState<EditState>({ name: '', bib: '', divisionId: '' })
-  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   async function run<T>(label: string, op: () => Promise<T>): Promise<T | undefined> {
     setError(null)
-    try {
-      return await op()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      setError(`${label}: ${msg}`)
-      return undefined
-    }
+    try { return await op() }
+    catch (e) { setError(`${label}: ${e instanceof Error ? e.message : String(e)}`); return undefined }
   }
 
-  async function load() {
-    await run('Load athletes', async () => {
-      const [athleteData, divisionData] = await Promise.all([
+  const load = useCallback(async () => {
+    await run('Load', async () => {
+      const [athleteData, divisionData, volunteerData, roleData] = await Promise.all([
         getJson<Athlete[]>(`/api/athletes?slug=${slug}`),
         getJson<Division[]>(`/api/divisions?slug=${slug}`),
+        getJson<Volunteer[]>(`/api/volunteers?slug=${slug}`),
+        getJson<VolunteerRole[]>(`/api/volunteer-roles?slug=${slug}`),
       ])
       setAthletes(athleteData)
       setDivisions(divisionData)
-      setSelected((prev) => {
-        const ids = new Set(athleteData.map((a) => a.id))
-        return new Set([...prev].filter((id) => ids.has(id)))
-      })
+      setVolunteers(volunteerData)
+      setRoles(roleData)
     })
-  }
+  }, [slug])
 
-  useEffect(() => { void load() }, [slug]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load() }, [load])
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">People</h1>
+        <p className="text-gray-400 mt-1">{athletes.length} athletes · {volunteers.length} volunteers</p>
+      </div>
+
+      {error && (
+        <div role="alert" className="bg-red-950 border border-red-900 text-red-200 rounded-lg px-4 py-3 text-sm">
+          {error}
+          <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-200 underline">dismiss</button>
+        </div>
+      )}
+
+      <div className="flex gap-2 border-b border-gray-800 pb-0">
+        {(['athletes', 'volunteers'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-5 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              tab === t ? 'border-orange-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            {t === 'athletes' ? `Athletes (${athletes.length})` : `Volunteers (${volunteers.length})`}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'athletes' && (
+        <AthletesTab
+          slug={slug}
+          athletes={athletes}
+          divisions={divisions}
+          loading={loading}
+          setLoading={setLoading}
+          run={run}
+          reload={load}
+          setAthletes={setAthletes}
+        />
+      )}
+
+      {tab === 'volunteers' && (
+        <VolunteersTab
+          slug={slug}
+          volunteers={volunteers}
+          roles={roles}
+          loading={loading}
+          setLoading={setLoading}
+          run={run}
+          reload={load}
+          setVolunteers={setVolunteers}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Athletes tab ──────────────────────────────────────────────────────────
+
+type RunFn = <T>(label: string, op: () => Promise<T>) => Promise<T | undefined>
+
+function AthletesTab({
+  slug, athletes, divisions, loading, setLoading, run, reload, setAthletes,
+}: {
+  slug: string
+  athletes: Athlete[]
+  divisions: Division[]
+  loading: boolean
+  setLoading: (v: boolean) => void
+  run: RunFn
+  reload: () => Promise<void>
+  setAthletes: React.Dispatch<React.SetStateAction<Athlete[]>>
+}) {
+  const [name, setName] = useState('')
+  const [bib, setBib] = useState('')
+  const [divisionId, setDivisionId] = useState('')
+  const [bulkText, setBulkText] = useState('')
+  const [bulkDivisionId, setBulkDivisionId] = useState('')
+  const [addTab, setAddTab] = useState<'single' | 'bulk'>('single')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editState, setEditState] = useState({ name: '', bib: '', divisionId: '' })
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     setLoading(true)
-    await run('Add athlete', () =>
-      postJson('/api/athletes', {
-        slug,
-        name: name.trim(),
-        bibNumber: bib.trim() || null,
-        divisionId: divisionId ? Number(divisionId) : null,
-      }),
-    )
+    await run('Add athlete', () => postJson('/api/athletes', { slug, name: name.trim(), bibNumber: bib.trim() || null, divisionId: divisionId ? Number(divisionId) : null }))
     setName(''); setBib(''); setDivisionId('')
-    await load()
+    await reload()
     setLoading(false)
   }
 
@@ -86,36 +169,34 @@ export default function AthletesPage() {
     for (const line of lines) {
       const [athleteName, bibNumber] = line.split(',').map((s) => s.trim())
       if (!athleteName) continue
-      await run(`Import "${athleteName}"`, () =>
-        postJson('/api/athletes', {
-          slug,
-          name: athleteName,
-          bibNumber: bibNumber || null,
-          divisionId: bulkDivisionId ? Number(bulkDivisionId) : null,
-        }),
-      )
+      await run(`Import "${athleteName}"`, () => postJson('/api/athletes', { slug, name: athleteName, bibNumber: bibNumber || null, divisionId: bulkDivisionId ? Number(bulkDivisionId) : null }))
     }
     setBulkText('')
-    await load()
+    await reload()
     setLoading(false)
-  }
-
-  function startEdit(a: Athlete) {
-    setEditingId(a.id)
-    setEditState({ name: a.name, bib: a.bibNumber ?? '', divisionId: a.divisionId ? String(a.divisionId) : '' })
   }
 
   async function saveEdit(id: number) {
     if (!editState.name.trim()) return
-    await run('Save edit', () =>
-      putJson(`/api/athletes/${id}?slug=${slug}`, {
-        name: editState.name.trim(),
-        bibNumber: editState.bib.trim() || null,
-        divisionId: editState.divisionId ? Number(editState.divisionId) : null,
-      }),
-    )
+    await run('Save edit', () => putJson(`/api/athletes/${id}?slug=${slug}`, { name: editState.name.trim(), bibNumber: editState.bib.trim() || null, divisionId: editState.divisionId ? Number(editState.divisionId) : null }))
     setEditingId(null)
-    await load()
+    await reload()
+  }
+
+  async function withdraw(a: Athlete) {
+    if (!confirm(`Withdraw ${a.name}?\n\nThey will receive a 0 score for all active and completed workouts they haven't yet scored, and will be factored into rankings accordingly.\n\nNote: scores inserted during withdrawal are not automatically removed if you un-withdraw later.`)) return
+    setLoading(true)
+    await run('Withdraw athlete', () => fetch(`/api/athletes/${a.id}/withdraw?slug=${slug}`, { method: 'POST' }))
+    await reload()
+    setLoading(false)
+  }
+
+  async function unwithdraw(a: Athlete) {
+    if (!confirm(`Un-withdraw ${a.name}? The withdrawn flag will be cleared. Any 0 scores inserted during withdrawal will remain and must be removed manually if needed.`)) return
+    setLoading(true)
+    await run('Un-withdraw athlete', () => fetch(`/api/athletes/${a.id}/withdraw?slug=${slug}`, { method: 'DELETE' }))
+    await reload()
+    setLoading(false)
   }
 
   async function remove(id: number) {
@@ -133,45 +214,29 @@ export default function AthletesPage() {
     setLoading(true)
     await run('Delete selected', () => delJson('/api/athletes', { ids: [...selected] }))
     setSelected(new Set())
-    await load()
+    await reload()
     setLoading(false)
   }
 
   function toggleSelect(id: number) {
-    setSelected((prev) => { const s = new Set(prev); if (s.has(id)) { s.delete(id) } else { s.add(id) }; return s })
-  }
-
-  function toggleAll() {
-    setSelected(selected.size === athletes.length ? new Set() : new Set(athletes.map((a) => a.id)))
+    setSelected((prev) => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
 
   const allSelected = athletes.length > 0 && selected.size === athletes.length
   const someSelected = selected.size > 0 && !allSelected
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Athletes</h1>
-        <p className="text-gray-400 mt-1">{athletes.length} registered</p>
-      </div>
-
-      {error && (
-        <div role="alert" className="bg-red-950 border border-red-900 text-red-200 rounded-lg px-4 py-3 text-sm">
-          {error}
-          <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-200 underline">dismiss</button>
-        </div>
-      )}
-
+    <div className="space-y-6">
       <div className="bg-gray-900 rounded-xl p-6 max-w-xl">
         <div className="flex gap-2 mb-5">
           {(['single', 'bulk'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+            <button key={t} onClick={() => setAddTab(t)} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${addTab === t ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
               {t === 'single' ? 'Add One' : 'Bulk Import'}
             </button>
           ))}
         </div>
 
-        {tab === 'single' && (
+        {addTab === 'single' && (
           <form onSubmit={addOne} className="flex gap-3 flex-wrap">
             <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="flex-1 min-w-32 bg-gray-800 text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required />
             <input type="text" placeholder="Bib #" value={bib} onChange={(e) => setBib(e.target.value)} className="w-24 bg-gray-800 text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
@@ -180,7 +245,7 @@ export default function AthletesPage() {
           </form>
         )}
 
-        {tab === 'bulk' && (
+        {addTab === 'bulk' && (
           <form onSubmit={addBulk} className="space-y-3">
             {divisions.length > 0 && (
               <div>
@@ -200,7 +265,7 @@ export default function AthletesPage() {
         <div className="bg-gray-900 rounded-xl overflow-hidden overflow-x-auto">
           <div className="bg-gray-800 px-5 py-3 flex items-center justify-between">
             <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={toggleAll} className="w-4 h-4 accent-orange-500" />
+              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={() => setSelected(allSelected ? new Set() : new Set(athletes.map((a) => a.id)))} className="w-4 h-4 accent-orange-500" />
               <span className="text-sm text-gray-400">{selected.size > 0 ? `${selected.size} selected` : 'Select all'}</span>
             </label>
             {selected.size > 0 && (
@@ -230,12 +295,193 @@ export default function AthletesPage() {
                     <td className="px-5 py-2 text-right"><div className="flex justify-end gap-3"><button onClick={() => saveEdit(a.id)} className="text-xs text-green-400 hover:text-green-300 font-medium">Save</button><button onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button></div></td>
                   </tr>
                 ) : (
-                  <tr key={a.id} className={`border-t border-gray-800 ${selected.has(a.id) ? 'bg-orange-500/5' : ''}`}>
+                  <tr key={a.id} className={`border-t border-gray-800 ${selected.has(a.id) ? 'bg-orange-500/5' : ''} ${a.withdrawn ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3"><input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleSelect(a.id)} className="w-4 h-4 accent-orange-500" /></td>
-                    <td className="px-5 py-3 text-white font-medium">{a.name}</td>
+                    <td className="px-5 py-3 text-white font-medium">
+                      {a.name}
+                      {a.withdrawn && <span className="ml-2 text-xs bg-yellow-900 text-yellow-400 px-1.5 py-0.5 rounded font-medium">Withdrawn</span>}
+                    </td>
                     <td className="px-5 py-3 text-gray-400">{a.bibNumber ?? '—'}</td>
                     {divisions.length > 0 && <td className="px-5 py-3 text-gray-400">{a.division?.name ?? '—'}</td>}
-                    <td className="px-5 py-3 text-right"><div className="flex justify-end gap-4"><button onClick={() => startEdit(a)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button><button onClick={() => remove(a.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button></div></td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex justify-end gap-4">
+                        <button onClick={() => { setEditingId(a.id); setEditState({ name: a.name, bib: a.bibNumber ?? '', divisionId: a.divisionId ? String(a.divisionId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                        {a.withdrawn
+                          ? <button onClick={() => unwithdraw(a)} disabled={loading} className="text-xs text-yellow-400 hover:text-yellow-300 disabled:opacity-50">Un-withdraw</button>
+                          : <button onClick={() => withdraw(a)} disabled={loading} className="text-xs text-orange-400 hover:text-orange-300 disabled:opacity-50">Withdraw</button>
+                        }
+                        <button onClick={() => remove(a.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Volunteers tab ────────────────────────────────────────────────────────
+
+function VolunteersTab({
+  slug, volunteers, roles, loading, setLoading, run, reload, setVolunteers,
+}: {
+  slug: string
+  volunteers: Volunteer[]
+  roles: VolunteerRole[]
+  loading: boolean
+  setLoading: (v: boolean) => void
+  run: RunFn
+  reload: () => Promise<void>
+  setVolunteers: React.Dispatch<React.SetStateAction<Volunteer[]>>
+}) {
+  const [name, setName] = useState('')
+  const [roleId, setRoleId] = useState('')
+  const [bulkText, setBulkText] = useState('')
+  const [bulkRoleId, setBulkRoleId] = useState('')
+  const [addTab, setAddTab] = useState<'single' | 'bulk'>('single')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editState, setEditState] = useState({ name: '', roleId: '' })
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+
+  async function addOne(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setLoading(true)
+    await run('Add volunteer', () => postJson('/api/volunteers', { slug, name: name.trim(), roleId: roleId ? Number(roleId) : null }))
+    setName(''); setRoleId('')
+    await reload()
+    setLoading(false)
+  }
+
+  async function addBulk(e: React.FormEvent) {
+    e.preventDefault()
+    const lines = bulkText.split('\n').map((l) => l.trim()).filter(Boolean)
+    if (!lines.length) return
+    setLoading(true)
+    for (const line of lines) {
+      const volunteerName = line.trim()
+      if (!volunteerName) continue
+      await run(`Import "${volunteerName}"`, () => postJson('/api/volunteers', { slug, name: volunteerName, roleId: bulkRoleId ? Number(bulkRoleId) : null }))
+    }
+    setBulkText('')
+    await reload()
+    setLoading(false)
+  }
+
+  async function saveEdit(id: number) {
+    if (!editState.name.trim()) return
+    await run('Save edit', () => putJson(`/api/volunteers/${id}?slug=${slug}`, { name: editState.name.trim(), roleId: editState.roleId ? Number(editState.roleId) : null }))
+    setEditingId(null)
+    await reload()
+  }
+
+  async function remove(id: number) {
+    if (!confirm('Remove this volunteer?')) return
+    const ok = await run('Remove volunteer', () => delJson(`/api/volunteers/${id}?slug=${slug}`))
+    if (ok !== undefined) {
+      setVolunteers((prev) => prev.filter((v) => v.id !== id))
+      setSelected((prev) => { const s = new Set(prev); s.delete(id); return s })
+    }
+  }
+
+  async function deleteSelected() {
+    if (selected.size === 0) return
+    if (!confirm(`Remove ${selected.size} volunteer${selected.size > 1 ? 's' : ''}?`)) return
+    setLoading(true)
+    await run('Delete selected', () => delJson('/api/volunteers', { ids: [...selected] }))
+    setSelected(new Set())
+    await reload()
+    setLoading(false)
+  }
+
+  function toggleSelect(id: number) {
+    setSelected((prev) => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
+  }
+
+  const allSelected = volunteers.length > 0 && selected.size === volunteers.length
+  const someSelected = selected.size > 0 && !allSelected
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gray-900 rounded-xl p-6 max-w-xl">
+        <div className="flex gap-2 mb-5">
+          {(['single', 'bulk'] as const).map((t) => (
+            <button key={t} onClick={() => setAddTab(t)} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${addTab === t ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              {t === 'single' ? 'Add One' : 'Bulk Import'}
+            </button>
+          ))}
+        </div>
+
+        {addTab === 'single' && (
+          <form onSubmit={addOne} className="flex gap-3 flex-wrap">
+            <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="flex-1 min-w-32 bg-gray-800 text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+            {roles.length > 0 && <RoleSelect value={roleId} onChange={setRoleId} roles={roles} />}
+            <button type="submit" disabled={loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Add</button>
+          </form>
+        )}
+
+        {addTab === 'bulk' && (
+          <form onSubmit={addBulk} className="space-y-3">
+            {roles.length > 0 && (
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Role (applies to all imported volunteers)</label>
+                <RoleSelect value={bulkRoleId} onChange={setBulkRoleId} className="w-full" roles={roles} />
+              </div>
+            )}
+            <textarea placeholder={"One name per line\nJane Doe\nJohn Smith"} value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={6} className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none" />
+            <button type="submit" disabled={loading || !bulkText.trim()} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+              {loading ? 'Importing...' : 'Import Volunteers'}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {volunteers.length > 0 && (
+        <div className="bg-gray-900 rounded-xl overflow-hidden overflow-x-auto">
+          <div className="bg-gray-800 px-5 py-3 flex items-center justify-between">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={() => setSelected(allSelected ? new Set() : new Set(volunteers.map((v) => v.id)))} className="w-4 h-4 accent-orange-500" />
+              <span className="text-sm text-gray-400">{selected.size > 0 ? `${selected.size} selected` : 'Select all'}</span>
+            </label>
+            {selected.size > 0 && (
+              <button onClick={deleteSelected} disabled={loading} className="bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
+                Delete {selected.size} selected
+              </button>
+            )}
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-800/50">
+              <tr>
+                <th className="w-10 px-4 py-2" />
+                <th className="text-left px-5 py-2 text-gray-400 font-medium">Name</th>
+                {roles.length > 0 && <th className="text-left px-5 py-2 text-gray-400 font-medium">Role</th>}
+                <th className="px-5 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {volunteers.map((v) =>
+                editingId === v.id ? (
+                  <tr key={v.id} className="border-t border-gray-800 bg-gray-800/40">
+                    <td className="px-4 py-2"><input type="checkbox" checked={selected.has(v.id)} onChange={() => toggleSelect(v.id)} className="w-4 h-4 accent-orange-500" /></td>
+                    <td className="px-3 py-2"><input autoFocus type="text" value={editState.name} onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(v.id); if (e.key === 'Escape') setEditingId(null) }} className="w-full bg-gray-700 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" /></td>
+                    {roles.length > 0 && <td className="px-3 py-2"><RoleSelect value={editState.roleId} onChange={(r) => setEditState((s) => ({ ...s, roleId: r }))} className="w-full" roles={roles} /></td>}
+                    <td className="px-5 py-2 text-right"><div className="flex justify-end gap-3"><button onClick={() => saveEdit(v.id)} className="text-xs text-green-400 hover:text-green-300 font-medium">Save</button><button onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button></div></td>
+                  </tr>
+                ) : (
+                  <tr key={v.id} className={`border-t border-gray-800 ${selected.has(v.id) ? 'bg-orange-500/5' : ''}`}>
+                    <td className="px-4 py-3"><input type="checkbox" checked={selected.has(v.id)} onChange={() => toggleSelect(v.id)} className="w-4 h-4 accent-orange-500" /></td>
+                    <td className="px-5 py-3 text-white font-medium">{v.name}</td>
+                    {roles.length > 0 && <td className="px-5 py-3 text-gray-400">{v.role?.name ?? '—'}</td>}
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex justify-end gap-4">
+                        <button onClick={() => { setEditingId(v.id); setEditState({ name: v.name, roleId: v.roleId ? String(v.roleId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                        <button onClick={() => remove(v.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                      </div>
+                    </td>
                   </tr>
                 )
               )}

@@ -14,6 +14,7 @@ type HeatEntry = {
   divisionName: string | null
   lane: number
   scoreDisplay: string | null
+  tiebreakDisplay: string | null
 }
 
 type Heat = {
@@ -195,6 +196,9 @@ export default function OpsView({ slug }: { slug: string }) {
                                   {e.athleteName}
                                   {heat.isComplete && e.scoreDisplay && (
                                     <span className="ml-2 text-xs text-gray-400 font-mono">{e.scoreDisplay}</span>
+                                  )}
+                                  {heat.isComplete && e.tiebreakDisplay && (
+                                    <span className="ml-1 text-xs text-blue-400 font-mono">TB {e.tiebreakDisplay}</span>
                                   )}
                                 </td>
                                 {data.showBib && <td className="px-3 py-2 text-gray-400 text-xs">{e.bibNumber ?? '—'}</td>}

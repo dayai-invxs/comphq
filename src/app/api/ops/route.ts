@@ -3,12 +3,12 @@ import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
 import { ASSIGNMENT_EMBED } from '@/lib/embeds'
-import { formatScore } from '@/lib/scoreFormat'
+import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 
 type Workout = {
   id: number; number: number; name: string; status: string; startTime: string | null
   heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string
+  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string; tiebreakEnabled: boolean
 }
 
 type Assignment = {
@@ -43,8 +43,8 @@ export async function GET(req: Request) {
           .order('lane')
       : Promise.resolve({ data: [] as Assignment[] }),
     workoutIds.length > 0
-      ? supabase.from('Score').select('athleteId, workoutId, rawScore').in('workoutId', workoutIds)
-      : Promise.resolve({ data: [] as Array<{ athleteId: number; workoutId: number; rawScore: number }> }),
+      ? supabase.from('Score').select('athleteId, workoutId, rawScore, tiebreakRawScore').in('workoutId', workoutIds)
+      : Promise.resolve({ data: [] as Array<{ athleteId: number; workoutId: number; rawScore: number; tiebreakRawScore: number | null }> }),
     getCompletedHeatsByWorkout(workoutIds),
   ])
 
@@ -54,10 +54,16 @@ export async function GET(req: Request) {
   // Pre-format scores per athlete/workout so completed heats can show results
   // inline without the public page needing to know scoreType rules.
   const scoreMap = new Map<string, string>()
+  const tiebreakMap = new Map<string, string>()
   for (const s of scores) {
-    const row = s as { athleteId: number; workoutId: number; rawScore: number }
+    const row = s as { athleteId: number; workoutId: number; rawScore: number; tiebreakRawScore: number | null }
     const w = (workouts as Workout[]).find((x) => x.id === row.workoutId)
-    if (w) scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, w.scoreType))
+    if (w) {
+      scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, w.scoreType))
+      if (w.tiebreakEnabled && row.tiebreakRawScore != null) {
+        tiebreakMap.set(`${row.athleteId}-${row.workoutId}`, formatTiebreak(row.tiebreakRawScore))
+      }
+    }
   }
 
   const result = ((workouts ?? []) as Workout[]).map((workout) => {
@@ -82,6 +88,7 @@ export async function GET(req: Request) {
           divisionName: a.athlete.division?.name ?? null,
           lane: a.lane,
           scoreDisplay: scoreMap.get(`${a.athleteId}-${workout.id}`) ?? null,
+          tiebreakDisplay: tiebreakMap.get(`${a.athleteId}-${workout.id}`) ?? null,
         }))
       return {
         heatNumber,

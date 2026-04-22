@@ -48,6 +48,7 @@ export async function POST(req: Request) {
         partBEnabled: d.partBEnabled === true,
         partBScoreType: d.partBScoreType ?? 'time',
         halfWeight: d.halfWeight === true,
+        locationId: d.locationId ?? null,
       })
       .select('*')
       .single()

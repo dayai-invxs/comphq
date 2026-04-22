@@ -23,7 +23,7 @@ export function SlugNav({ slug }: { slug: string }) {
     { href: `/${slug}`, label: 'Competition Schedule' },
     { href: `/${slug}/leaderboard`, label: 'Leaderboard' },
     { href: `/${slug}/athlete-overview`, label: 'Athlete Overview' },
-    { href: `/${slug}/athlete-control`, label: 'Athlete Control' },
+    { href: `/${slug}/athlete-control`, label: 'Control' },
     { href: `/${slug}/admin`, label: 'Admin' },
   ]
 

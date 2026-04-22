@@ -6,18 +6,28 @@ import { useWorkoutDetail } from '@/hooks/useWorkoutDetail'
 import type { ScorePayload } from '@/hooks/useWorkoutDetail'
 import { useScoreInputs } from '@/hooks/useScoreInputs'
 import WorkoutEditForm from '@/components/workout-detail/WorkoutEditForm'
+import WorkoutEquipmentPopover from '@/components/workout-detail/WorkoutEquipmentPopover'
 import HeatCard from '@/components/workout-detail/HeatCard'
 import WorkoutLeaderboard from '@/components/workout-detail/WorkoutLeaderboard'
 import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
+import { getJson } from '@/lib/http'
+
+type WorkoutLocation = { id: number; name: string }
 
 export default function WorkoutDetailPage() {
   const { slug, id } = useParams<{ slug: string; id: string }>()
   const router = useRouter()
   const workoutsPath = `/${slug}/admin/workouts`
   const [editing, setEditing] = useState(false)
+  const [heatsUnlocked, setHeatsUnlocked] = useState(false)
+  const [locations, setLocations] = useState<WorkoutLocation[]>([])
 
   const detail = useWorkoutDetail(id, { slug, onNotFound: () => router.push(workoutsPath) })
   const inputs = useScoreInputs(detail.workout)
+
+  useEffect(() => {
+    getJson<WorkoutLocation[]>(`/api/workout-locations?slug=${slug}`).then(setLocations).catch(() => {})
+  }, [slug])
 
   // Re-hydrate input fields every time the workout reloads.
   useEffect(() => {
@@ -105,6 +115,7 @@ export default function WorkoutDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setEditing(true)} className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Edit Settings</button>
+          <WorkoutEquipmentPopover workoutId={id} slug={slug} />
           {workout.status === 'draft' && <button onClick={() => detail.setStatus('active')} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Activate</button>}
           {workout.status === 'active' && <button onClick={() => detail.setStatus('draft')} className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Deactivate</button>}
           {workout.status === 'completed' && <button onClick={() => detail.setStatus('active')} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Reactivate</button>}
@@ -116,6 +127,7 @@ export default function WorkoutDetailPage() {
         <WorkoutEditForm
           workout={workout}
           loading={detail.loading}
+          locations={locations}
           onSave={detail.updateSettings}
           onCancel={() => setEditing(false)}
         />
@@ -127,8 +139,32 @@ export default function WorkoutDetailPage() {
       <div className="bg-gray-900 rounded-xl p-5">
         <h2 className="text-lg font-semibold text-white mb-4">Heat Assignments</h2>
         <div className="flex gap-3 flex-wrap">
-          <button onClick={() => detail.generateAssignments(false)} disabled={detail.loading} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Generate (Random / Division Order)</button>
-          <button onClick={() => detail.generateAssignments(true)} disabled={detail.loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Generate (By Cumulative Points)</button>
+          <button
+            onClick={() => detail.generateAssignments(false)}
+            disabled={detail.loading || (heatNums.length > 0 && !heatsUnlocked)}
+            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+          >
+            Generate (Random / Division Order)
+          </button>
+          <button
+            onClick={() => detail.generateAssignments(true)}
+            disabled={detail.loading || (heatNums.length > 0 && !heatsUnlocked)}
+            className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+          >
+            Generate (By Cumulative Points)
+          </button>
+          {heatNums.length > 0 && !heatsUnlocked && (
+            <button
+              onClick={() => {
+                if (confirm('Regenerating heats will replace all existing assignments. Athletes may be moved between heats. Continue?')) {
+                  setHeatsUnlocked(true)
+                }
+              }}
+              className="bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+            >
+              Unlock to Regenerate
+            </button>
+          )}
         </div>
         <p className="text-xs text-gray-500 mt-2">Best athletes are placed in the last heat. Existing assignments are replaced.</p>
       </div>

@@ -7,17 +7,25 @@ export async function GET(req: Request) {
   const competition = await resolveCompetition(slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const [{ data: workouts }, { data: athletes }, { data: tiebreakSetting }] = await Promise.all([
-    supabase.from('Workout').select('*').eq('competitionId', competition.id).eq('status', 'completed').order('number'),
+  const [{ data: workouts }, { data: athletes }, { data: tiebreakSetting }, { data: visibilitySetting }] = await Promise.all([
+    supabase.from('Workout').select('*').eq('competitionId', competition.id).order('number'),
     supabase.from('Athlete').select('*, division:Division(id, name, order)').eq('competitionId', competition.id).order('name'),
     supabase.from('Setting').select('value').eq('competitionId', competition.id).eq('key', 'tiebreakWorkoutId').maybeSingle(),
+    supabase.from('Setting').select('value').eq('competitionId', competition.id).eq('key', 'leaderboardVisibility').maybeSingle(),
   ])
+
+  const leaderboardVisibility = (visibilitySetting as { value?: string } | null)?.value ?? 'per_workout'
+  const visibleWorkouts = (workouts ?? []).filter((w) => {
+    const workout = w as { status: string }
+    if (leaderboardVisibility === 'per_heat') return workout.status === 'active' || workout.status === 'completed'
+    return workout.status === 'completed'
+  })
 
   const tiebreakWorkoutId = (tiebreakSetting as { value?: string } | null)?.value
     ? Number((tiebreakSetting as { value: string }).value)
     : null
 
-  const workoutIds = (workouts ?? []).map((w) => (w as { id: number }).id)
+  const workoutIds = visibleWorkouts.map((w) => (w as { id: number }).id)
   const { data: scores } = workoutIds.length > 0
     ? await supabase.from('Score').select('*').in('workoutId', workoutIds)
     : { data: [] }
@@ -26,7 +34,7 @@ export async function GET(req: Request) {
   for (const s of (scores ?? [])) {
     const row = s as { athleteId: number; workoutId: number; points: number | null; rawScore: number }
     if (row.points != null) {
-      const wo = (workouts ?? []).find((w) => (w as { id: number }).id === row.workoutId)
+      const wo = visibleWorkouts.find((w) => (w as { id: number }).id === row.workoutId)
       scoreMap.set(`${row.athleteId}-${row.workoutId}`, {
         points: row.points,
         rawScore: row.rawScore,
@@ -39,7 +47,7 @@ export async function GET(req: Request) {
     const athlete = a as { id: number; name: string; division: { name: string } | null }
     let totalPoints = 0
     const workoutScores: Record<number, { points: number; rawScore: number; display: string } | null> = {}
-    for (const w of (workouts ?? [])) {
+    for (const w of visibleWorkouts) {
       const workout = w as { id: number; halfWeight: boolean }
       const entry = scoreMap.get(`${athlete.id}-${workout.id}`)
       if (entry) {
@@ -52,11 +60,11 @@ export async function GET(req: Request) {
     return { athleteId: athlete.id, athleteName: athlete.name, divisionName: athlete.division?.name ?? null, totalPoints, workoutScores }
   })
 
-  const workoutsByNumber = [...(workouts ?? [])].sort((x, y) => (y as { number: number }).number - (x as { number: number }).number)
+  const workoutsByNumber = [...visibleWorkouts].sort((x, y) => (y as { number: number }).number - (x as { number: number }).number)
   const tiedWorkoutIds = workoutsByNumber.map((w) => (w as { id: number }).id)
 
   const tiebreakWorkout = tiebreakWorkoutId
-    ? (workouts ?? []).find((w) => (w as { id: number }).id === tiebreakWorkoutId) as { id: number; scoreType: string } | undefined
+    ? visibleWorkouts.find((w) => (w as { id: number }).id === tiebreakWorkoutId) as { id: number; scoreType: string } | undefined
     : undefined
 
   entries.sort((a, b) => {
@@ -85,7 +93,7 @@ export async function GET(req: Request) {
   })
 
   return Response.json(
-    { workouts: workouts ?? [], entries, tiebreakWorkoutId, halfWeightIds: (workouts ?? []).filter((w) => (w as { halfWeight: boolean }).halfWeight).map((w) => (w as { id: number }).id) },
+    { workouts: visibleWorkouts, entries, tiebreakWorkoutId, halfWeightIds: visibleWorkouts.filter((w) => (w as { halfWeight: boolean }).halfWeight).map((w) => (w as { id: number }).id) },
     { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },
   )
 }

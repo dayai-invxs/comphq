@@ -1,0 +1,194 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { getJson } from '@/lib/http'
+
+type Division = { id: number; name: string }
+type EquipmentItem = { id: number; item: string; divisionId: number | null; division: Division | null }
+
+type Props = {
+  workoutId: string
+  slug: string
+}
+
+export default function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
+  const [open, setOpen] = useState(false)
+  const [equipment, setEquipment] = useState<EquipmentItem[]>([])
+  const [divisions, setDivisions] = useState<Division[]>([])
+  const [newItem, setNewItem] = useState('')
+  const [newDivisionId, setNewDivisionId] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  async function load() {
+    try {
+      const [eq, divs] = await Promise.all([
+        getJson<EquipmentItem[]>(`/api/workouts/${workoutId}/equipment?slug=${slug}`),
+        getJson<Division[]>(`/api/divisions?slug=${slug}`),
+      ])
+      setEquipment(eq)
+      setDivisions(divs)
+    } catch {
+      // silently ignore on close
+    }
+  }
+
+  useEffect(() => {
+    if (open) void load()
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handle(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node) &&
+          triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  async function addItem(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newItem.trim()) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/workouts/${workoutId}/equipment?slug=${slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: newItem.trim(), divisionId: newDivisionId ? Number(newDivisionId) : null }),
+      })
+      if (!res.ok) { setError(await res.text()); return }
+      setNewItem('')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function removeItem(id: number) {
+    setLoading(true)
+    try {
+      await fetch(`/api/workouts/${workoutId}/equipment/${id}?slug=${slug}`, { method: 'DELETE' })
+      setEquipment((prev) => prev.filter((e) => e.id !== id))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Group items: null division first (All), then by division name
+  const groups = equipment.reduce<Record<string, { label: string; items: EquipmentItem[] }>>((acc, eq) => {
+    const key = eq.divisionId == null ? '__all__' : String(eq.divisionId)
+    if (!acc[key]) acc[key] = { label: eq.division?.name ?? 'All Divisions', items: [] }
+    acc[key].items.push(eq)
+    return acc
+  }, {})
+
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    if (a === '__all__') return -1
+    if (b === '__all__') return 1
+    return groups[a].label.localeCompare(groups[b].label)
+  })
+
+  const totalCount = equipment.length
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen((v) => !v)}
+        className={`text-sm font-medium rounded-lg px-4 py-2 transition-colors ${
+          open ? 'bg-gray-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
+        }`}
+      >
+        Equipment{totalCount > 0 && <span className="ml-1.5 text-xs bg-orange-500 text-white rounded-full px-1.5 py-0.5">{totalCount}</span>}
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col"
+          style={{ maxHeight: '480px' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+            <h3 className="text-sm font-semibold text-white">Equipment List</h3>
+            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white text-lg leading-none">×</button>
+          </div>
+
+          {/* Item list */}
+          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
+            {equipment.length === 0 && (
+              <p className="text-gray-500 text-xs text-center py-4">No equipment added yet.</p>
+            )}
+            {groupKeys.map((key) => {
+              const { label, items } = groups[key]
+              return (
+                <div key={key}>
+                  <p className="text-xs font-semibold text-orange-400 mb-1.5 uppercase tracking-wide">{label}</p>
+                  <ul className="space-y-1">
+                    {items.map((eq) => (
+                      <li key={eq.id} className="flex items-center justify-between gap-2 group">
+                        <span className="text-sm text-gray-200">{eq.item}</span>
+                        <button
+                          onClick={() => removeItem(eq.id)}
+                          disabled={loading}
+                          className="text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors text-base leading-none shrink-0"
+                          aria-label="Remove"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Add form */}
+          <div className="border-t border-gray-800 px-4 py-3 space-y-2">
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <form onSubmit={addItem} className="space-y-2">
+              <input
+                type="text"
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                placeholder="e.g. Barbell, 20kg plates, Jump rope"
+                className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-600"
+              />
+              <div className="flex gap-2">
+                {divisions.length > 0 && (
+                  <select
+                    value={newDivisionId}
+                    onChange={(e) => setNewDivisionId(e.target.value)}
+                    className="flex-1 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">All Divisions</option>
+                    {divisions.map((d) => (
+                      <option key={d.id} value={String(d.id)}>{d.name}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading || !newItem.trim()}
+                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors shrink-0"
+                >
+                  Add
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

@@ -6,8 +6,9 @@ import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { useOps, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
+import EquipmentControl from '@/components/EquipmentControl'
 
-type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; lane: number }
+type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; divisionName: string | null; lane: number }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
 
 type WorkoutData = {
@@ -39,10 +40,13 @@ type EditingHeatKey = { workoutId: number; heatNumber: number }
 
 type OpsData = { workouts: WorkoutData[]; showBib: boolean }
 
+type Tab = 'athletes' | 'equipment'
+
 export default function AthleteControl({ slug }: { slug: string }) {
   const { data, dataUpdatedAt } = useOps<OpsData>(slug)
   const workouts = data?.workouts ?? []
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
+  const [tab, setTab] = useState<Tab>('athletes')
   const [checks, setChecks] = useState<Record<string, RowChecks>>({})
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
@@ -111,8 +115,8 @@ export default function AthleteControl({ slug }: { slug: string }) {
     <div className="min-h-screen flex flex-col">
       <SlugNav slug={slug} />
       <main className="flex-1 p-6 max-w-3xl mx-auto w-full">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-white">Athlete Control</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-white">Control</h1>
         <div className="text-xs text-gray-500 text-right">
           <div className="flex items-center gap-2 justify-end">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -122,11 +126,27 @@ export default function AthleteControl({ slug }: { slug: string }) {
         </div>
       </div>
 
-      {workouts.length === 0 && (
+      <div className="flex gap-2 border-b border-gray-800 mb-8">
+        {(['athletes', 'equipment'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-5 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              tab === t ? 'border-orange-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            {t === 'athletes' ? 'Athlete Control' : 'Equipment Control'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'equipment' && <EquipmentControl workouts={workouts} />}
+
+      {tab === 'athletes' && workouts.length === 0 && (
         <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>
       )}
 
-      {workouts.map((workout, wi) => {
+      {tab === 'athletes' && workouts.map((workout, wi) => {
         const nextWorkout = workouts[wi + 1]
         const nextEarliestMs = nextWorkout
           ? Math.min(...nextWorkout.heats.map((h) => getHeatMs(nextWorkout, h.heatNumber) ?? Infinity).filter(isFinite))

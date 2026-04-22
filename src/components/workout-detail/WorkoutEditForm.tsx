@@ -5,6 +5,8 @@ import type { Workout } from '@/hooks/useWorkoutDetail'
 import { SCORE_TYPE_OPTIONS } from '@/lib/workoutEnums'
 import { toIsoOrNull } from '@/lib/datetime'
 
+type WorkoutLocation = { id: number; name: string }
+
 type TimeField = string
 
 function secsToField(secs: number): string {
@@ -54,11 +56,12 @@ function Toggle({ on, onToggle, title, subtitle }: { on: boolean; onToggle: () =
 type Props = {
   workout: Workout
   loading: boolean
+  locations: WorkoutLocation[]
   onSave: (patch: Record<string, unknown>) => Promise<boolean>
   onCancel: () => void
 }
 
-export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: Props) {
+export default function WorkoutEditForm({ workout, loading, locations, onSave, onCancel }: Props) {
   const [name, setName] = useState(workout.name)
   const [number, setNumber] = useState(String(workout.number))
   const [scoreType, setScoreType] = useState(workout.scoreType)
@@ -73,6 +76,7 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
   const [partBEnabled, setPartBEnabled] = useState(workout.partBEnabled)
   const [partBScoreType, setPartBScoreType] = useState(workout.partBScoreType)
   const [halfWeight, setHalfWeight] = useState(workout.halfWeight)
+  const [locationId, setLocationId] = useState(workout.locationId ? String(workout.locationId) : '')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,6 +86,7 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
       callTimeSecs: fieldToSecs(callTime), walkoutTimeSecs: fieldToSecs(walkoutTime),
       startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled,
       partBEnabled, partBScoreType, halfWeight,
+      locationId: locationId ? Number(locationId) : null,
     })
     if (ok) onCancel()
   }
@@ -101,6 +106,15 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
             {SCORE_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
+        {locations.length > 0 && (
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Location</label>
+            <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              <option value="">No location</option>
+              {locations.map((l) => <option key={l.id} value={String(l.id)}>{l.name}</option>)}
+            </select>
+          </div>
+        )}
         <div><label className="block text-xs text-gray-400 mb-1">Lanes</label><input type="number" value={lanes} onChange={(e) => setLanes(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
         <TimeInput label="Heat Interval" value={heatInterval} onChange={setHeatInterval} />
         <TimeInput label="Time Between Heats" value={timeBetweenHeats} onChange={setTimeBetweenHeats} />
@@ -108,9 +122,7 @@ export default function WorkoutEditForm({ workout, loading, onSave, onCancel }: 
         <TimeInput label="Walk Out (before heat)" value={walkoutTime} onChange={setWalkoutTime} />
         <div><label className="block text-xs text-gray-400 mb-1">Start Time</label><input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" /></div>
         <Toggle on={mixedHeats} onToggle={() => setMixedHeats((v) => !v)} title="Mixed Heats" subtitle={mixedHeats ? 'Athletes from different divisions can share a heat' : 'Each heat contains only one division'} />
-        {scoreType === 'rounds_reps' && (
-          <Toggle on={tiebreakEnabled} onToggle={() => setTiebreakEnabled((v) => !v)} title="Tie Break Time" subtitle="Enter a tiebreak time per athlete — lowest time wins ties" />
-        )}
+        <Toggle on={tiebreakEnabled} onToggle={() => setTiebreakEnabled((v) => !v)} title="Tie Break Time" subtitle="Enter a tiebreak time per athlete — lowest time wins ties" />
         <Toggle on={partBEnabled} onToggle={() => setPartBEnabled((v) => !v)} title="Part A / Part B" subtitle="Add a second score (Part B) to each athlete" />
         {partBEnabled && (
           <div className="col-span-2">

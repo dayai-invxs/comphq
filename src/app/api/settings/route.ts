@@ -20,13 +20,15 @@ export async function GET(req: Request) {
   const competition = await resolveCompetition(slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const [showBib, tiebreakWorkoutId] = await Promise.all([
+  const [showBib, tiebreakWorkoutId, leaderboardVisibility] = await Promise.all([
     getSetting(competition.id, 'showBib', 'true'),
     getSetting(competition.id, 'tiebreakWorkoutId', ''),
+    getSetting(competition.id, 'leaderboardVisibility', 'per_workout'),
   ])
   return Response.json({
     showBib: showBib !== 'false',
     tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
+    leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
   })
 }
 
@@ -51,15 +53,23 @@ export async function PATCH(req: Request) {
         { onConflict: 'competitionId,key' },
       ).then())
     }
+    if (d.leaderboardVisibility !== undefined) {
+      upserts.push(supabase.from('Setting').upsert(
+        { competitionId: competition.id, key: 'leaderboardVisibility', value: d.leaderboardVisibility },
+        { onConflict: 'competitionId,key' },
+      ).then())
+    }
     await Promise.all(upserts)
 
-    const [showBib, tiebreakWorkoutId] = await Promise.all([
+    const [showBib, tiebreakWorkoutId, leaderboardVisibility] = await Promise.all([
       getSetting(competition.id, 'showBib', 'true'),
       getSetting(competition.id, 'tiebreakWorkoutId', ''),
+      getSetting(competition.id, 'leaderboardVisibility', 'per_workout'),
     ])
     return Response.json({
       showBib: showBib !== 'false',
       tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
+      leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
     })
   } catch (e) {
     return authErrorResponse(e)
