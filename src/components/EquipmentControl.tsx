@@ -1,17 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type HeatEntry = { athleteId: number; lane: number; divisionName: string | null }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
 type WorkoutData = { id: number; number: number; name: string; status: string; heats: Heat[] }
+type EquipmentItem = { id: number; item: string; divisionId: number | null; division: { id: number; name: string } | null }
 
-type Props = { workouts: WorkoutData[] }
+type Props = { workouts: WorkoutData[]; slug: string }
 
-export default function EquipmentControl({ workouts }: Props) {
-  // key: `${workoutId}-${heatNumber}-${divisionName}`
+export default function EquipmentControl({ workouts, slug }: Props) {
   const [checks, setChecks] = useState<Record<string, boolean>>({})
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
+  const [equipmentByWorkout, setEquipmentByWorkout] = useState<Record<number, EquipmentItem[]>>({})
+
+  // Fetch equipment for all workouts in parallel once workouts are loaded
+  useEffect(() => {
+    if (workouts.length === 0) return
+    void Promise.all(
+      workouts.map((w) =>
+        fetch(`/api/workouts/${w.id}/equipment?slug=${slug}`)
+          .then((r) => r.ok ? r.json() : [])
+          .then((items: EquipmentItem[]) => ({ id: w.id, items }))
+      )
+    ).then((results) => {
+      const map: Record<number, EquipmentItem[]> = {}
+      for (const { id, items } of results) map[id] = items
+      setEquipmentByWorkout(map)
+    })
+  }, [workouts, slug])
 
   function toggleExpand(workoutId: number, heatNumber: number) {
     const key = `${workoutId}-${heatNumber}`
@@ -21,10 +38,6 @@ export default function EquipmentControl({ workouts }: Props) {
       else next.add(key)
       return next
     })
-  }
-
-  function isExpanded(workoutId: number, heatNumber: number) {
-    return expandedHeats.has(`${workoutId}-${heatNumber}`)
   }
 
   function checkKey(workoutId: number, heatNumber: number, divisionName: string | null) {
@@ -70,14 +83,11 @@ export default function EquipmentControl({ workouts }: Props) {
                 <tbody>
                   {workout.heats.map((heat) => {
                     const sortedEntries = [...heat.entries].sort((a, b) => a.lane - b.lane)
-
-                    // Unique divisions in this heat, preserving lane order
                     const divisionNames = [...new Set(sortedEntries.map((e) => e.divisionName))]
-
                     const allChecked = divisionNames.length > 0 &&
                       divisionNames.every((d) => isChecked(workout.id, heat.heatNumber, d))
-
-                    const expanded = isExpanded(workout.id, heat.heatNumber)
+                    const expanded = expandedHeats.has(`${workout.id}-${heat.heatNumber}`)
+                    const workoutEquipment = equipmentByWorkout[workout.id] ?? []
 
                     return (
                       <>
@@ -110,10 +120,7 @@ export default function EquipmentControl({ workouts }: Props) {
                               {divisionNames.map((divName) => {
                                 const checked = isChecked(workout.id, heat.heatNumber, divName)
                                 return (
-                                  <label
-                                    key={divName ?? '__none__'}
-                                    className="flex items-center gap-1.5 cursor-pointer select-none"
-                                  >
+                                  <label key={divName ?? '__none__'} className="flex items-center gap-1.5 cursor-pointer select-none">
                                     <input
                                       type="checkbox"
                                       checked={checked}
@@ -131,17 +138,63 @@ export default function EquipmentControl({ workouts }: Props) {
                         </tr>
 
                         {expanded && sortedEntries.length > 0 && (
-                          <tr key={`${heat.heatNumber}-lanes`} className="border-b border-gray-800 bg-gray-900/50">
+                          <tr key={`${heat.heatNumber}-detail`} className="border-b border-gray-800 bg-gray-900/50">
                             <td />
-                            <td colSpan={2} className="px-3 py-2.5">
-                              <div className="flex flex-wrap gap-x-6 gap-y-1">
-                                {sortedEntries.map((e) => (
-                                  <span key={e.athleteId} className="text-sm text-gray-300">
-                                    <span className="text-orange-400 font-bold mr-1.5">Lane {e.lane}</span>
-                                    <span className="text-gray-400">{e.divisionName ?? 'No Division'}</span>
-                                  </span>
-                                ))}
+                            <td colSpan={2} className="px-3 py-3 space-y-4">
+
+                              {/* Equipment per division */}
+                              {divisionNames.length > 0 && (
+                                <div className="space-y-3">
+                                  {divisionNames.map((divName) => {
+                                    // Items for this specific division + items for "all divisions" (null)
+                                    const divId = divName == null ? null
+                                      : workoutEquipment.find((e) => e.division?.name === divName)?.divisionId ?? null
+                                    const items = workoutEquipment.filter(
+                                      (e) => e.divisionId === null || e.division?.name === divName
+                                    )
+                                    if (items.length === 0) return (
+                                      <div key={divName ?? '__none__'}>
+                                        <p className="text-xs font-semibold text-orange-400 uppercase tracking-wide mb-1">
+                                          {divName ?? 'No Division'}
+                                        </p>
+                                        <p className="text-xs text-gray-600">No equipment listed</p>
+                                      </div>
+                                    )
+                                    return (
+                                      <div key={divName ?? '__none__'}>
+                                        <p className="text-xs font-semibold text-orange-400 uppercase tracking-wide mb-1">
+                                          {divName ?? 'No Division'}
+                                        </p>
+                                        <ul className="space-y-0.5">
+                                          {items.map((eq) => (
+                                            <li key={eq.id} className="text-sm text-gray-300 flex items-center gap-1.5">
+                                              <span className="text-gray-600">·</span>
+                                              {eq.item}
+                                              {eq.divisionId === null && divisionNames.length > 1 && (
+                                                <span className="text-xs text-gray-600">(all)</span>
+                                              )}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Lane assignments */}
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Lane Assignments</p>
+                                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                                  {sortedEntries.map((e) => (
+                                    <span key={e.athleteId} className="text-sm text-gray-300">
+                                      <span className="text-orange-400 font-bold mr-1.5">Lane {e.lane}</span>
+                                      <span className="text-gray-400">{e.divisionName ?? 'No Division'}</span>
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
+
                             </td>
                           </tr>
                         )}

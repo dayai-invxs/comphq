@@ -140,7 +140,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
         ))}
       </div>
 
-      {tab === 'equipment' && <EquipmentControl workouts={workouts} />}
+      {tab === 'equipment' && <EquipmentControl workouts={workouts} slug={slug} />}
 
       {tab === 'athletes' && workouts.length === 0 && (
         <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>
