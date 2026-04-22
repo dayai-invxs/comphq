@@ -1,28 +1,21 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireSession, requireSiteAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionCreate } from '@/lib/schemas'
 
+/**
+ * Public competition list — used by the homepage and any other discovery
+ * surface. Returns the minimum fields required to render a link: id, name,
+ * slug. No auth required. For the "comps I can admin" list used by the
+ * /admin layouts, see /api/competitions/mine.
+ */
 export async function GET() {
-  try {
-    const user = await requireSession()
-    // Super admins see everything; other users only see comps where they're
-    // a CompetitionAdmin.
-    if (user.isSuper) {
-      const { data, error } = await supabase.from('Competition').select('*').order('id')
-      if (error) return new Response(error.message, { status: 500 })
-      return Response.json(data ?? [])
-    }
-    const { data, error } = await supabase
-      .from('Competition')
-      .select('*, CompetitionAdmin!inner(userId)')
-      .eq('CompetitionAdmin.userId', user.id)
-      .order('id')
-    if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data ?? [])
-  } catch (e) {
-    return authErrorResponse(e)
-  }
+  const { data, error } = await supabase
+    .from('Competition')
+    .select('id, name, slug')
+    .order('id')
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data ?? [])
 }
 
 export async function POST(req: Request) {

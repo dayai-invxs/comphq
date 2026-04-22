@@ -9,13 +9,8 @@ const postReq = (body: Record<string, unknown>) =>
   })
 
 describe('GET /api/competitions', () => {
-  it('rejects unauthenticated', async () => {
+  it('is public — unauthenticated users see the full list', async () => {
     setAuthUser(null)
-    const res = await GET()
-    expect(res.status).toBe(401)
-  })
-
-  it('super admin sees all comps ordered by id', async () => {
     const rows = [
       { id: 1, name: 'A', slug: 'a' },
       { id: 2, name: 'B', slug: 'b' },
@@ -28,23 +23,18 @@ describe('GET /api/competitions', () => {
 
     const call = mock.lastCall!
     expect(call.table).toBe('Competition')
+    // Public list returns just id/name/slug — no sensitive fields.
+    const select = call.ops.find((o) => o.op === 'select')!
+    expect(select.args[0]).toBe('id, name, slug')
     expect(call.ops.find((o) => o.op === 'order')?.args[0]).toBe('id')
   })
 
-  it('non-super only sees comps where they are CompetitionAdmin', async () => {
-    setAuthSuper(false)
-    mock.queueResult({ data: [{ id: 1, name: 'Mine', slug: 'mine' }], error: null })
-
+  it('returns the same public list to super admins (no scoping)', async () => {
+    const rows = [{ id: 1, name: 'A', slug: 'a' }]
+    mock.queueResult({ data: rows, error: null })
     const res = await GET()
     expect(res.status).toBe(200)
-
-    const call = mock.lastCall!
-    expect(call.table).toBe('Competition')
-    // The inner join on CompetitionAdmin + eq on userId are the tenant filter.
-    const select = call.ops.find((o) => o.op === 'select')!
-    expect(select.args[0]).toContain('CompetitionAdmin!inner')
-    const eqArgs = call.ops.filter((o) => o.op === 'eq').map((o) => o.args[0])
-    expect(eqArgs).toContain('CompetitionAdmin.userId')
+    expect(await res.json()).toEqual(rows)
   })
 })
 
