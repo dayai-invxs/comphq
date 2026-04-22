@@ -10,6 +10,7 @@ describe('GET /api/leaderboard', () => {
       { data: [], error: null },
       { data: [], error: null },
       { data: null, error: null }, // tiebreakSetting
+      { data: null, error: null }, // visibilitySetting
     )
     const res = await GET(getReq())
     expect(res.status).toBe(200)
@@ -38,6 +39,7 @@ describe('GET /api/leaderboard', () => {
       { data: workouts, error: null },
       { data: athletes, error: null },
       { data: null, error: null }, // tiebreakSetting
+      { data: null, error: null }, // visibilitySetting
       { data: scores, error: null },
     )
 
