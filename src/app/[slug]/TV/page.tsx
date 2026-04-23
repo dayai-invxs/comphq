@@ -47,7 +47,7 @@ export default function TVPage() {
   const { slug } = useParams<{ slug: string }>()
   const [view, setView] = useState<'schedule' | 'leaderboard'>('schedule')
 
-  const { data: opsData } = useOps<OpsData>(slug)
+  const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData } = useLeaderboard(slug)
 
   const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug)], [slug])
@@ -74,7 +74,7 @@ export default function TVPage() {
 
       <main className="flex-1 overflow-hidden p-8">
         {view === 'schedule'
-          ? <ScheduleView data={opsData} />
+          ? <ScheduleView data={opsData} error={opsError} />
           : <LeaderboardView data={lbData} />
         }
       </main>
@@ -82,7 +82,10 @@ export default function TVPage() {
   )
 }
 
-function ScheduleView({ data }: { data: OpsData | undefined }) {
+function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error | null }) {
+  if (error) {
+    return <div className="text-red-400 text-2xl text-center mt-20">Error: {error.message}</div>
+  }
   if (!data) {
     return <div className="text-gray-500 text-3xl text-center mt-20">Loading schedule...</div>
   }
