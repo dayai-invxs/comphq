@@ -29,7 +29,7 @@ function getClient(): ReturnType<typeof drizzle<typeof schema>> {
   if (!url) {
     throw new Error('SUPABASE_DB_URL is not set. Add it to .env.local.')
   }
-  const client = postgres(url, { prepare: false })
+  const client = postgres(url, { prepare: false, ssl: 'require' })
   cache.client = client
   cache.db = drizzle(client, { schema })
   return cache.db
