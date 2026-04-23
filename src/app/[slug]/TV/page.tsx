@@ -113,13 +113,42 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
     return <div className="text-gray-500 text-3xl text-center mt-20">No active workout at this time.</div>
   }
 
+  // Flatten all pending heats across active workouts, attach workout context + start time
+  type FlatHeat = { workout: WorkoutData; heat: typeof activeWorkouts[0]['heats'][0]; heatMs: number | null }
+  const allPending: FlatHeat[] = activeWorkouts.flatMap(workout =>
+    workout.heats
+      .filter(h => !h.isComplete)
+      .map(heat => ({
+        workout,
+        heat,
+        heatMs: calcHeatStartMs(heat.heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs),
+      }))
+  )
+
+  // Sort by start time (nulls last), take next 3
+  const upcoming = allPending
+    .sort((a, b) => {
+      if (a.heatMs == null && b.heatMs == null) return 0
+      if (a.heatMs == null) return 1
+      if (b.heatMs == null) return -1
+      return a.heatMs - b.heatMs
+    })
+    .slice(0, 3)
+
+  if (upcoming.length === 0) {
+    return <div className="text-gray-500 text-3xl text-center mt-20">No upcoming heats.</div>
+  }
+
+  // Group by workout for display
+  const byWorkout = new Map<number, { workout: WorkoutData; heats: FlatHeat[] }>()
+  for (const item of upcoming) {
+    if (!byWorkout.has(item.workout.id)) byWorkout.set(item.workout.id, { workout: item.workout, heats: [] })
+    byWorkout.get(item.workout.id)!.heats.push(item)
+  }
+
   return (
     <div className="space-y-8 h-full overflow-hidden">
-      {activeWorkouts.map(workout => {
-        const pendingHeats = workout.heats.filter(h => !h.isComplete)
-        if (pendingHeats.length === 0) return null
-
-        return (
+      {[...byWorkout.values()].map(({ workout, heats }) => (
           <div key={workout.id}>
             <h2 className="text-3xl font-bold text-white mb-5">
               Workout {workout.number}: {workout.name}
@@ -128,14 +157,7 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
               )}
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '20px' }}>
-              {pendingHeats.map(heat => {
-                const heatMs = calcHeatStartMs(
-                  heat.heatNumber,
-                  workout.startTime,
-                  workout.heatIntervalSecs,
-                  workout.heatStartOverrides,
-                  workout.timeBetweenHeatsSecs,
-                )
+              {heats.map(({ heat, heatMs }) => {
                 const corralMs = heatMs != null ? heatMs - workout.callTimeSecs * 1000 : null
                 const walkoutMs = heatMs != null ? heatMs - workout.walkoutTimeSecs * 1000 : null
                 const divs = [...new Set(heat.entries.map(e => e.divisionName).filter(Boolean))]
@@ -179,7 +201,7 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
             </div>
           </div>
         )
-      })}
+      )}
     </div>
   )
 }
