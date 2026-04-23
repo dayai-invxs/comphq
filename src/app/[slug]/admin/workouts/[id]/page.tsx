@@ -71,6 +71,9 @@ export default function WorkoutDetailPage() {
   }
 
   async function handleGenerateJudges() {
+    if (judgeAssignments.length > 0) {
+      if (!confirm('Judges are already assigned. Auto-generating will replace all existing judge assignments. Continue?')) return
+    }
     setJudgeError(null)
     try {
       const data = await postJson<JudgeAssignment[]>(
