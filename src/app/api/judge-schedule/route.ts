@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { heatAssignment, heatCompletion, judgeAssignment, volunteer, volunteerRole, workout, workoutLocation } from '@/db/schema'
 import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 import { resolveCompetition } from '@/lib/competition'
-import { calcHeatStartMs, fmtHeatTime } from '@/lib/heatTime'
+import { calcHeatStartMs } from '@/lib/heatTime'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
         )
         return {
           heatNumber,
-          heatTime: fmtHeatTime(heatMs),
+          heatTimeMs: heatMs,
           assignments: wkAssignments
             .filter(a => a.heatNumber === heatNumber)
             .sort((a, b) => a.lane - b.lane)

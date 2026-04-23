@@ -5,7 +5,12 @@ import { SlugNav } from '@/components/SlugNav'
 import { getJson } from '@/lib/http'
 
 type JudgeAssignment = { judgeId: number; judgeName: string; lane: number }
-type Heat = { heatNumber: number; heatTime: string; assignments: JudgeAssignment[] }
+type Heat = { heatNumber: number; heatTimeMs: number | null; assignments: JudgeAssignment[] }
+
+function fmtTime(ms: number | null): string {
+  if (ms == null) return '—'
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
 type WorkoutData = { id: number; number: number; name: string; locationName: string | null; heats: Heat[] }
 type Judge = { id: number; name: string }
 type ScheduleData = { judges: Judge[]; workouts: WorkoutData[] }
@@ -81,8 +86,8 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
                     <div key={heat.heatNumber} className="bg-gray-900 rounded-xl overflow-hidden">
                       <div className="bg-gray-800 px-4 py-2.5">
                         <h3 className="text-base font-semibold text-orange-400">Heat {heat.heatNumber}</h3>
-                        {heat.heatTime !== '—' && (
-                          <p className="text-xs text-gray-400 mt-0.5">Start: <span className="text-white font-mono">{heat.heatTime}</span></p>
+                        {heat.heatTimeMs != null && (
+                          <p className="text-xs text-gray-400 mt-0.5">Start: <span className="text-white font-mono">{fmtTime(heat.heatTimeMs)}</span></p>
                         )}
                       </div>
                       <table className="w-full text-sm">
