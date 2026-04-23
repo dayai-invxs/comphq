@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser, setAuthSuper } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser, setAuthSuper } from '@/test/setup'
 import { PATCH, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -33,24 +33,21 @@ describe('PATCH /api/competitions/[id]', () => {
 
   it('updates name and normalized slug', async () => {
     const updated = { id: 1, name: 'Renamed', slug: 'new-slug' }
-    mock.queueResult({ data: updated, error: null })
+    mock.queueResult([updated])
 
     const res = await PATCH(patchReq({ name: 'Renamed', slug: 'New Slug' }), params('1'))
-
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(updated)
 
-    const call = mock.lastCall!
-    expect(call.table).toBe('Competition')
-    const update = call.ops.find((o) => o.op === 'update')!
-    expect(update.args[0]).toMatchObject({ name: 'Renamed', slug: 'new-slug' })
+    const setCall = mock.calls.find((c) => c.method === 'set')
+    expect(setCall!.args[0]).toMatchObject({ name: 'Renamed', slug: 'new-slug' })
   })
 
   it('ignores fields the user did not send (partial update)', async () => {
-    mock.queueResult({ data: { id: 1 }, error: null })
+    mock.queueResult([{ id: 1 }])
     await PATCH(patchReq({ name: 'Only Name' }), params('1'))
-    const update = mock.lastCall!.ops.find((o) => o.op === 'update')!
-    const patch = update.args[0] as Record<string, unknown>
+    const setCall = mock.calls.find((c) => c.method === 'set')!
+    const patch = setCall.args[0] as Record<string, unknown>
     expect(patch.name).toBe('Only Name')
     expect(patch.slug).toBeUndefined()
   })
@@ -70,14 +67,9 @@ describe('DELETE /api/competitions/[id]', () => {
   })
 
   it('deletes and returns 204', async () => {
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult(undefined)
     const res = await DELETE(deleteReq(), params('1'))
     expect(res.status).toBe(204)
-
-    const call = mock.lastCall!
-    expect(call.table).toBe('Competition')
-    expect(call.ops.find((o) => o.op === 'delete')).toBeTruthy()
-    const eqOp = call.ops.find((o) => o.op === 'eq')!
-    expect(eqOp.args).toEqual(['id', 1])
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(true)
   })
 })

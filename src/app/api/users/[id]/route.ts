@@ -1,3 +1,6 @@
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { userProfile, competitionAdmin } from '@/db/schema'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
@@ -18,21 +21,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { isSuper, competitionIds } = parsed.data
 
     if (isSuper !== undefined) {
-      const { error } = await supabase
-        .from('UserProfile')
-        .upsert({ id: userId, isSuper }, { onConflict: 'id' })
-      if (error) return new Response(error.message, { status: 500 })
+      await db
+        .insert(userProfile)
+        .values({ id: userId, isSuper })
+        .onConflictDoUpdate({ target: userProfile.id, set: { isSuper } })
     }
 
     if (competitionIds !== undefined) {
       // Sync: remove current rows, insert requested.
-      const { error: dErr } = await supabase.from('CompetitionAdmin').delete().eq('userId', userId)
-      if (dErr) return new Response(dErr.message, { status: 500 })
+      await db.delete(competitionAdmin).where(eq(competitionAdmin.userId, userId))
 
       if (competitionIds.length > 0) {
         const rows = competitionIds.map((competitionId) => ({ userId, competitionId }))
-        const { error: iErr } = await supabase.from('CompetitionAdmin').insert(rows)
-        if (iErr) return new Response(iErr.message, { status: 500 })
+        await db.insert(competitionAdmin).values(rows)
       }
     }
 

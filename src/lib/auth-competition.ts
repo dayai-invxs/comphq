@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { and, eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { userProfile, competitionAdmin, workout } from '@/db/schema'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { resolveCompetition } from '@/lib/competition'
 
@@ -25,16 +27,16 @@ export async function requireSession(): Promise<AuthedUser> {
   const { data: { user }, error } = await client.auth.getUser()
   if (error || !user) throw new AuthError(401, 'Unauthorized')
 
-  const { data: profile } = await supabase
-    .from('UserProfile')
-    .select('isSuper')
-    .eq('id', user.id)
-    .maybeSingle()
+  const rows = await db
+    .select({ isSuper: userProfile.isSuper })
+    .from(userProfile)
+    .where(eq(userProfile.id, user.id))
+    .limit(1)
 
   return {
     id: user.id,
     email: user.email ?? null,
-    isSuper: (profile as { isSuper?: boolean } | null)?.isSuper === true,
+    isSuper: rows[0]?.isSuper === true,
   }
 }
 
@@ -61,16 +63,18 @@ export async function requireCompetitionAdmin(slug: string): Promise<AuthContext
     }
   }
 
-  const { data } = await supabase
-    .from('CompetitionAdmin')
-    .select('userId, competitionId')
-    .eq('userId', user.id)
-    .eq('competitionId', competition.id)
-    .maybeSingle()
+  const rows = await db
+    .select({ userId: competitionAdmin.userId, competitionId: competitionAdmin.competitionId })
+    .from(competitionAdmin)
+    .where(and(
+      eq(competitionAdmin.userId, user.id),
+      eq(competitionAdmin.competitionId, competition.id),
+    ))
+    .limit(1)
 
-  if (!data) throw new AuthError(403, 'Not an admin of this competition')
+  if (rows.length === 0) throw new AuthError(403, 'Not an admin of this competition')
 
-  return { user, membership: data as CompAdminMembership, competition }
+  return { user, membership: rows[0], competition }
 }
 
 /**
@@ -88,20 +92,25 @@ export async function requireSiteAdmin(): Promise<AuthedUser> {
  * defense for nested /api/workouts/[id]/* routes. Combined with
  * requireCompetitionAdmin this prevents admin-of-comp-A from editing
  * workouts of comp-B.
+ *
+ * Returns the full workout row. Previous PostgREST version accepted a
+ * `select` string; in Drizzle we always select all columns — the caller
+ * picks what they need from the returned object. Extra columns are cheap.
  */
 export async function requireWorkoutInCompetition<T = Record<string, unknown>>(
   workoutId: number,
   competitionId: number,
-  select = '*',
+  // Retained for call-site compatibility but ignored (previously a PostgREST
+  // field selector string). Callers can freely drop it.
+  _select: string = '*',
 ): Promise<T> {
-  const { data } = await supabase
-    .from('Workout')
-    .select(select)
-    .eq('id', workoutId)
-    .eq('competitionId', competitionId)
-    .maybeSingle()
-  if (!data) throw new AuthError(404, 'Workout not found')
-  return data as T
+  const rows = await db
+    .select()
+    .from(workout)
+    .where(and(eq(workout.id, workoutId), eq(workout.competitionId, competitionId)))
+    .limit(1)
+  if (rows.length === 0) throw new AuthError(404, 'Workout not found')
+  return rows[0] as T
 }
 
 /**

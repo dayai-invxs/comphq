@@ -1,3 +1,6 @@
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { setting } from '@/db/schema'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 
@@ -14,9 +17,22 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/webp': 'webp',
 }
 
+// Logo is a site-wide setting stored with competitionId = 0 since it isn't
+// scoped per competition. The Setting table PK is (competitionId, key).
+const LOGO_COMPETITION_ID = 0
+
+async function readLogoUrl(): Promise<string | null> {
+  const rows = await db
+    .select({ value: setting.value })
+    .from(setting)
+    .where(eq(setting.key, LOGO_KEY))
+    .limit(1)
+  return rows[0]?.value ?? null
+}
+
 export async function GET() {
-  const { data } = await supabase.from('Setting').select('value').eq('key', LOGO_KEY).maybeSingle()
-  return Response.json({ url: (data as { value?: string } | null)?.value ?? null })
+  const url = await readLogoUrl()
+  return Response.json({ url })
 }
 
 export async function POST(req: Request) {
@@ -36,6 +52,7 @@ export async function POST(req: Request) {
   const filename = `competition-logo.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
 
+  // Storage stays on supabase-js — Drizzle doesn't own blob storage.
   const { error } = await supabase.storage.from(BUCKET).upload(filename, buffer, {
     contentType: file.type,
     upsert: true,
@@ -43,9 +60,13 @@ export async function POST(req: Request) {
   if (error) return new Response(error.message, { status: 500 })
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename)
-  await supabase
-    .from('Setting')
-    .upsert({ key: LOGO_KEY, value: data.publicUrl }, { onConflict: 'key' })
+  await db
+    .insert(setting)
+    .values({ competitionId: LOGO_COMPETITION_ID, key: LOGO_KEY, value: data.publicUrl })
+    .onConflictDoUpdate({
+      target: [setting.competitionId, setting.key],
+      set: { value: data.publicUrl },
+    })
 
   return Response.json({ url: data.publicUrl })
 }
@@ -53,11 +74,11 @@ export async function POST(req: Request) {
 export async function DELETE() {
   try { await requireSession() } catch (e) { return authErrorResponse(e) }
 
-  const { data: row } = await supabase.from('Setting').select('value').eq('key', LOGO_KEY).maybeSingle()
-  if (row) {
-    const filename = ((row as { value: string }).value).split('/').pop()!
+  const value = await readLogoUrl()
+  if (value) {
+    const filename = value.split('/').pop()!
     await supabase.storage.from(BUCKET).remove([filename])
-    await supabase.from('Setting').delete().eq('key', LOGO_KEY)
+    await db.delete(setting).where(eq(setting.key, LOGO_KEY))
   }
   return Response.json({ url: null })
 }

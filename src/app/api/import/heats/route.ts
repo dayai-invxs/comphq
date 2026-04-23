@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { eq, sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { athlete, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 
 interface CsvRow {
@@ -41,7 +43,6 @@ function isHeaderRow(cells: string[]): boolean {
 }
 
 export async function POST(req: Request) {
-
   let csvText: string
   let slug = ''
   const contentType = req.headers.get('content-type') ?? ''
@@ -66,7 +67,6 @@ export async function POST(req: Request) {
 }
 
 async function runImport(csvText: string, competitionId: number): Promise<Response> {
-
   if (!csvText.trim()) return new Response('Empty CSV', { status: 400 })
   const allRows = parseCsv(csvText)
   if (allRows.length === 0) return new Response('No rows found', { status: 400 })
@@ -99,17 +99,19 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
 
   if (parsed.length === 0) return Response.json({ ...result, message: 'No valid rows to import' })
 
-  const [workoutsRes, athletesRes] = await Promise.all([
-    supabase.from('Workout').select('id, number').eq('competitionId', competitionId),
-    supabase.from('Athlete').select('id, name').eq('competitionId', competitionId),
+  const [workoutRows, athleteRows] = await Promise.all([
+    db
+      .select({ id: workout.id, number: workout.number })
+      .from(workout)
+      .where(eq(workout.competitionId, competitionId)),
+    db
+      .select({ id: athlete.id, name: athlete.name })
+      .from(athlete)
+      .where(eq(athlete.competitionId, competitionId)),
   ])
 
-  const workoutByNumber = new Map(
-    ((workoutsRes.data ?? []) as Array<{ id: number; number: number }>).map((w) => [w.number, w.id]),
-  )
-  const athleteByName = new Map(
-    ((athletesRes.data ?? []) as Array<{ id: number; name: string }>).map((a) => [a.name.toLowerCase().trim(), a.id]),
-  )
+  const workoutByNumber = new Map(workoutRows.map((w) => [w.number, w.id]))
+  const athleteByName = new Map(athleteRows.map((a) => [a.name.toLowerCase().trim(), a.id]))
 
   const byWorkout = new Map<number, CsvRow[]>()
   for (const row of parsed) {
@@ -124,7 +126,7 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
       continue
     }
 
-    const assignments: { workoutId: number; athleteId: number; heatNumber: number; lane: number }[] = []
+    const assignments: { athleteId: number; heatNumber: number; lane: number }[] = []
     const seen = new Set<string>()
 
     for (const row of rows) {
@@ -139,24 +141,21 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
         continue
       }
       seen.add(key)
-      assignments.push({ workoutId, athleteId, heatNumber: row.heatNumber, lane: row.laneNumber })
+      assignments.push({ athleteId, heatNumber: row.heatNumber, lane: row.laneNumber })
     }
 
     if (assignments.length === 0) continue
 
-    // Atomic per-workout replace via RPC — failure here doesn't leave other
-    // workouts half-wiped.
-    const { error: ierr } = await supabase.rpc('replace_workout_heat_assignments', {
-      p_workout_id: workoutId,
-      p_assignments: assignments.map(({ athleteId, heatNumber, lane }) => ({ athleteId, heatNumber, lane })),
-    })
-    if (ierr) {
-      result.errors.push({ line: rows[0].lineIndex, message: `Import failed: ${ierr.message}` })
-      continue
+    try {
+      await db.execute(
+        sql`SELECT replace_workout_heat_assignments(${workoutId}::int, ${JSON.stringify(assignments)}::jsonb)`,
+      )
+      result.imported += assignments.length
+      result.workoutsAffected.push(workoutNumber)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'unknown'
+      result.errors.push({ line: rows[0].lineIndex, message: `Import failed: ${msg}` })
     }
-
-    result.imported += assignments.length
-    result.workoutsAffected.push(workoutNumber)
   }
 
   return Response.json(result)

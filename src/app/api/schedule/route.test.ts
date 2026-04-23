@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
+import { drizzleMock as mock } from '@/test/setup'
 import { GET } from './route'
 
 describe('GET /api/schedule', () => {
   it('returns showBib default true and empty workouts when none active', async () => {
     mock.queueResults(
-      { data: null, error: null },
-      { data: [], error: null },
+      [], // showBib setting (no row → default true)
+      [], // workouts (no active)
     )
     const res = await GET(new Request('http://test/api/schedule?slug=default'))
     const body = await res.json()
@@ -15,21 +15,24 @@ describe('GET /api/schedule', () => {
   })
 
   it('hides completed heats from schedule and returns entries per remaining heat', async () => {
+    // Shift order:
+    //   1. showBib
+    //   2. active workouts
+    //   3. heatCompletion (getCompletedHeatsByWorkout helper fires during
+    //      Promise.all array evaluation)
+    //   4. assignments (Promise.all proxy iteration)
     mock.queueResults(
-      // 1. showBib setting
-      { data: { value: 'false' }, error: null },
-      // 2. workouts
-      { data: [{ id: 1, number: 1, name: 'WOD', status: 'active', startTime: '2026-01-01T10:00:00Z', heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120, callTimeSecs: 60, walkoutTimeSecs: 30 }], error: null },
-      // 3. getCompletedHeatsByWorkout (async fn starts in Promise.all ctor)
-      { data: [{ workoutId: 1, heatNumber: 1 }], error: null },
-      // 4. assignments select
-      {
-        data: [
-          { id: 10, workoutId: 1, athleteId: 1, heatNumber: 1, lane: 1, athlete: { id: 1, name: 'Alice', bibNumber: null, division: null } },
-          { id: 11, workoutId: 1, athleteId: 2, heatNumber: 2, lane: 1, athlete: { id: 2, name: 'Bob', bibNumber: '9', division: { id: 1, name: 'Rx', order: 0 } } },
-        ],
-        error: null,
-      },
+      [{ value: 'false' }],
+      [{
+        id: 1, number: 1, name: 'WOD', startTime: '2026-01-01T10:00:00Z',
+        heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120,
+        callTimeSecs: 60, walkoutTimeSecs: 30,
+      }],
+      [{ workoutId: 1, heatNumber: 1 }], // heatCompletion
+      [
+        { workoutId: 1, athleteId: 1, heatNumber: 1, lane: 1, athleteName: 'Alice', bibNumber: null, divisionName: null },
+        { workoutId: 1, athleteId: 2, heatNumber: 2, lane: 1, athleteName: 'Bob', bibNumber: '9', divisionName: 'Rx' },
+      ],
     )
     const res = await GET(new Request('http://test/api/schedule?slug=default'))
     const body = await res.json()

@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { and, eq, inArray } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { heatAssignment, heatCompletion, score, workout } from '@/db/schema'
 import { rankAndPersist } from '@/lib/scoring'
 import { getCompletedHeats } from '@/lib/heatCompletion'
 import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
@@ -21,38 +23,41 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id, heatNum } = await params
     const workoutId = Number(id)
     const heatNumber = Number(heatNum)
-    const workout = await requireWorkoutInCompetition<RankableWorkout>(
-      workoutId,
-      competition.id,
-      'id, status, scoreType, tiebreakEnabled, partBEnabled, partBScoreType',
-    )
+    const wk = await requireWorkoutInCompetition<RankableWorkout>(workoutId, competition.id)
 
-    // Idempotent insert: the unique (workoutId, heatNumber) index makes
-    // concurrent clicks race-safe. Double-click just no-ops on the second one.
-    await supabase
-      .from('HeatCompletion')
-      .upsert({ workoutId, heatNumber }, { onConflict: 'workoutId,heatNumber', ignoreDuplicates: true })
+    // Idempotent insert: unique (workoutId, heatNumber) makes concurrent clicks
+    // race-safe. onConflictDoNothing is the Drizzle equivalent of ignoreDuplicates.
+    await db
+      .insert(heatCompletion)
+      .values({ workoutId, heatNumber })
+      .onConflictDoNothing()
 
-    const [scoresRes, assignmentsRes, completedHeats] = await Promise.all([
-      supabase
-        .from('Score')
-        .select('athleteId, workoutId, rawScore, tiebreakRawScore, partBRawScore')
-        .eq('workoutId', workoutId),
-      supabase.from('HeatAssignment').select('heatNumber').eq('workoutId', workoutId),
+    const [scores, assignments, completedHeats] = await Promise.all([
+      db
+        .select({
+          athleteId: score.athleteId,
+          workoutId: score.workoutId,
+          rawScore: score.rawScore,
+          tiebreakRawScore: score.tiebreakRawScore,
+          partBRawScore: score.partBRawScore,
+        })
+        .from(score)
+        .where(eq(score.workoutId, workoutId)),
+      db
+        .select({ heatNumber: heatAssignment.heatNumber })
+        .from(heatAssignment)
+        .where(eq(heatAssignment.workoutId, workoutId)),
       getCompletedHeats(workoutId),
     ])
 
-    const scores = scoresRes.data ?? []
-    const assignments = assignmentsRes.data ?? []
-
-    const rankResult = await rankAndPersist(workoutId, workout, scores)
+    const rankResult = await rankAndPersist(workoutId, wk, scores)
     if (rankResult.error) return new Response(rankResult.error, { status: 500 })
 
-    const allHeatNums = Array.from(new Set(assignments.map((a) => (a as { heatNumber: number }).heatNumber)))
+    const allHeatNums = Array.from(new Set(assignments.map((a) => a.heatNumber)))
     const workoutDone = allHeatNums.length > 0 && allHeatNums.every((n) => completedHeats.includes(n))
 
-    if (workoutDone && workout.status !== 'completed') {
-      await supabase.from('Workout').update({ status: 'completed' }).eq('id', workoutId)
+    if (workoutDone && wk.status !== 'completed') {
+      await db.update(workout).set({ status: 'completed' }).where(eq(workout.id, workoutId))
     }
 
     return Response.json({ completedHeats, workoutCompleted: workoutDone })
@@ -69,36 +74,28 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { id, heatNum } = await params
     const workoutId = Number(id)
     const heatNumber = Number(heatNum)
-    const workout = await requireWorkoutInCompetition<{ status: string }>(
-      workoutId,
-      competition.id,
-      'status',
-    )
+    const wk = await requireWorkoutInCompetition<{ status: string }>(workoutId, competition.id)
 
-    await supabase
-      .from('HeatCompletion')
-      .delete()
-      .eq('workoutId', workoutId)
-      .eq('heatNumber', heatNumber)
+    await db
+      .delete(heatCompletion)
+      .where(and(eq(heatCompletion.workoutId, workoutId), eq(heatCompletion.heatNumber, heatNumber)))
 
     // Clear points for athletes in the un-completed heat.
-    const { data: heatAthletes } = await supabase
-      .from('HeatAssignment')
-      .select('athleteId')
-      .eq('workoutId', workoutId)
-      .eq('heatNumber', heatNumber)
+    const heatAthletes = await db
+      .select({ athleteId: heatAssignment.athleteId })
+      .from(heatAssignment)
+      .where(and(eq(heatAssignment.workoutId, workoutId), eq(heatAssignment.heatNumber, heatNumber)))
 
-    const athleteIds = (heatAthletes ?? []).map((a) => (a as { athleteId: number }).athleteId)
+    const athleteIds = heatAthletes.map((a) => a.athleteId)
     if (athleteIds.length > 0) {
-      await supabase
-        .from('Score')
-        .update({ points: null })
-        .in('athleteId', athleteIds)
-        .eq('workoutId', workoutId)
+      await db
+        .update(score)
+        .set({ points: null })
+        .where(and(inArray(score.athleteId, athleteIds), eq(score.workoutId, workoutId)))
     }
 
-    if (workout.status === 'completed') {
-      await supabase.from('Workout').update({ status: 'active' }).eq('id', workoutId)
+    if (wk.status === 'completed') {
+      await db.update(workout).set({ status: 'active' }).where(eq(workout.id, workoutId))
     }
 
     const completedHeats = await getCompletedHeats(workoutId)

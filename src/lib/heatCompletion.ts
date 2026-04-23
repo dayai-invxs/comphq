@@ -1,17 +1,17 @@
-import { supabase } from '@/lib/supabase'
+import { eq, inArray } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { heatCompletion } from '@/db/schema'
 
 /**
  * Fetch completed heat numbers for a single workout from the HeatCompletion
  * table. Replaces the old JSON-parse-of-text pattern.
  */
 export async function getCompletedHeats(workoutId: number): Promise<number[]> {
-  const { data } = await supabase
-    .from('HeatCompletion')
-    .select('heatNumber')
-    .eq('workoutId', workoutId)
-  return ((data ?? []) as { heatNumber: number }[])
-    .map((r) => r.heatNumber)
-    .sort((a, b) => a - b)
+  const rows = await db
+    .select({ heatNumber: heatCompletion.heatNumber })
+    .from(heatCompletion)
+    .where(eq(heatCompletion.workoutId, workoutId))
+  return rows.map((r) => r.heatNumber).sort((a, b) => a - b)
 }
 
 /**
@@ -25,12 +25,12 @@ export async function getCompletedHeatsByWorkout(
   for (const id of workoutIds) result.set(id, [])
   if (workoutIds.length === 0) return result
 
-  const { data } = await supabase
-    .from('HeatCompletion')
-    .select('workoutId, heatNumber')
-    .in('workoutId', workoutIds)
+  const rows = await db
+    .select({ workoutId: heatCompletion.workoutId, heatNumber: heatCompletion.heatNumber })
+    .from(heatCompletion)
+    .where(inArray(heatCompletion.workoutId, workoutIds))
 
-  for (const row of ((data ?? []) as { workoutId: number; heatNumber: number }[])) {
+  for (const row of rows) {
     const list = result.get(row.workoutId)
     if (list) list.push(row.heatNumber)
   }

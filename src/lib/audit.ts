@@ -1,4 +1,5 @@
-import { supabase } from './supabase'
+import { db } from './db'
+import { auditLog } from '@/db/schema'
 import type { AuthedUser } from './auth-competition'
 
 export type AuditEntry = {
@@ -21,17 +22,18 @@ export type AuditEntry = {
 export async function logAudit(user: AuthedUser | null, entry: AuditEntry): Promise<void> {
   if (!user) return
 
-  const { error } = await supabase.from('AuditLog').insert({
-    userId: user.id,           // UUID from auth.users
-    userName: user.email,      // email is what Supabase Auth gives us
-    competitionId: entry.resource.competitionId,
-    action: entry.action,
-    resourceType: entry.resource.type,
-    resourceId: entry.resource.id == null ? null : String(entry.resource.id),
-    diff: entry.diff ?? null,
-  })
-
-  if (error) {
-    console.error('[audit] failed to log:', entry.action, error.message)
+  try {
+    await db.insert(auditLog).values({
+      userId: user.id,
+      userName: user.email,
+      competitionId: entry.resource.competitionId,
+      action: entry.action,
+      resourceType: entry.resource.type,
+      resourceId: entry.resource.id == null ? null : String(entry.resource.id),
+      diff: entry.diff ?? null,
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'unknown'
+    console.error('[audit] failed to log:', entry.action, msg)
   }
 }

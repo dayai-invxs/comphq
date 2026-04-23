@@ -1,5 +1,7 @@
+import { asc, eq, inArray } from 'drizzle-orm'
 import { zipSync, strToU8 } from 'fflate'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
+import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
 
@@ -22,33 +24,37 @@ export async function GET(req: Request) {
     return authErrorResponse(e)
   }
 
-  const { data: workoutsRes } = await supabase
-    .from('Workout').select('*').eq('competitionId', competition.id).order('number')
-  const workouts = (workoutsRes ?? []) as Array<{
-    id: number; number: number; name: string; scoreType: string; status: string;
-    lanes: number; halfWeight?: boolean
-  }>
+  const workouts = await db
+    .select()
+    .from(workout)
+    .where(eq(workout.competitionId, competition.id))
+    .orderBy(asc(workout.number))
   const workoutIds = workouts.map((w) => w.id)
 
-  const [
-    { data: athletesRes },
-    { data: divisionsRes },
-    { data: assignmentsRes },
-    { data: scoresRes },
-  ] = await Promise.all([
-    supabase.from('Athlete').select('*').eq('competitionId', competition.id).order('name'),
-    supabase.from('Division').select('*').eq('competitionId', competition.id).order('order'),
-    supabase.from('HeatAssignment').select('*, athlete:Athlete(id, name, bibNumber, divisionId)').in('workoutId', workoutIds),
-    supabase.from('Score').select('*').in('workoutId', workoutIds),
+  const [athletes, divisions, assignmentRows, scores] = await Promise.all([
+    db.select().from(athleteTable).where(eq(athleteTable.competitionId, competition.id)).orderBy(asc(athleteTable.name)),
+    db.select().from(divisionTable).where(eq(divisionTable.competitionId, competition.id)).orderBy(asc(divisionTable.order)),
+    workoutIds.length > 0
+      ? db
+          .select({
+            workoutId: heatAssignment.workoutId,
+            heatNumber: heatAssignment.heatNumber,
+            lane: heatAssignment.lane,
+            athleteId: athleteTable.id,
+            athleteName: athleteTable.name,
+            bibNumber: athleteTable.bibNumber,
+            divisionId: athleteTable.divisionId,
+          })
+          .from(heatAssignment)
+          .innerJoin(athleteTable, eq(athleteTable.id, heatAssignment.athleteId))
+          .where(inArray(heatAssignment.workoutId, workoutIds))
+      : Promise.resolve([]),
+    workoutIds.length > 0
+      ? db.select().from(score).where(inArray(score.workoutId, workoutIds))
+      : Promise.resolve([]),
   ])
 
-  const athletes = (athletesRes ?? []) as Array<{ id: number; name: string; bibNumber: string | null; divisionId: number | null }>
-  const divisions = (divisionsRes ?? []) as Array<{ id: number; name: string; order: number }>
-  const assignments = (assignmentsRes ?? []) as Array<{ workoutId: number; heatNumber: number; lane: number; athlete: { id: number; name: string; bibNumber: string | null; divisionId: number | null } }>
-  const scores = (scoresRes ?? []) as Array<{ athleteId: number; workoutId: number; rawScore: number; tiebreakRawScore: number | null; points: number | null; partBRawScore: number | null; partBPoints: number | null }>
-
   const divName = new Map(divisions.map((d) => [d.id, d.name]))
-
   const exportedAt = new Date().toISOString()
 
   const files: Record<string, string> = {
@@ -66,9 +72,9 @@ export async function GET(req: Request) {
     ),
     'heat_assignments.csv': rows(
       ['workoutId', 'workoutNumber', 'heatNumber', 'lane', 'athleteId', 'athleteName', 'bibNumber'],
-      assignments.map((h) => {
+      assignmentRows.map((h) => {
         const wNum = workouts.find((w) => w.id === h.workoutId)?.number ?? ''
-        return [h.workoutId, wNum, h.heatNumber, h.lane, h.athlete.id, h.athlete.name, h.athlete.bibNumber ?? '']
+        return [h.workoutId, wNum, h.heatNumber, h.lane, h.athleteId, h.athleteName, h.bibNumber ?? '']
       }),
     ),
     'scores.csv': rows(
@@ -93,7 +99,7 @@ export async function GET(req: Request) {
         athletes: athletes.length,
         divisions: divisions.length,
         workouts: workouts.length,
-        assignments: assignments.length,
+        assignments: assignmentRows.length,
         scores: scores.length,
       },
       version: 1,

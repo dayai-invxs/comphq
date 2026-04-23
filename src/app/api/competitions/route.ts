@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
+import { competition, competitionAdmin } from '@/db/schema'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionCreate } from '@/lib/schemas'
@@ -10,12 +11,16 @@ import { CompetitionCreate } from '@/lib/schemas'
  * /admin layouts, see /api/competitions/mine.
  */
 export async function GET() {
-  const { data, error } = await supabase
-    .from('Competition')
-    .select('id, name, slug')
-    .order('id')
-  if (error) return new Response(error.message, { status: 500 })
-  return Response.json(data ?? [])
+  try {
+    const rows = await db
+      .select({ id: competition.id, name: competition.name, slug: competition.slug })
+      .from(competition)
+      .orderBy(competition.id)
+    return Response.json(rows)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return new Response(msg, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
@@ -31,22 +36,18 @@ export async function POST(req: Request) {
       return new Response('Slug must be alphanumeric (dashes allowed internally)', { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from('Competition')
-      .insert({ name, slug: cleanSlug })
-      .select('*')
-      .single()
-
-    if (error) return new Response(error.message, { status: 500 })
+    const [created] = await db
+      .insert(competition)
+      .values({ name, slug: cleanSlug })
+      .returning()
 
     // Creator becomes admin of the competition they just created.
-    const created = data as { id: number }
-    await supabase.from('CompetitionAdmin').insert({
+    await db.insert(competitionAdmin).values({
       userId: user.id,
       competitionId: created.id,
     })
 
-    return Response.json(data, { status: 201 })
+    return Response.json(created, { status: 201 })
   } catch (e) {
     return authErrorResponse(e)
   }

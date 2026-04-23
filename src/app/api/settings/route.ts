@@ -1,17 +1,28 @@
-import { supabase } from '@/lib/supabase'
+import { and, eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { setting } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { SettingsPatch } from '@/lib/schemas'
 
 async function getSetting(competitionId: number, key: string, defaultValue: string): Promise<string> {
-  const { data } = await supabase
-    .from('Setting')
-    .select('value')
-    .eq('competitionId', competitionId)
-    .eq('key', key)
-    .maybeSingle()
-  return (data as { value?: string } | null)?.value ?? defaultValue
+  const rows = await db
+    .select({ value: setting.value })
+    .from(setting)
+    .where(and(eq(setting.competitionId, competitionId), eq(setting.key, key)))
+    .limit(1)
+  return rows[0]?.value ?? defaultValue
+}
+
+async function upsertSetting(competitionId: number, key: string, value: string) {
+  await db
+    .insert(setting)
+    .values({ competitionId, key, value })
+    .onConflictDoUpdate({
+      target: [setting.competitionId, setting.key],
+      set: { value },
+    })
 }
 
 // Public read of competition-level settings (used by unauthed display views).
@@ -40,24 +51,19 @@ export async function PATCH(req: Request) {
     const { competition } = await requireCompetitionAdmin(parsed.data.slug)
     const d = parsed.data
 
-    const upserts = []
+    const upserts: Promise<void>[] = []
     if (d.showBib !== undefined) {
-      upserts.push(supabase.from('Setting').upsert(
-        { competitionId: competition.id, key: 'showBib', value: String(d.showBib) },
-        { onConflict: 'competitionId,key' },
-      ).then())
+      upserts.push(upsertSetting(competition.id, 'showBib', String(d.showBib)))
     }
     if ('tiebreakWorkoutId' in d) {
-      upserts.push(supabase.from('Setting').upsert(
-        { competitionId: competition.id, key: 'tiebreakWorkoutId', value: d.tiebreakWorkoutId != null ? String(d.tiebreakWorkoutId) : '' },
-        { onConflict: 'competitionId,key' },
-      ).then())
+      upserts.push(upsertSetting(
+        competition.id,
+        'tiebreakWorkoutId',
+        d.tiebreakWorkoutId != null ? String(d.tiebreakWorkoutId) : '',
+      ))
     }
     if (d.leaderboardVisibility !== undefined) {
-      upserts.push(supabase.from('Setting').upsert(
-        { competitionId: competition.id, key: 'leaderboardVisibility', value: d.leaderboardVisibility },
-        { onConflict: 'competitionId,key' },
-      ).then())
+      upserts.push(upsertSetting(competition.id, 'leaderboardVisibility', d.leaderboardVisibility))
     }
     await Promise.all(upserts)
 

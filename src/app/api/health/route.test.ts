@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
+import { drizzleMock as mock } from '@/test/setup'
 import { GET } from './route'
 
 describe('GET /api/health', () => {
   it('returns 200 + ok when DB reachable', async () => {
-    mock.queueResult({ data: [{ id: 1 }], error: null })
+    mock.queueResult([{ id: 1 }])
     const res = await GET()
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -13,7 +13,10 @@ describe('GET /api/health', () => {
   })
 
   it('returns 503 + error when DB probe fails', async () => {
-    mock.queueResult({ data: null, error: { message: 'connection refused' } })
+    // Make the first select() throw to simulate a connection failure.
+    mock.db.select.mockImplementationOnce(() => {
+      throw new Error('connection refused')
+    })
     const res = await GET()
     expect(res.status).toBe(503)
     const body = await res.json()

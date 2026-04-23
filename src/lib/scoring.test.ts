@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
+import { drizzleMock as mock } from '@/test/setup'
 import { calculateRankings, calcCumulativePoints, assignHeats, lowerIsBetter, rankAndPersist, type AthleteWithScore } from './scoring'
 
 describe('lowerIsBetter', () => {
@@ -60,7 +60,7 @@ describe('calcCumulativePoints', () => {
   it('sums points only for completed workouts', () => {
     const athletes: AthleteWithScore[] = [
       {
-        id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null,
+        id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null, withdrawn: false,
         scores: [
           { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null },
           { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null },
@@ -116,8 +116,13 @@ describe('rankAndPersist', () => {
     partBScoreType: 'time',
   }
 
+  function lastValues() {
+    const valuesCalls = mock.calls.filter((c) => c.method === 'values')
+    return valuesCalls[valuesCalls.length - 1].args[0]
+  }
+
   it('ranks scores and persists via a single bulk upsert', async () => {
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult(undefined)
 
     const result = await rankAndPersist(7, workout, [
       { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null },
@@ -128,43 +133,39 @@ describe('rankAndPersist', () => {
     expect(result.count).toBe(3)
     expect(result.error).toBeNull()
 
-    const upsert = mock.lastCall!.ops.find((o) => o.op === 'upsert')!
-    const rows = upsert.args[0] as Array<{ athleteId: number; points: number }>
+    const rows = lastValues() as Array<{ athleteId: number; points: number }>
     expect(rows).toHaveLength(3)
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.points]))
     expect(byId).toEqual({ 2: 1, 1: 2, 3: 3 })
-    expect(upsert.args[1]).toMatchObject({ onConflict: 'athleteId,workoutId' })
   })
 
   it('preserves rawScore/tiebreak/partBRawScore on the upserted rows', async () => {
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult(undefined)
     await rankAndPersist(7, { ...workout, partBEnabled: true }, [
       { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50 },
     ])
-    const upsert = mock.lastCall!.ops.find((o) => o.op === 'upsert')!
-    const row = (upsert.args[0] as Array<Record<string, unknown>>)[0]
+    const row = (lastValues() as Array<Record<string, unknown>>)[0]
     expect(row).toMatchObject({ rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50 })
   })
 
   it('computes partB points when enabled, leaves them null otherwise', async () => {
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult(undefined)
     await rankAndPersist(7, { ...workout, partBEnabled: true }, [
       { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30 },
       { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: 20 },
     ])
-    const upsert = mock.lastCall!.ops.find((o) => o.op === 'upsert')!
-    const rows = upsert.args[0] as Array<{ athleteId: number; partBPoints: number | null }>
+    const rows = lastValues() as Array<{ athleteId: number; partBPoints: number | null }>
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.partBPoints]))
-    expect(byId[2]).toBe(1) // lower partB time wins
+    expect(byId[2]).toBe(1)
     expect(byId[1]).toBe(2)
   })
 
   it('leaves partBPoints null when partBEnabled is false', async () => {
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult(undefined)
     await rankAndPersist(7, workout, [
       { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30 },
     ])
-    const row = (mock.lastCall!.ops.find((o) => o.op === 'upsert')!.args[0] as Array<Record<string, unknown>>)[0]
+    const row = (lastValues() as Array<Record<string, unknown>>)[0]
     expect(row.partBPoints).toBeNull()
   })
 

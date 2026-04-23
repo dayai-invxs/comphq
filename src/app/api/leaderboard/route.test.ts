@@ -1,17 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
+import { drizzleMock as mock } from '@/test/setup'
 import { GET } from './route'
 
 const getReq = () => new Request('http://test/api/leaderboard?slug=default')
 
 describe('GET /api/leaderboard', () => {
   it('returns empty entries when no data', async () => {
-    mock.queueResults(
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: null, error: null }, // tiebreakSetting
-      { data: null, error: null }, // visibilitySetting
-    )
+    mock.queueResults([], [], [], [])
     const res = await GET(getReq())
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -21,27 +16,41 @@ describe('GET /api/leaderboard', () => {
 
   it('sums points across completed workouts and sorts by total', async () => {
     const workouts = [
-      { id: 10, number: 1, name: 'A', scoreType: 'time', status: 'completed' },
-      { id: 11, number: 2, name: 'B', scoreType: 'time', status: 'completed' },
+      {
+        id: 10, number: 1, name: 'A', scoreType: 'time', status: 'completed',
+        tiebreakEnabled: false, tiebreakScoreType: 'time', halfWeight: false,
+        competitionId: 1, lanes: 10, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+        callTimeSecs: 0, walkoutTimeSecs: 0, startTime: null, mixedHeats: false,
+        partBEnabled: false, partBScoreType: 'time',
+        heatStartOverrides: '{}', locationId: null,
+      },
+      {
+        id: 11, number: 2, name: 'B', scoreType: 'time', status: 'completed',
+        tiebreakEnabled: false, tiebreakScoreType: 'time', halfWeight: false,
+        competitionId: 1, lanes: 10, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+        callTimeSecs: 0, walkoutTimeSecs: 0, startTime: null, mixedHeats: false,
+        partBEnabled: false, partBScoreType: 'time',
+        heatStartOverrides: '{}', locationId: null,
+      },
     ]
     const athletes = [
-      { id: 1, name: 'Alice', division: null },
-      { id: 2, name: 'Bob', division: { id: 1, name: 'Rx', order: 0 } },
+      { id: 1, name: 'Alice', divisionName: null },
+      { id: 2, name: 'Bob', divisionName: 'Rx' },
     ]
     const scores = [
-      { athleteId: 1, workoutId: 10, points: 1, rawScore: 100 },
-      { athleteId: 1, workoutId: 11, points: 1, rawScore: 90 },
-      { athleteId: 2, workoutId: 10, points: 2, rawScore: 110 },
-      { athleteId: 2, workoutId: 11, points: 2, rawScore: 95 },
+      { athleteId: 1, workoutId: 10, points: 1, rawScore: 100, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 11, points: 1, rawScore: 90, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 10, points: 2, rawScore: 110, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 11, points: 2, rawScore: 95, tiebreakRawScore: null },
     ]
 
-    mock.queueResults(
-      { data: workouts, error: null },
-      { data: athletes, error: null },
-      { data: null, error: null }, // tiebreakSetting
-      { data: null, error: null }, // visibilitySetting
-      { data: scores, error: null },
-    )
+    // Shift order: readSetting helpers inside Promise.all run synchronously
+    // at array-evaluation time (the async fn body executes to its first await),
+    // so they shift results BEFORE Promise.all iterates the outer items.
+    //   1-2. readSetting('tiebreakWorkoutId'), readSetting('leaderboardVisibility')
+    //   3-4. workouts + athletes (Promise.all iteration calls .then)
+    //   5. scores (post-Promise.all)
+    mock.queueResults([], [], workouts, athletes, scores)
 
     const res = await GET(getReq())
     const body = await res.json()

@@ -1,76 +1,106 @@
-import { supabase } from '@/lib/supabase'
+import { and, asc, eq, inArray } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { athlete, division, score, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+
+type AthleteRow = {
+  id: number
+  name: string
+  divisionName: string | null
+}
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const competition = await resolveCompetition(slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const [{ data: workouts }, { data: athletes }, { data: tiebreakSetting }, { data: visibilitySetting }] = await Promise.all([
-    supabase.from('Workout').select('*').eq('competitionId', competition.id).order('number'),
-    supabase.from('Athlete').select('*, division:Division(id, name, order)').eq('competitionId', competition.id).order('name'),
-    supabase.from('Setting').select('value').eq('competitionId', competition.id).eq('key', 'tiebreakWorkoutId').maybeSingle(),
-    supabase.from('Setting').select('value').eq('competitionId', competition.id).eq('key', 'leaderboardVisibility').maybeSingle(),
+  async function readSetting(key: string): Promise<string | null> {
+    const rows = await db
+      .select({ value: setting.value })
+      .from(setting)
+      .where(and(eq(setting.competitionId, competition!.id), eq(setting.key, key)))
+      .limit(1)
+    return rows[0]?.value ?? null
+  }
+
+  const [workouts, athletesRaw, tiebreakSettingValue, visibilitySettingValue] = await Promise.all([
+    db.select().from(workout).where(eq(workout.competitionId, competition.id)).orderBy(asc(workout.number)),
+    db
+      .select({
+        id: athlete.id,
+        name: athlete.name,
+        divisionName: division.name,
+      })
+      .from(athlete)
+      .leftJoin(division, eq(division.id, athlete.divisionId))
+      .where(eq(athlete.competitionId, competition.id))
+      .orderBy(asc(athlete.name)),
+    readSetting('tiebreakWorkoutId'),
+    readSetting('leaderboardVisibility'),
   ])
 
-  const leaderboardVisibility = (visibilitySetting as { value?: string } | null)?.value ?? 'per_workout'
-  const visibleWorkouts = (workouts ?? []).filter((w) => {
-    const workout = w as { status: string }
-    if (leaderboardVisibility === 'per_heat') return workout.status === 'active' || workout.status === 'completed'
-    return workout.status === 'completed'
+  const athletes: AthleteRow[] = athletesRaw
+  const leaderboardVisibility = visibilitySettingValue ?? 'per_workout'
+  const visibleWorkouts = workouts.filter((w) => {
+    if (leaderboardVisibility === 'per_heat') return w.status === 'active' || w.status === 'completed'
+    return w.status === 'completed'
   })
 
-  const tiebreakWorkoutId = (tiebreakSetting as { value?: string } | null)?.value
-    ? Number((tiebreakSetting as { value: string }).value)
-    : null
+  const tiebreakWorkoutId = tiebreakSettingValue ? Number(tiebreakSettingValue) : null
 
-  const workoutIds = visibleWorkouts.map((w) => (w as { id: number }).id)
-  const { data: scores } = workoutIds.length > 0
-    ? await supabase.from('Score').select('*').in('workoutId', workoutIds)
-    : { data: [] }
+  const workoutIds = visibleWorkouts.map((w) => w.id)
+  const scores = workoutIds.length > 0
+    ? await db
+        .select({
+          athleteId: score.athleteId,
+          workoutId: score.workoutId,
+          points: score.points,
+          rawScore: score.rawScore,
+          tiebreakRawScore: score.tiebreakRawScore,
+        })
+        .from(score)
+        .where(inArray(score.workoutId, workoutIds))
+    : []
 
   const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string }>()
-  for (const s of (scores ?? [])) {
-    const row = s as { athleteId: number; workoutId: number; points: number | null; rawScore: number; tiebreakRawScore: number | null }
-    if (row.points != null) {
-      const wo = visibleWorkouts.find((w) => (w as { id: number }).id === row.workoutId) as { scoreType?: string; tiebreakEnabled?: boolean; tiebreakScoreType?: string } | undefined
-      scoreMap.set(`${row.athleteId}-${row.workoutId}`, {
-        points: row.points,
-        rawScore: row.rawScore,
+  for (const s of scores) {
+    if (s.points != null) {
+      const wo = visibleWorkouts.find((w) => w.id === s.workoutId)
+      scoreMap.set(`${s.athleteId}-${s.workoutId}`, {
+        points: s.points,
+        rawScore: s.rawScore,
         scoreType: wo?.scoreType ?? '',
-        tiebreakRawScore: row.tiebreakRawScore ?? null,
+        tiebreakRawScore: s.tiebreakRawScore ?? null,
         tiebreakEnabled: wo?.tiebreakEnabled ?? false,
         tiebreakScoreType: wo?.tiebreakScoreType ?? 'time',
       })
     }
   }
 
-  const entries = (athletes ?? []).map((a) => {
-    const athlete = a as { id: number; name: string; division: { name: string } | null }
+  const entries = athletes.map((a) => {
     let totalPoints = 0
     const workoutScores: Record<number, { points: number; rawScore: number; display: string; tiebreakDisplay: string | null } | null> = {}
-    for (const w of visibleWorkouts) {
-      const workout = w as { id: number; halfWeight: boolean }
-      const entry = scoreMap.get(`${athlete.id}-${workout.id}`)
+    for (const wo of visibleWorkouts) {
+      const entry = scoreMap.get(`${a.id}-${wo.id}`)
       if (entry) {
-        totalPoints += workout.halfWeight ? entry.points * 0.5 : entry.points
+        totalPoints += wo.halfWeight ? entry.points * 0.5 : entry.points
         const tiebreakDisplay = entry.tiebreakEnabled && entry.tiebreakRawScore != null
           ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
           : null
-        workoutScores[workout.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType), tiebreakDisplay }
+        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType), tiebreakDisplay }
       } else {
-        workoutScores[workout.id] = null
+        workoutScores[wo.id] = null
       }
     }
-    return { athleteId: athlete.id, athleteName: athlete.name, divisionName: athlete.division?.name ?? null, totalPoints, workoutScores }
+    return { athleteId: a.id, athleteName: a.name, divisionName: a.divisionName ?? null, totalPoints, workoutScores }
   })
 
-  const workoutsByNumber = [...visibleWorkouts].sort((x, y) => (y as { number: number }).number - (x as { number: number }).number)
-  const tiedWorkoutIds = workoutsByNumber.map((w) => (w as { id: number }).id)
+  const workoutsByNumber = [...visibleWorkouts].sort((x, y) => y.number - x.number)
+  const tiedWorkoutIds = workoutsByNumber.map((w) => w.id)
 
   const tiebreakWorkout = tiebreakWorkoutId
-    ? visibleWorkouts.find((w) => (w as { id: number }).id === tiebreakWorkoutId) as { id: number; scoreType: string } | undefined
+    ? visibleWorkouts.find((w) => w.id === tiebreakWorkoutId)
     : undefined
 
   entries.sort((a, b) => {
@@ -79,7 +109,6 @@ export async function GET(req: Request) {
     if (aHas && !bHas) return -1
     if (!aHas && bHas) return 1
     if (a.totalPoints !== b.totalPoints) return a.totalPoints - b.totalPoints
-    // Tiebreaker 1: compare placements workout by workout (most recent first)
     for (const wId of tiedWorkoutIds) {
       const aScore = a.workoutScores[wId]
       const bScore = b.workoutScores[wId]
@@ -87,7 +116,6 @@ export async function GET(req: Request) {
       if (aScore && !bScore) return -1
       if (!aScore && bScore) return 1
     }
-    // Tiebreaker 2: raw score on designated tiebreaker workout
     if (tiebreakWorkout) {
       const aRaw = a.workoutScores[tiebreakWorkout.id]?.rawScore ?? null
       const bRaw = b.workoutScores[tiebreakWorkout.id]?.rawScore ?? null
@@ -99,7 +127,12 @@ export async function GET(req: Request) {
   })
 
   return Response.json(
-    { workouts: visibleWorkouts, entries, tiebreakWorkoutId, halfWeightIds: visibleWorkouts.filter((w) => (w as { halfWeight: boolean }).halfWeight).map((w) => (w as { id: number }).id) },
+    {
+      workouts: visibleWorkouts,
+      entries,
+      tiebreakWorkoutId,
+      halfWeightIds: visibleWorkouts.filter((w) => w.halfWeight).map((w) => w.id),
+    },
     { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },
   )
 }

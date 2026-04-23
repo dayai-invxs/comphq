@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useGSAP } from '@gsap/react'
+import { gsap, Draggable } from '@/lib/gsap-client'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import type { Workout, Assignment } from '@/hooks/useWorkoutDetail'
 import type { useScoreInputs } from '@/hooks/useScoreInputs'
 import { PartAInputCell, PartBInputCell } from './ScoreInputCells'
+import { useHeatDnd } from './heat-dnd-context'
+import { resolveDestIndex } from '@/lib/heat-reorder'
 
 type ScoreInputs = ReturnType<typeof useScoreInputs>
 
@@ -19,22 +23,99 @@ type Props = {
   onSaveHeat: (heatNumber: number) => void
   onCompleteHeat: (heatNumber: number) => void
   onUndoHeat: (heatNumber: number) => void
-  onSaveAssignment: (id: number, heatNumber: number, lane: number) => Promise<void>
-
+  onReorder: (dragId: number, destHeat: number, destIndex: number) => void
   onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
+  isSaving: boolean
+}
+
+function useIsTouch(): boolean {
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(pointer: coarse)')
+    setIsTouch(mq.matches)
+    const listener = (e: MediaQueryListEvent) => setIsTouch(e.matches)
+    mq.addEventListener('change', listener)
+    return () => mq.removeEventListener('change', listener)
+  }, [])
+  return isTouch
 }
 
 export default function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
-  onSaveHeat, onCompleteHeat, onUndoHeat, onSaveAssignment, onSaveHeatTime,
+  onSaveHeat, onCompleteHeat, onUndoHeat, onReorder, onSaveHeatTime, isSaving,
 }: Props) {
   const [editingHeatTime, setEditingHeatTime] = useState(false)
   const [heatTimeInput, setHeatTimeInput] = useState('')
-  const [editingAssignment, setEditingAssignment] = useState<number | null>(null)
-  const [assignEditHeat, setAssignEditHeat] = useState('')
-  const [assignEditLane, setAssignEditLane] = useState('')
+
+  const dnd = useHeatDnd()
+  const isTouch = useIsTouch()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
+  const handleRefs = useRef<Map<number, HTMLElement>>(new Map())
+  const emptyRef = useRef<HTMLDivElement>(null)
 
   const sorted = [...entries].sort((a, b) => a.lane - b.lane)
+
+  // Register row DOM nodes with the DnD context so cross-heat drop resolution
+  // can locate them. Re-registers whenever the sorted order changes.
+  useEffect(() => {
+    const disposers: Array<() => void> = []
+    sorted.forEach((a, index) => {
+      const el = rowRefs.current.get(a.id)
+      if (!el) return
+      disposers.push(dnd.registerRow({ assignmentId: a.id, heatNumber, index, el }))
+    })
+    if (sorted.length === 0 && emptyRef.current) {
+      disposers.push(dnd.registerHeatEmpty(heatNumber, emptyRef.current))
+    }
+    return () => disposers.forEach((d) => d())
+    // Reregister when entries change (order, count, or ids).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heatNumber, dnd, sorted.map((a) => a.id).join(','), sorted.length])
+
+  // Create a GSAP Draggable per row. Locked while heat is complete or saving.
+  useGSAP(
+    () => {
+      if (isComplete || isSaving) return
+      const instances: Draggable[] = []
+      for (const a of sorted) {
+        const rowEl = rowRefs.current.get(a.id)
+        if (!rowEl) continue
+        const handleEl = handleRefs.current.get(a.id) ?? rowEl
+        const [drag] = Draggable.create(rowEl, {
+          type: 'y',
+          trigger: isTouch ? handleEl : rowEl,
+          cursor: 'grab',
+          activeCursor: 'grabbing',
+          zIndexBoost: true,
+          onPress() {
+            gsap.set(rowEl, { boxShadow: '0 12px 24px rgba(0,0,0,0.45)', backgroundColor: 'rgba(31,41,55,0.9)' })
+          },
+          onDragEnd() {
+            const pe = this.pointerEvent as PointerEvent | MouseEvent | TouchEvent
+            const pt = 'changedTouches' in pe && pe.changedTouches.length > 0
+              ? pe.changedTouches[0]
+              : (pe as PointerEvent)
+            const clientX = (pt as { clientX: number }).clientX
+            const clientY = (pt as { clientY: number }).clientY
+            const target = dnd.resolveDropTarget(clientX, clientY, a.id)
+            gsap.set(rowEl, { y: 0, x: 0, boxShadow: 'none', backgroundColor: '' })
+            if (!target) return
+            const srcIndex = sorted.findIndex((x) => x.id === a.id)
+            const destIndex = resolveDestIndex(target.heatNumber, target.index, heatNumber, srcIndex)
+            onReorder(a.id, target.heatNumber, destIndex)
+          },
+          onRelease() {
+            gsap.set(rowEl, { boxShadow: 'none', backgroundColor: '' })
+          },
+        })
+        instances.push(drag)
+      }
+      return () => instances.forEach((d) => d.kill())
+    },
+    { scope: containerRef, dependencies: [isComplete, isSaving, isTouch, sorted.map((a) => a.id).join(',')] },
+  )
 
   const heatMs = workout.startTime
     ? calcHeatStartMs(heatNumber, workout.startTime, workout.heatIntervalSecs, workout.heatStartOverrides, workout.timeBetweenHeatsSecs)
@@ -59,20 +140,9 @@ export default function HeatCard({
     setEditingHeatTime(false)
   }
 
-  function startEditAssignment(a: Assignment) {
-    setEditingAssignment(a.id)
-    setAssignEditHeat(String(a.heatNumber))
-    setAssignEditLane(String(a.lane))
-  }
-
-  async function commitAssignment(id: number) {
-    await onSaveAssignment(id, Number(assignEditHeat), Number(assignEditLane))
-    setEditingAssignment(null)
-  }
-
   return (
-    <div className={`rounded-xl overflow-hidden ${isComplete ? 'opacity-60' : 'bg-gray-900'}`}>
-      <div className={`px-5 py-3 flex items-center justify-between ${isComplete ? 'bg-gray-700' : 'bg-gray-800'}`}>
+    <div ref={containerRef} className={`rounded-xl ${isComplete ? 'opacity-60' : 'bg-gray-900'}`}>
+      <div className={`rounded-t-xl px-5 py-3 flex items-center justify-between ${isComplete ? 'bg-gray-700' : 'bg-gray-800'}`}>
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`font-semibold ${isComplete ? 'text-gray-400' : 'text-orange-400'}`}>Heat {heatNumber}</span>
           {isComplete && (
@@ -115,10 +185,11 @@ export default function HeatCard({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div>
         <table className="w-full text-sm">
           <thead className="bg-gray-800/50">
             <tr>
+              {isTouch && <th className="w-10 md:hidden" />}
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Lane</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Heat</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
@@ -126,24 +197,65 @@ export default function HeatCard({
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
               {workout.partBEnabled && <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">Part B</th>}
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Points</th>
-              <th className="px-5 py-2 w-20" />
             </tr>
           </thead>
           <tbody>
-            {sorted.map((a) => {
+            {isSaving && (
+              Array.from({ length: Math.max(1, sorted.length) }).map((_, i) => (
+                <tr key={`skel-${i}`} className="border-t border-gray-800">
+                  <td colSpan={isTouch ? 8 : 7} className="px-5 py-3">
+                    <div className="skeleton-shimmer h-5 rounded" />
+                  </td>
+                </tr>
+              ))
+            )}
+            {!isSaving && sorted.length === 0 && (
+              <tr>
+                <td colSpan={isTouch ? 8 : 7} className="p-0">
+                  <div
+                    ref={emptyRef}
+                    className="border-2 border-dashed border-gray-700 text-gray-500 text-sm text-center py-6 mx-3 my-2 rounded-lg"
+                  >
+                    Drop athletes here
+                  </div>
+                </td>
+              </tr>
+            )}
+            {!isSaving && sorted.map((a) => {
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
-              const isEditingThis = editingAssignment === a.id
               return (
-                <tr key={a.id} className={`border-t border-gray-800 ${isEditingThis ? 'bg-gray-800/40' : ''}`}>
+                <tr
+                  key={a.id}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(a.id, el)
+                    else rowRefs.current.delete(a.id)
+                  }}
+                  data-assignment-id={a.id}
+                  className={`border-t border-gray-800 ${!isComplete ? 'hover:bg-gray-800/30' : ''}`}
+                >
+                  {isTouch && (
+                    <td className="px-2 py-3 md:hidden">
+                      <span
+                        ref={(el) => {
+                          if (el) handleRefs.current.set(a.id, el)
+                          else handleRefs.current.delete(a.id)
+                        }}
+                        aria-label="Drag to reorder"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 touch-none select-none cursor-grab active:cursor-grabbing"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                          <circle cx="5" cy="3" r="1.3" /><circle cx="11" cy="3" r="1.3" />
+                          <circle cx="5" cy="8" r="1.3" /><circle cx="11" cy="8" r="1.3" />
+                          <circle cx="5" cy="13" r="1.3" /><circle cx="11" cy="13" r="1.3" />
+                        </svg>
+                      </span>
+                    </td>
+                  )}
                   <td className="px-3 py-2">
-                    {isEditingThis
-                      ? <input type="number" min="1" value={assignEditLane} onChange={(e) => setAssignEditLane(e.target.value)} className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                      : <span className="font-bold text-orange-400 px-2">{a.lane}</span>}
+                    <span className="font-bold text-orange-400 px-2">{a.lane}</span>
                   </td>
                   <td className="px-3 py-2">
-                    {isEditingThis
-                      ? <input type="number" min="1" value={assignEditHeat} onChange={(e) => setAssignEditHeat(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void commitAssignment(a.id); if (e.key === 'Escape') setEditingAssignment(null) }} className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                      : <span className="text-gray-400 px-2">{a.heatNumber}</span>}
+                    <span className="text-gray-400 px-2">{a.heatNumber}</span>
                   </td>
                   <td className="px-5 py-3 text-white font-medium">{a.athlete.name}</td>
                   <td className="px-5 py-3 text-gray-400 text-xs">{a.athlete.division?.name ?? '—'}</td>
@@ -190,16 +302,6 @@ export default function HeatCard({
                         {score.tiebreakRawScore != null && <div className="text-xs text-blue-400">TB {workout.tiebreakScoreType === 'time' ? formatTiebreak(score.tiebreakRawScore) : formatScore(score.tiebreakRawScore, workout.tiebreakScoreType)}</div>}
                       </div>
                     ) : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {isEditingThis ? (
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => commitAssignment(a.id)} className="text-xs text-green-400 hover:text-green-300 font-medium">Save</button>
-                        <button onClick={() => setEditingAssignment(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => startEditAssignment(a)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                    )}
                   </td>
                 </tr>
               )

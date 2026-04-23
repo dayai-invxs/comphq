@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { competition } from '@/db/schema'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionUpdate } from '@/lib/schemas'
@@ -10,7 +12,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     await requireSiteAdmin()
     const { id } = await params
-    const updates: Record<string, string> = {}
+    const updates: { name?: string; slug?: string } = {}
     if (parsed.data.name) updates.name = parsed.data.name
     if (parsed.data.slug) {
       const cleanSlug = parsed.data.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')
@@ -20,15 +22,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       updates.slug = cleanSlug
     }
 
-    const { data, error } = await supabase
-      .from('Competition')
-      .update(updates)
-      .eq('id', Number(id))
-      .select('*')
-      .single()
+    const [updated] = await db
+      .update(competition)
+      .set(updates)
+      .where(eq(competition.id, Number(id)))
+      .returning()
 
-    if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data)
+    if (!updated) return new Response('Not found', { status: 404 })
+    return Response.json(updated)
   } catch (e) {
     return authErrorResponse(e)
   }
@@ -38,8 +39,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     await requireSiteAdmin()
     const { id } = await params
-    const { error } = await supabase.from('Competition').delete().eq('id', Number(id))
-    if (error) return new Response(error.message, { status: 500 })
+    await db.delete(competition).where(eq(competition.id, Number(id)))
     return new Response(null, { status: 204 })
   } catch (e) {
     return authErrorResponse(e)

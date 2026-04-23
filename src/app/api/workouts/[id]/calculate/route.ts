@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { score, workout } from '@/db/schema'
 import { rankAndPersist } from '@/lib/scoring'
 import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
@@ -18,22 +20,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
-    const workout = await requireWorkoutInCompetition<RankableWorkout>(
-      workoutId,
-      competition.id,
-      'id, scoreType, tiebreakEnabled, tiebreakScoreType, partBEnabled, partBScoreType',
-    )
+    const wk = await requireWorkoutInCompetition<RankableWorkout>(workoutId, competition.id)
 
-    const { data: scores, error: serr } = await supabase
-      .from('Score')
-      .select('athleteId, workoutId, rawScore, tiebreakRawScore, partBRawScore')
-      .eq('workoutId', workoutId)
-    if (serr) return new Response(serr.message, { status: 500 })
+    const scores = await db
+      .select({
+        athleteId: score.athleteId,
+        workoutId: score.workoutId,
+        rawScore: score.rawScore,
+        tiebreakRawScore: score.tiebreakRawScore,
+        partBRawScore: score.partBRawScore,
+      })
+      .from(score)
+      .where(eq(score.workoutId, workoutId))
 
-    const result = await rankAndPersist(workoutId, workout, scores ?? [])
+    const result = await rankAndPersist(workoutId, wk, scores)
     if (result.error) return new Response(result.error, { status: 500 })
 
-    await supabase.from('Workout').update({ status: 'completed' }).eq('id', workoutId)
+    await db.update(workout).set({ status: 'completed' }).where(eq(workout.id, workoutId))
 
     return Response.json({ message: 'Rankings calculated', count: result.count })
   } catch (e) {
