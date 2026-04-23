@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useWorkoutDetail } from '@/hooks/useWorkoutDetail'
 import type { ScorePayload } from '@/hooks/useWorkoutDetail'
@@ -10,9 +10,11 @@ import WorkoutEquipmentPopover from '@/components/workout-detail/WorkoutEquipmen
 import HeatCard from '@/components/workout-detail/HeatCard'
 import { HeatDndProvider } from '@/components/workout-detail/heat-dnd-context'
 import WorkoutLeaderboard from '@/components/workout-detail/WorkoutLeaderboard'
-import JudgeAssignmentsSection from '@/components/workout-detail/JudgeAssignmentsSection'
 import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
-import { getJson } from '@/lib/http'
+import { getJson, postJson, delJson } from '@/lib/http'
+
+type Judge = { id: number; name: string }
+type JudgeAssignment = { id: number; volunteerId: number; heatNumber: number; lane: number; judgeName: string }
 
 type WorkoutLocation = { id: number; name: string }
 
@@ -23,6 +25,10 @@ export default function WorkoutDetailPage() {
   const [editing, setEditing] = useState(false)
   const [heatsUnlocked, setHeatsUnlocked] = useState(false)
   const [locations, setLocations] = useState<WorkoutLocation[]>([])
+  const [judges, setJudges] = useState<Judge[]>([])
+  const [judgeAssignments, setJudgeAssignments] = useState<JudgeAssignment[]>([])
+  const [maxConsecutive, setMaxConsecutive] = useState(3)
+  const [judgeError, setJudgeError] = useState<string | null>(null)
 
   const detail = useWorkoutDetail(id, { slug, onNotFound: () => router.push(workoutsPath) })
   const inputs = useScoreInputs(detail.workout)
@@ -30,6 +36,58 @@ export default function WorkoutDetailPage() {
   useEffect(() => {
     getJson<WorkoutLocation[]>(`/api/workout-locations?slug=${slug}`).then(setLocations).catch(() => {})
   }, [slug])
+
+  const loadJudges = useCallback(async () => {
+    try {
+      const [assignments, roles, vols] = await Promise.all([
+        getJson<JudgeAssignment[]>(`/api/workouts/${id}/judge-assignments?slug=${slug}`),
+        getJson<{ id: number; name: string }[]>(`/api/volunteer-roles?slug=${slug}`),
+        getJson<{ id: number; name: string; roleId: number | null }[]>(`/api/volunteers?slug=${slug}`),
+      ])
+      const judgeRoleIds = new Set(roles.filter(r => r.name.toLowerCase() === 'judge').map(r => r.id))
+      setJudges(vols.filter(v => v.roleId != null && judgeRoleIds.has(v.roleId)))
+      setJudgeAssignments(assignments)
+    } catch { /* non-critical */ }
+  }, [id, slug])
+
+  useEffect(() => { void loadJudges() }, [loadJudges])
+
+  async function handleJudgeChange(heatNumber: number, lane: number, volunteerId: number | null) {
+    setJudgeError(null)
+    if (volunteerId === null) {
+      const existing = judgeAssignments.find(a => a.heatNumber === heatNumber && a.lane === lane)
+      if (existing) {
+        try {
+          await delJson(`/api/workouts/${id}/judge-assignments?slug=${slug}`, { ids: [existing.id] })
+          setJudgeAssignments(prev => prev.filter(a => a.id !== existing.id))
+        } catch (e) { setJudgeError(e instanceof Error ? e.message : String(e)) }
+      }
+      return
+    }
+    try {
+      await postJson(`/api/workouts/${id}/judge-assignments?slug=${slug}`, { volunteerId, heatNumber, lane })
+      await loadJudges()
+    } catch (e) { setJudgeError(e instanceof Error ? e.message : String(e)) }
+  }
+
+  async function handleGenerateJudges() {
+    setJudgeError(null)
+    try {
+      const data = await postJson<JudgeAssignment[]>(
+        `/api/workouts/${id}/judge-assignments/generate?slug=${slug}`,
+        { maxConsecutive },
+      )
+      setJudgeAssignments(data)
+    } catch (e) { setJudgeError(e instanceof Error ? e.message : String(e)) }
+  }
+
+  async function handleClearJudges() {
+    if (!confirm('Clear all judge assignments for this workout?')) return
+    try {
+      await delJson(`/api/workouts/${id}/judge-assignments?slug=${slug}`)
+      setJudgeAssignments([])
+    } catch (e) { setJudgeError(e instanceof Error ? e.message : String(e)) }
+  }
 
   // Re-hydrate input fields every time the workout reloads.
   useEffect(() => {
@@ -173,6 +231,40 @@ export default function WorkoutDetailPage() {
 
       {heatNums.length > 0 && (
         <div className="space-y-6">
+          {judgeError && (
+            <div className="bg-red-950 border border-red-900 text-red-200 rounded-lg px-4 py-3 text-sm">
+              {judgeError}
+              <button onClick={() => setJudgeError(null)} className="ml-3 text-red-400 hover:text-red-200 underline">dismiss</button>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-medium text-gray-400">Judge Assignments:</span>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">Max consecutive</label>
+                <input
+                  type="number" min={1} max={20} value={maxConsecutive}
+                  onChange={e => setMaxConsecutive(Number(e.target.value))}
+                  className="w-16 bg-gray-800 text-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <button
+                onClick={handleGenerateJudges}
+                disabled={judges.length === 0 || heatNums.length === 0}
+                title={judges.length === 0 ? 'Add volunteers with a "Judge" role first' : undefined}
+                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+              >
+                Auto-Assign Judges
+              </button>
+              {judgeAssignments.length > 0 && (
+                <button onClick={handleClearJudges} className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                  Clear Judges
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Heats & Scores</h2>
             <div className="flex gap-3">
@@ -206,19 +298,17 @@ export default function WorkoutDetailPage() {
                 onReorder={detail.reorderAssignments}
                 onSaveHeatTime={detail.saveHeatTime}
                 isSaving={detail.savingHeats.has(heatNum)}
+                judges={judges}
+                judgesByLane={new Map(
+                  judgeAssignments
+                    .filter(a => a.heatNumber === heatNum)
+                    .map(a => [a.lane, { volunteerId: a.volunteerId, assignmentId: a.id, judgeName: a.judgeName }])
+                )}
+                onJudgeChange={handleJudgeChange}
               />
             ))}
           </HeatDndProvider>
         </div>
-      )}
-
-      {heatNums.length > 0 && (
-        <JudgeAssignmentsSection
-          workoutId={id}
-          slug={slug}
-          lanes={workout.lanes}
-          heatNums={heatNums}
-        />
       )}
 
       {workout.status === 'completed' && workout.scores.length > 0 && (

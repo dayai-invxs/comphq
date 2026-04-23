@@ -63,6 +63,11 @@ export default function WorkoutsPage() {
   const [importResult, setImportResult] = useState<{ imported: number; workoutsAffected: number[]; errors: { line: number; message: string }[]; warnings: { message: string }[] } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [judgeImportCsv, setJudgeImportCsv] = useState('')
+  const [judgeImportLoading, setJudgeImportLoading] = useState(false)
+  const [judgeImportResult, setJudgeImportResult] = useState<{ imported: number; workoutsAffected: number[]; errors: { line: number; message: string }[] } | null>(null)
+  const judgeFileInputRef = useRef<HTMLInputElement>(null)
+
   const load = useCallback(async () => {
     await run('Load workouts', async () => {
       const [w, s, locs] = await Promise.all([
@@ -131,6 +136,29 @@ export default function WorkoutsPage() {
     reader.onload = (ev) => { setImportCsv(ev.target?.result as string ?? ''); setImportResult(null) }
     reader.readAsText(file)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleJudgeImport() {
+    if (!judgeImportCsv.trim()) return
+    setJudgeImportLoading(true)
+    setJudgeImportResult(null)
+    const res = await fetch('/api/import/judge-assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, csv: judgeImportCsv }),
+    })
+    const data = await res.json()
+    setJudgeImportResult(data)
+    setJudgeImportLoading(false)
+  }
+
+  function handleJudgeFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => { setJudgeImportCsv(ev.target?.result as string ?? ''); setJudgeImportResult(null) }
+    reader.readAsText(file)
+    if (judgeFileInputRef.current) judgeFileInputRef.current.value = ''
   }
 
   const base = `/${slug}/admin`
@@ -251,6 +279,30 @@ export default function WorkoutsPage() {
             {importResult.imported > 0 && <div className="bg-green-900/40 border border-green-700 rounded-lg px-4 py-3 text-sm text-green-300">Imported {importResult.imported} assignment{importResult.imported !== 1 ? 's' : ''} across workout{importResult.workoutsAffected.length !== 1 ? 's' : ''} {importResult.workoutsAffected.map((n) => `#${n}`).join(', ')}.</div>}
             {importResult.errors.length > 0 && <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-3 text-sm space-y-1"><p className="text-red-300 font-medium mb-2">{importResult.errors.length} error{importResult.errors.length !== 1 ? 's' : ''}:</p>{importResult.errors.map((e, i) => <p key={i} className="text-red-400"><span className="text-red-600 font-mono text-xs mr-2">Line {e.line}</span>{e.message}</p>)}</div>}
             {importResult.imported === 0 && importResult.errors.length === 0 && <div className="bg-gray-800 rounded-lg px-4 py-3 text-sm text-gray-400">Nothing was imported.</div>}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-gray-900 rounded-xl p-6 max-w-2xl">
+        <h2 className="text-lg font-semibold text-white mb-1">Import Judge Assignments</h2>
+        <p className="text-xs text-gray-500 mb-4">CSV columns: <span className="font-mono text-gray-400">workout_number, heat_number, lane, judge_name</span><br />Judge must be a volunteer with a &ldquo;Judge&rdquo; role. Overwrites existing assignment for that lane.</p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => judgeFileInputRef.current?.click()} className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Choose File</button>
+            <span className="text-xs text-gray-500">or paste CSV below</span>
+            <input ref={judgeFileInputRef} type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={handleJudgeFileSelect} />
+          </div>
+          <textarea value={judgeImportCsv} onChange={(e) => { setJudgeImportCsv(e.target.value); setJudgeImportResult(null) }} placeholder={`workout_number,heat_number,lane,judge_name\n1,1,3,Alice Johnson\n1,2,1,Bob Smith`} rows={8} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-600" />
+          <div className="flex items-center gap-3">
+            <button onClick={handleJudgeImport} disabled={judgeImportLoading || !judgeImportCsv.trim()} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-5 py-2 text-sm transition-colors">{judgeImportLoading ? 'Importing…' : 'Import'}</button>
+            {judgeImportCsv && <button onClick={() => { setJudgeImportCsv(''); setJudgeImportResult(null) }} className="text-sm text-gray-400 hover:text-white transition-colors">Clear</button>}
+          </div>
+        </div>
+        {judgeImportResult && (
+          <div className="mt-4 space-y-3">
+            {judgeImportResult.imported > 0 && <div className="bg-green-900/40 border border-green-700 rounded-lg px-4 py-3 text-sm text-green-300">Imported {judgeImportResult.imported} assignment{judgeImportResult.imported !== 1 ? 's' : ''} across workout{judgeImportResult.workoutsAffected.length !== 1 ? 's' : ''} {judgeImportResult.workoutsAffected.map((n) => `#${n}`).join(', ')}.</div>}
+            {judgeImportResult.errors.length > 0 && <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-3 text-sm space-y-1"><p className="text-red-300 font-medium mb-2">{judgeImportResult.errors.length} error{judgeImportResult.errors.length !== 1 ? 's' : ''}:</p>{judgeImportResult.errors.map((e, i) => <p key={i} className="text-red-400"><span className="text-red-600 font-mono text-xs mr-2">Line {e.line}</span>{e.message}</p>)}</div>}
+            {judgeImportResult.imported === 0 && judgeImportResult.errors.length === 0 && <div className="bg-gray-800 rounded-lg px-4 py-3 text-sm text-gray-400">Nothing was imported.</div>}
           </div>
         )}
       </div>

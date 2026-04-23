@@ -13,6 +13,8 @@ import { resolveDestIndex } from '@/lib/heat-reorder'
 
 type ScoreInputs = ReturnType<typeof useScoreInputs>
 
+type JudgeInfo = { volunteerId: number; assignmentId: number; judgeName: string }
+
 type Props = {
   workout: Workout
   heatNumber: number
@@ -26,6 +28,9 @@ type Props = {
   onReorder: (dragId: number, destHeat: number, destIndex: number) => void
   onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
   isSaving: boolean
+  judges?: { id: number; name: string }[]
+  judgesByLane?: Map<number, JudgeInfo>
+  onJudgeChange?: (heatNumber: number, lane: number, volunteerId: number | null) => void
 }
 
 function useIsTouch(): boolean {
@@ -44,7 +49,9 @@ function useIsTouch(): boolean {
 export default function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
   onSaveHeat, onCompleteHeat, onUndoHeat, onReorder, onSaveHeatTime, isSaving,
+  judges, judgesByLane, onJudgeChange,
 }: Props) {
+  const showJudges = judges != null && judges.length > 0
   const [editingHeatTime, setEditingHeatTime] = useState(false)
   const [heatTimeInput, setHeatTimeInput] = useState('')
 
@@ -194,6 +201,7 @@ export default function HeatCard({
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Heat</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium">Athlete</th>
               <th className="text-left px-5 py-2 text-gray-400 font-medium">Division</th>
+              {showJudges && <th className="text-left px-5 py-2 text-gray-400 font-medium">Judge</th>}
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
               {workout.partBEnabled && <th className="text-left px-5 py-2 text-gray-400 font-medium w-32">Part B</th>}
               <th className="text-left px-5 py-2 text-gray-400 font-medium w-16">Points</th>
@@ -203,7 +211,7 @@ export default function HeatCard({
             {isSaving && (
               Array.from({ length: Math.max(1, sorted.length) }).map((_, i) => (
                 <tr key={`skel-${i}`} className="border-t border-gray-800">
-                  <td colSpan={isTouch ? 8 : 7} className="px-5 py-3">
+                  <td colSpan={(isTouch ? 8 : 7) + (showJudges ? 1 : 0)} className="px-5 py-3">
                     <div className="skeleton-shimmer h-5 rounded" />
                   </td>
                 </tr>
@@ -211,7 +219,7 @@ export default function HeatCard({
             )}
             {!isSaving && sorted.length === 0 && (
               <tr>
-                <td colSpan={isTouch ? 8 : 7} className="p-0">
+                <td colSpan={(isTouch ? 8 : 7) + (showJudges ? 1 : 0)} className="p-0">
                   <div
                     ref={emptyRef}
                     className="border-2 border-dashed border-gray-700 text-gray-500 text-sm text-center py-6 mx-3 my-2 rounded-lg"
@@ -259,6 +267,18 @@ export default function HeatCard({
                   </td>
                   <td className="px-5 py-3 text-white font-medium">{a.athlete.name}</td>
                   <td className="px-5 py-3 text-gray-400 text-xs">{a.athlete.division?.name ?? '—'}</td>
+                  {showJudges && (
+                    <td className="px-3 py-2">
+                      <select
+                        value={judgesByLane?.get(a.lane)?.volunteerId ?? ''}
+                        onChange={e => onJudgeChange?.(heatNumber, a.lane, e.target.value ? Number(e.target.value) : null)}
+                        className="bg-gray-800 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500 min-w-32"
+                      >
+                        <option value="">— no judge —</option>
+                        {judges!.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
+                      </select>
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <PartAInputCell
                       athleteId={a.athlete.id}
