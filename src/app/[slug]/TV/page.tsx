@@ -40,7 +40,7 @@ type OpsData = {
   showBib: boolean
 }
 
-const SWITCH_INTERVAL_MS = 6_000
+const SWITCH_INTERVAL_MS = 10_000
 const RANK_COLORS = ['text-yellow-400', 'text-gray-300', 'text-orange-500'] as const
 
 export default function TVPage() {
