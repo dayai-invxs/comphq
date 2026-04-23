@@ -61,7 +61,7 @@ export default function TVPage() {
   }, [])
 
   return (
-    <div className="w-screen h-screen bg-gray-900 text-white overflow-hidden flex flex-col">
+    <div className="w-screen h-screen bg-gray-900 text-white overflow-hidden flex flex-col" style={{ zoom: '0.75' }}>
       <header className="flex items-center justify-between px-10 py-5 bg-gray-800 border-b-2 border-gray-700 flex-shrink-0">
         <h1 className="text-4xl font-bold text-orange-400">
           {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard — Top 3'}
