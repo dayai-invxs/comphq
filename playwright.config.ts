@@ -16,6 +16,8 @@ export default defineConfig({
   fullyParallel: false, // competition mutations collide if run in parallel
   workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
+  // Safety net — sweeps any rows/users per-test cleanup missed.
+  globalTeardown: './e2e/global-teardown.ts',
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
     trace: 'on-first-retry',

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * /admin/users page — super-admin flows.
@@ -10,6 +11,26 @@ import { test, expect, type Page } from '@playwright/test'
 
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@test.local'
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'crossfit123456'
+
+const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!, {
+  auth: { persistSession: false },
+})
+
+// Find a user by email. Used in finally blocks to locate the throwaway
+// user we just created so we can guarantee its removal, even if the UI
+// delete step failed or the test aborted partway.
+async function findUserId(email: string): Promise<string | null> {
+  let page = 1
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) return null
+    const users = data?.users ?? []
+    const match = users.find((u) => u.email === email)
+    if (match) return match.id
+    if (users.length < 1000) return null
+    page++
+  }
+}
 
 async function login(page: Page) {
   await page.goto('/login')
@@ -32,31 +53,35 @@ test('super admin can open /admin/users and see themselves listed', async ({ pag
 })
 
 test('super admin can add and then remove a throwaway user', async ({ page }) => {
-  await login(page)
-  await page.goto('/admin/users')
-  await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible()
-
   const testEmail = `e2e-throwaway-${Date.now()}@test.local`
   const testPassword = 'throwaway-password-12345'
 
-  // Open the add-user form.
-  await page.getByRole('button', { name: 'Add User', exact: true }).click()
+  try {
+    await login(page)
+    await page.goto('/admin/users')
+    await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible()
 
-  // Fill + submit.
-  await page.getByLabel('Email').fill(testEmail)
-  await page.getByLabel('Password (12+ chars)').fill(testPassword)
-  await page.getByRole('button', { name: 'Add User' }).last().click()
+    // Open the add-user form.
+    await page.getByRole('button', { name: 'Add User', exact: true }).click()
 
-  // Wait for the new user row to appear.
-  await expect(page.getByText(testEmail)).toBeVisible({ timeout: 10_000 })
+    // Fill + submit.
+    await page.getByLabel('Email').fill(testEmail)
+    await page.getByLabel('Password (12+ chars)').fill(testPassword)
+    await page.getByRole('button', { name: 'Add User' }).last().click()
 
-  // Clean up: delete the test user. Accept the confirm dialog.
-  page.once('dialog', (d) => d.accept())
-  // The per-row container has border-b; scope the Delete click to the row
-  // whose first child span contains the test email.
-  const userRow = page.locator('div.border-b', { has: page.getByText(testEmail, { exact: true }) })
-  await userRow.getByRole('button', { name: 'Delete' }).click()
+    // Wait for the new user row to appear.
+    await expect(page.getByText(testEmail)).toBeVisible({ timeout: 10_000 })
 
-  // Row disappears.
-  await expect(page.getByText(testEmail)).toBeHidden({ timeout: 10_000 })
+    // Clean up through the UI (also asserts the delete flow works).
+    page.once('dialog', (d) => d.accept())
+    const userRow = page.locator('div.border-b', { has: page.getByText(testEmail, { exact: true }) })
+    await userRow.getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByText(testEmail)).toBeHidden({ timeout: 10_000 })
+  } finally {
+    // Belt + braces: if the UI delete didn't run (assertion failure, timeout,
+    // test abort) remove the user via the service-role admin API. No-op when
+    // the UI path already deleted the row.
+    const id = await findUserId(testEmail)
+    if (id) await admin.auth.admin.deleteUser(id)
+  }
 })
