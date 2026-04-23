@@ -26,11 +26,12 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
       .catch(e => setError(e instanceof Error ? e.message : String(e)))
   }, [slug])
 
-  const filtered = filter
+  const search = filter.trim().toLowerCase()
+  const filtered = search
     ? data?.workouts.map(wk => ({
         ...wk,
         heats: wk.heats
-          .map(h => ({ ...h, assignments: h.assignments.filter(a => a.judgeId === Number(filter)) }))
+          .map(h => ({ ...h, assignments: h.assignments.filter(a => a.judgeName.toLowerCase().includes(search)) }))
           .filter(h => h.assignments.length > 0),
       })).filter(wk => wk.heats.length > 0)
     : data?.workouts
@@ -47,16 +48,13 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
             )}
           </div>
           {data && data.judges.length > 0 && (
-            <select
+            <input
+              type="search"
+              placeholder="Search judge…"
               value={filter}
               onChange={e => setFilter(e.target.value)}
-              className="rounded-lg bg-gray-800 border border-gray-700 text-white text-sm px-3 py-1.5 focus:outline-none focus:border-orange-500"
-            >
-              <option value="">All Judges</option>
-              {data.judges.map(j => (
-                <option key={j.id} value={j.id}>{j.name}</option>
-              ))}
-            </select>
+              className="rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm px-3 py-1.5 focus:outline-none focus:border-orange-500 w-48"
+            />
           )}
         </div>
 
