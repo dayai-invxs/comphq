@@ -1,116 +1,143 @@
-import { supabase } from '@/lib/supabase'
+import { and, eq, inArray, asc } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { athlete, division, heatAssignment, score, setting, workout, workoutLocation } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
-import { ASSIGNMENT_EMBED } from '@/lib/embeds'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
-import { lowerIsBetter } from '@/lib/scoring'
-
-type Workout = {
-  id: number; number: number; name: string; status: string; startTime: string | null
-  heatIntervalSecs: number; heatStartOverrides: Record<string, string> | string; timeBetweenHeatsSecs: number
-  callTimeSecs: number; walkoutTimeSecs: number; scoreType: string; tiebreakEnabled: boolean; tiebreakScoreType: string
-  location: { name: string } | null
-}
-
-type Assignment = {
-  workoutId: number; athleteId: number; heatNumber: number; lane: number
-  athlete: { name: string; bibNumber: string | null; division: { name: string } | null }
-}
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const competition = await resolveCompetition(slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const { data: setting } = await supabase
-    .from('Setting').select('value').eq('competitionId', competition.id).eq('key', 'showBib').maybeSingle()
-  const showBib = (setting as { value?: string } | null)?.value !== 'false'
+  // showBib setting
+  const showBibRows = await db
+    .select({ value: setting.value })
+    .from(setting)
+    .where(and(eq(setting.competitionId, competition.id), eq(setting.key, 'showBib')))
+    .limit(1)
+  const showBib = showBibRows[0]?.value !== 'false'
 
-  const { data: workouts } = await supabase
-    .from('Workout')
-    .select('*, location:WorkoutLocation(name)')
-    .eq('competitionId', competition.id)
-    .order('number')
+  const workouts = await db
+    .select({
+      id: workout.id,
+      number: workout.number,
+      name: workout.name,
+      status: workout.status,
+      startTime: workout.startTime,
+      heatIntervalSecs: workout.heatIntervalSecs,
+      heatStartOverrides: workout.heatStartOverrides,
+      timeBetweenHeatsSecs: workout.timeBetweenHeatsSecs,
+      callTimeSecs: workout.callTimeSecs,
+      walkoutTimeSecs: workout.walkoutTimeSecs,
+      scoreType: workout.scoreType,
+      tiebreakEnabled: workout.tiebreakEnabled,
+      tiebreakScoreType: workout.tiebreakScoreType,
+      locationName: workoutLocation.name,
+    })
+    .from(workout)
+    .leftJoin(workoutLocation, eq(workoutLocation.id, workout.locationId))
+    .where(eq(workout.competitionId, competition.id))
+    .orderBy(asc(workout.number))
 
-  const workoutIds = (workouts ?? []).map((w) => (w as Workout).id)
+  const workoutIds = workouts.map((w) => w.id)
 
-  const [assignmentsRes, scoresRes, completedByWorkout] = await Promise.all([
+  // Assignments + athletes + divisions. Separate queries keep each query
+  // focused; the cost is a couple of extra round-trips vs. one giant join.
+  const [assignmentRows, scoreRows, completedByWorkout] = await Promise.all([
     workoutIds.length > 0
-      ? supabase
-          .from('HeatAssignment')
-          .select(ASSIGNMENT_EMBED)
-          .in('workoutId', workoutIds)
-          .order('heatNumber')
-          .order('lane')
-      : Promise.resolve({ data: [] as Assignment[] }),
+      ? db
+          .select({
+            workoutId: heatAssignment.workoutId,
+            athleteId: heatAssignment.athleteId,
+            heatNumber: heatAssignment.heatNumber,
+            lane: heatAssignment.lane,
+            athleteName: athlete.name,
+            bibNumber: athlete.bibNumber,
+            divisionName: division.name,
+          })
+          .from(heatAssignment)
+          .innerJoin(athlete, eq(athlete.id, heatAssignment.athleteId))
+          .leftJoin(division, eq(division.id, athlete.divisionId))
+          .where(inArray(heatAssignment.workoutId, workoutIds))
+          .orderBy(asc(heatAssignment.heatNumber), asc(heatAssignment.lane))
+      : Promise.resolve([]),
     workoutIds.length > 0
-      ? supabase.from('Score').select('athleteId, workoutId, rawScore, tiebreakRawScore').in('workoutId', workoutIds)
-      : Promise.resolve({ data: [] as Array<{ athleteId: number; workoutId: number; rawScore: number; tiebreakRawScore: number | null }> }),
+      ? db
+          .select({
+            athleteId: score.athleteId,
+            workoutId: score.workoutId,
+            rawScore: score.rawScore,
+            tiebreakRawScore: score.tiebreakRawScore,
+          })
+          .from(score)
+          .where(inArray(score.workoutId, workoutIds))
+      : Promise.resolve([]),
     getCompletedHeatsByWorkout(workoutIds),
   ])
 
-  const assignments = assignmentsRes.data ?? []
-  const scores = scoresRes.data ?? []
-
-  // Pre-format scores per athlete/workout so completed heats can show results
-  // inline without the public page needing to know scoreType rules.
   const scoreMap = new Map<string, string>()
   const tiebreakMap = new Map<string, string>()
-  for (const s of scores) {
-    const row = s as { athleteId: number; workoutId: number; rawScore: number; tiebreakRawScore: number | null }
-    const w = (workouts as Workout[]).find((x) => x.id === row.workoutId)
+  for (const s of scoreRows) {
+    const w = workouts.find((x) => x.id === s.workoutId)
     if (w) {
-      scoreMap.set(`${row.athleteId}-${row.workoutId}`, formatScore(row.rawScore, w.scoreType))
-      if (w.tiebreakEnabled && row.tiebreakRawScore != null) {
+      scoreMap.set(`${s.athleteId}-${s.workoutId}`, formatScore(s.rawScore, w.scoreType))
+      if (w.tiebreakEnabled && s.tiebreakRawScore != null) {
         const tbDisplay = w.tiebreakScoreType === 'time'
-          ? formatTiebreak(row.tiebreakRawScore)
-          : formatScore(row.tiebreakRawScore, w.tiebreakScoreType)
-        tiebreakMap.set(`${row.athleteId}-${row.workoutId}`, tbDisplay)
+          ? formatTiebreak(s.tiebreakRawScore)
+          : formatScore(s.tiebreakRawScore, w.tiebreakScoreType)
+        tiebreakMap.set(`${s.athleteId}-${s.workoutId}`, tbDisplay)
       }
     }
   }
 
-  const result = ((workouts ?? []) as Workout[]).map((workout) => {
-    const completedHeats = completedByWorkout.get(workout.id) ?? []
-    const wAssignments = (assignments as Assignment[]).filter((a) => a.workoutId === workout.id)
+  const result = workouts.map((wk) => {
+    const completedHeats = completedByWorkout.get(wk.id) ?? []
+    const wAssignments = assignmentRows.filter((a) => a.workoutId === wk.id)
     const heatNums = [...new Set(wAssignments.map((a) => a.heatNumber))].sort((a, b) => a - b)
 
     const heats = heatNums.map((heatNumber) => {
       const heatStartMs = calcHeatStartMs(
         heatNumber,
-        workout.startTime,
-        workout.heatIntervalSecs,
-        workout.heatStartOverrides,
-        workout.timeBetweenHeatsSecs,
+        wk.startTime,
+        wk.heatIntervalSecs,
+        wk.heatStartOverrides,
+        wk.timeBetweenHeatsSecs,
       )
       const entries = wAssignments
         .filter((a) => a.heatNumber === heatNumber)
         .map((a) => ({
           athleteId: a.athleteId,
-          athleteName: a.athlete.name,
-          bibNumber: a.athlete.bibNumber,
-          divisionName: a.athlete.division?.name ?? null,
+          athleteName: a.athleteName,
+          bibNumber: a.bibNumber,
+          divisionName: a.divisionName ?? null,
           lane: a.lane,
-          scoreDisplay: scoreMap.get(`${a.athleteId}-${workout.id}`) ?? null,
-          tiebreakDisplay: tiebreakMap.get(`${a.athleteId}-${workout.id}`) ?? null,
+          scoreDisplay: scoreMap.get(`${a.athleteId}-${wk.id}`) ?? null,
+          tiebreakDisplay: tiebreakMap.get(`${a.athleteId}-${wk.id}`) ?? null,
         }))
       return {
         heatNumber,
         isComplete: completedHeats.includes(heatNumber),
         heatTime: heatStartMs != null ? new Date(heatStartMs).toISOString() : null,
-        corralTime: heatStartMs != null ? new Date(heatStartMs - workout.callTimeSecs * 1000).toISOString() : null,
-        walkoutTime: heatStartMs != null ? new Date(heatStartMs - workout.walkoutTimeSecs * 1000).toISOString() : null,
+        corralTime: heatStartMs != null ? new Date(heatStartMs - wk.callTimeSecs * 1000).toISOString() : null,
+        walkoutTime: heatStartMs != null ? new Date(heatStartMs - wk.walkoutTimeSecs * 1000).toISOString() : null,
         entries,
       }
     })
 
     return {
-      id: workout.id, number: workout.number, name: workout.name, status: workout.status,
-      locationName: workout.location?.name ?? null,
-      startTime: workout.startTime, heatIntervalSecs: workout.heatIntervalSecs,
-      timeBetweenHeatsSecs: workout.timeBetweenHeatsSecs, callTimeSecs: workout.callTimeSecs,
-      walkoutTimeSecs: workout.walkoutTimeSecs, heatStartOverrides: workout.heatStartOverrides,
+      id: wk.id,
+      number: wk.number,
+      name: wk.name,
+      status: wk.status,
+      locationName: wk.locationName ?? null,
+      startTime: wk.startTime,
+      heatIntervalSecs: wk.heatIntervalSecs,
+      timeBetweenHeatsSecs: wk.timeBetweenHeatsSecs,
+      callTimeSecs: wk.callTimeSecs,
+      walkoutTimeSecs: wk.walkoutTimeSecs,
+      heatStartOverrides: wk.heatStartOverrides,
       heats,
     }
   })

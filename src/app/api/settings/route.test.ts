@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { GET, PATCH } from './route'
 
 const getReq = () => new Request('http://test/api/settings?slug=default')
@@ -11,10 +11,8 @@ const patchReq = (body: Record<string, unknown>) =>
 
 describe('GET /api/settings', () => {
   it('returns showBib=true by default', async () => {
-    mock.queueResults(
-      { data: null, error: null },
-      { data: null, error: null },
-    )
+    // Three separate getSetting() calls, no rows for any.
+    mock.queueResults([], [], [])
     const res = await GET(getReq())
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -22,10 +20,8 @@ describe('GET /api/settings', () => {
   })
 
   it('returns showBib=false when stored as false', async () => {
-    mock.queueResults(
-      { data: { value: 'false' }, error: null },
-      { data: null, error: null },
-    )
+    // First getSetting returns the stored 'false'; others empty.
+    mock.queueResults([{ value: 'false' }], [], [])
     const res = await GET(getReq())
     const body = await res.json()
     expect(body.showBib).toBe(false)
@@ -40,16 +36,15 @@ describe('PATCH /api/settings', () => {
   })
 
   it('upserts setting when showBib provided', async () => {
-    mock.queueResult({ data: null, error: null })
-    mock.queueResult({ data: { value: 'false' }, error: null })
-    mock.queueResult({ data: null, error: null })
+    // Queue: 1 upsert + 3 getSetting selects for the re-read return.
+    mock.queueResults(undefined, [{ value: 'false' }], [], [])
     await PATCH(patchReq({ showBib: false }))
 
-    const upsertCall = mock.calls.find((c) => c.table === 'Setting' && c.ops.some((o) => o.op === 'upsert'))!
-    expect(upsertCall).toBeDefined()
-    const upsert = upsertCall.ops.find(o => o.op === 'upsert')!
-    expect((upsert.args[0] as { key: string }).key).toBe('showBib')
-    expect((upsert.args[0] as { value: string }).value).toBe('false')
-    expect(upsert.args[1]).toMatchObject({ onConflict: 'competitionId,key' })
+    // `.values()` args[0] holds the upsert payload.
+    const valuesCall = mock.calls.find(
+      (c) => c.method === 'values' && (c.args[0] as { key?: string }).key === 'showBib',
+    )
+    expect(valuesCall).toBeTruthy()
+    expect((valuesCall!.args[0] as { value: string }).value).toBe('false')
   })
 })

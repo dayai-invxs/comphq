@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { PUT } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -17,22 +17,33 @@ describe('PUT /api/workouts/[id]/heat-times', () => {
   })
 
   it('returns 404 when workout not in caller competition', async () => {
-    mock.queueResult({ data: null, error: null }) // requireWorkoutInCompetition
+    mock.queueResult([]) // requireWorkoutInCompetition
     const res = await PUT(req({ heatNumber: 1, isoTime: '2026-01-01T10:00:00Z' }), params('99'))
     expect(res.status).toBe(404)
   })
 
   it('sets override and clears all later overrides', async () => {
-    // Column is jsonb now — Supabase returns the parsed object, not a string.
-    mock.queueResult({ data: { heatStartOverrides: { '1': '2026-01-01T10:00:00Z', '2': '2026-01-01T10:10:00Z', '5': '2026-01-01T10:40:00Z' } }, error: null })
-    mock.queueResult({ data: { id: 1, heatStartOverrides: {} }, error: null })
+    // Column is TEXT storing JSON; route calls JSON.parse on read, JSON.stringify on write.
+    mock.queueResult([{
+      heatStartOverrides: JSON.stringify({
+        '1': '2026-01-01T10:00:00Z',
+        '2': '2026-01-01T10:10:00Z',
+        '5': '2026-01-01T10:40:00Z',
+      }),
+    }])
+    mock.queueResult([{ id: 1, heatStartOverrides: '{}' }])
 
     const res = await PUT(req({ heatNumber: 3, isoTime: '2026-01-01T10:20:00Z' }), params('1'))
     expect(res.status).toBe(200)
 
-    const updateCall = mock.calls.find(c => c.ops.find(o => o.op === 'update'))!
-    const patch = updateCall.ops.find(o => o.op === 'update')!.args[0] as { heatStartOverrides: Record<string, string> }
-    expect(patch.heatStartOverrides).toEqual({
+    // The route writes the merged overrides via .set({ heatStartOverrides: <json string> }).
+    const setCall = mock.calls.find(
+      (c) => c.method === 'set' && 'heatStartOverrides' in (c.args[0] as Record<string, unknown>),
+    )
+    expect(setCall).toBeTruthy()
+    const patch = setCall!.args[0] as { heatStartOverrides: string }
+    const parsed = JSON.parse(patch.heatStartOverrides)
+    expect(parsed).toEqual({
       '1': '2026-01-01T10:00:00Z',
       '2': '2026-01-01T10:10:00Z',
       '3': '2026-01-01T10:20:00Z',

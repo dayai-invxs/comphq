@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { POST } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -13,33 +13,35 @@ describe('POST /api/workouts/[id]/calculate', () => {
   })
 
   it('returns 404 when workout not in caller competition', async () => {
-    mock.queueResult({ data: null, error: null }) // requireWorkoutInCompetition
+    mock.queueResult([]) // requireWorkoutInCompetition finds no row
     const res = await POST(req(), params('99'))
     expect(res.status).toBe(404)
   })
 
   it('ranks scores, updates points, marks workout completed', async () => {
-    mock.queueResult({
-      data: { id: 1, scoreType: 'time', tiebreakEnabled: false, partBEnabled: false, partBScoreType: 'time' },
-      error: null,
-    })
-    mock.queueResult({
-      data: [
-        { id: 10, athleteId: 1, rawScore: 100 },
-        { id: 11, athleteId: 2, rawScore: 90 },
-      ],
-      error: null,
-    })
-    mock.queueResult({ data: null, error: null })
-    mock.queueResult({ data: null, error: null })
-    mock.queueResult({ data: null, error: null })
+    // Query order:
+    // 1. requireWorkoutInCompetition (Workout select)
+    // 2. Score select
+    // 3. rankAndPersist → insert-onConflict
+    // 4. Workout update → status: 'completed'
+    mock.queueResult([{
+      id: 1, scoreType: 'time', tiebreakEnabled: false, tiebreakScoreType: 'time',
+      partBEnabled: false, partBScoreType: 'time',
+    }])
+    mock.queueResult([
+      { athleteId: 1, workoutId: 1, rawScore: 100, tiebreakRawScore: null, partBRawScore: null },
+      { athleteId: 2, workoutId: 1, rawScore: 90, tiebreakRawScore: null, partBRawScore: null },
+    ])
+    mock.queueResult(undefined) // insert onConflict
+    mock.queueResult(undefined) // workout status update
 
     const res = await POST(req(), params('1'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ message: 'Rankings calculated', count: 2 })
 
-    const statusUpdate = mock.calls.at(-1)!
-    expect(statusUpdate.table).toBe('Workout')
-    expect(statusUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({ status: 'completed' })
+    // Final mutation is the status update → expect a set({ status: 'completed' }) call.
+    const setCalls = mock.calls.filter((c) => c.method === 'set')
+    const statusSet = setCalls.find((c) => (c.args[0] as { status?: string }).status === 'completed')
+    expect(statusSet).toBeTruthy()
   })
 })

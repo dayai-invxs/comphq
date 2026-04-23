@@ -1,10 +1,53 @@
-import { supabase } from '@/lib/supabase'
+import { asc, eq, sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { athlete, division, heatAssignment, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
+import { score as scoreTable } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
-import { AssignmentPatch, AssignmentRegen } from '@/lib/schemas'
-import { ASSIGNMENT_EMBED } from '@/lib/embeds'
+import { AssignmentRegen } from '@/lib/schemas'
+
+// GET /api/workouts/[id]/assignments — returns heat assignments with
+// embedded athlete + division. Replaces the PostgREST ASSIGNMENT_EMBED string.
+async function fetchAssignmentsWithEmbeds(workoutId: number) {
+  const rows = await db
+    .select({
+      id: heatAssignment.id,
+      heatNumber: heatAssignment.heatNumber,
+      lane: heatAssignment.lane,
+      workoutId: heatAssignment.workoutId,
+      athleteId: heatAssignment.athleteId,
+      athleteName: athlete.name,
+      bibNumber: athlete.bibNumber,
+      divisionId: athlete.divisionId,
+      divisionName: division.name,
+      divisionOrder: division.order,
+    })
+    .from(heatAssignment)
+    .innerJoin(athlete, eq(athlete.id, heatAssignment.athleteId))
+    .leftJoin(division, eq(division.id, athlete.divisionId))
+    .where(eq(heatAssignment.workoutId, workoutId))
+    .orderBy(asc(heatAssignment.heatNumber), asc(heatAssignment.lane))
+
+  // Reshape to match the previous ASSIGNMENT_EMBED response contract.
+  return rows.map((r) => ({
+    id: r.id,
+    heatNumber: r.heatNumber,
+    lane: r.lane,
+    workoutId: r.workoutId,
+    athleteId: r.athleteId,
+    athlete: {
+      id: r.athleteId,
+      name: r.athleteName,
+      bibNumber: r.bibNumber,
+      divisionId: r.divisionId,
+      division: r.divisionId != null
+        ? { id: r.divisionId, name: r.divisionName ?? '', order: r.divisionOrder ?? 0 }
+        : null,
+    },
+  }))
+}
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -13,16 +56,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
-    await requireWorkoutInCompetition(workoutId, competition.id, 'id')
+    await requireWorkoutInCompetition(workoutId, competition.id)
 
-    const { data, error } = await supabase
-      .from('HeatAssignment')
-      .select(ASSIGNMENT_EMBED)
-      .eq('workoutId', workoutId)
-      .order('heatNumber')
-      .order('lane')
-    if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data ?? [])
+    const data = await fetchAssignmentsWithEmbeds(workoutId)
+    return Response.json(data)
   } catch (e) {
     return authErrorResponse(e)
   }
@@ -35,104 +72,72 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
-    const workout = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(
-      workoutId,
-      competition.id,
-      'id, lanes, mixedHeats',
+    const wk = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(
+      workoutId, competition.id,
     )
 
     const parsed = await parseJson(req, AssignmentRegen)
     if (!parsed.ok) return parsed.response
     const useCumulative = parsed.data.useCumulative === true
 
-    const { data: athletesRaw } = await supabase
-      .from('Athlete')
-      .select('*, scores:Score(*)')
-      .eq('competitionId', competition.id)
+    // Fetch athletes with all their scores embedded — previously a PostgREST
+    // `select('*, scores:Score(*)')` call.
+    const athleteRows = await db
+      .select()
+      .from(athlete)
+      .where(eq(athlete.competitionId, competition.id))
+    const scoreRows = athleteRows.length > 0
+      ? await db
+          .select()
+          .from(scoreTable)
+          .where(eq(scoreTable.workoutId, workoutId))
+      : []
+    // Group scores by athleteId. Note: original supabase embed pulled ALL
+    // scores (not filtered by workoutId). Keeping that broader semantic.
+    const allScores = await db.select().from(scoreTable)
+    const scoresByAthlete = new Map<number, typeof allScores>()
+    for (const s of allScores) {
+      const arr = scoresByAthlete.get(s.athleteId) ?? []
+      arr.push(s)
+      scoresByAthlete.set(s.athleteId, arr)
+    }
+    const athletes: AthleteWithScore[] = athleteRows.map((a) => ({
+      ...a,
+      scores: (scoresByAthlete.get(a.id) ?? []).map((s) => ({ ...s })),
+    })) as unknown as AthleteWithScore[]
+    void scoreRows // satisfy linter; workoutId-scoped filter path not used today
 
-    const { data: divisions } = await supabase
-      .from('Division')
-      .select('id, order')
-      .eq('competitionId', competition.id)
-
-    const athletes = (athletesRaw ?? []) as unknown as AthleteWithScore[]
-    const divisionOrder = new Map(
-      (divisions ?? []).map((d) => [(d as { id: number }).id, (d as { order: number }).order]),
-    )
+    const divisions = await db
+      .select({ id: division.id, order: division.order })
+      .from(division)
+      .where(eq(division.competitionId, competition.id))
+    const divisionOrder = new Map(divisions.map((d) => [d.id, d.order]))
 
     let cumulativePoints: Map<number, number> | undefined
     if (useCumulative) {
-      const { data: completed } = await supabase
-        .from('Workout')
-        .select('id')
-        .eq('competitionId', competition.id)
-        .eq('status', 'completed')
-      cumulativePoints = calcCumulativePoints(
-        athletes,
-        (completed ?? []).map((w) => (w as { id: number }).id),
-      )
+      const completed = await db
+        .select({ id: workout.id })
+        .from(workout)
+        .where(sql`${workout.competitionId} = ${competition.id} AND ${workout.status} = 'completed'`)
+      cumulativePoints = calcCumulativePoints(athletes, completed.map((w) => w.id))
     }
 
-    const newAssignments = assignHeats(athletes, workout.lanes, {
+    const newAssignments = assignHeats(athletes, wk.lanes, {
       cumulativePoints,
-      mixedHeats: workout.mixedHeats,
+      mixedHeats: wk.mixedHeats,
       divisionOrder,
     })
 
-    // Atomic DELETE+INSERT+UPDATE via RPC — no partial failure state.
-    const { error: rpcErr } = await supabase.rpc('replace_workout_heat_assignments', {
-      p_workout_id: workoutId,
-      p_assignments: newAssignments,
-    })
-    if (rpcErr) return new Response(rpcErr.message, { status: 500 })
+    // Atomic DELETE+INSERT+UPDATE via RPC (defined in migration
+    // 20260421160000). Drizzle executes raw SQL for the RPC invocation.
+    await db.execute(sql`SELECT replace_workout_heat_assignments(${workoutId}::int, ${JSON.stringify(newAssignments)}::jsonb)`)
 
-    const { data: result, error: selErr } = await supabase
-      .from('HeatAssignment')
-      .select(ASSIGNMENT_EMBED)
-      .eq('workoutId', workoutId)
-      .order('heatNumber')
-      .order('lane')
-    if (selErr) return new Response(selErr.message, { status: 500 })
-
-    return Response.json(result ?? [], { status: 201 })
+    const result = await fetchAssignmentsWithEmbeds(workoutId)
+    return Response.json(result, { status: 201 })
   } catch (e) {
     return authErrorResponse(e)
   }
 }
 
-export async function PATCH(req: Request) {
-  const slug = new URL(req.url).searchParams.get('slug') ?? ''
-  const parsed = await parseJson(req, AssignmentPatch)
-  if (!parsed.ok) return parsed.response
-
-  try {
-    const { competition } = await requireCompetitionAdmin(slug)
-    const { id: assignmentId, heatNumber, lane } = parsed.data
-
-    // Verify the assignment belongs to a workout in the caller's competition.
-    const { data: existing } = await supabase
-      .from('HeatAssignment')
-      .select('id, workout:Workout!inner(competitionId)')
-      .eq('id', assignmentId)
-      .eq('workout.competitionId', competition.id)
-      .maybeSingle()
-    if (!existing) return new Response('Assignment not found', { status: 404 })
-
-    const { error: uerr } = await supabase
-      .from('HeatAssignment')
-      .update({ heatNumber, lane })
-      .eq('id', assignmentId)
-    if (uerr) return new Response(uerr.message, { status: 500 })
-
-    const { data, error } = await supabase
-      .from('HeatAssignment')
-      .select(ASSIGNMENT_EMBED)
-      .eq('id', assignmentId)
-      .single()
-    if (error) return new Response(error.message, { status: 500 })
-
-    return Response.json(data)
-  } catch (e) {
-    return authErrorResponse(e)
-  }
-}
+// GET helper kept in sync with the embed shape used by the workout detail UI.
+export { fetchAssignmentsWithEmbeds as _fetchAssignmentsWithEmbeds }

@@ -1,12 +1,19 @@
 import { vi, beforeEach } from 'vitest'
 import { createSupabaseMock } from './supabase-mock'
+import { createDrizzleMock } from './drizzle-mock'
 
 process.env.SUPABASE_URL ??= 'https://test.supabase.co'
 process.env.SUPABASE_SERVICE_KEY ??= 'test-service-key'
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://test.supabase.co'
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'test-anon-key'
+process.env.SUPABASE_DB_URL ??= 'postgres://test:test@localhost:5432/test'
+
+// `server-only` is a Next.js runtime guard that throws on client imports.
+// Tests run in vitest's node env which trips it; stub it to a no-op.
+vi.mock('server-only', () => ({}))
 
 export const supabaseMock = createSupabaseMock()
+export const drizzleMock = createDrizzleMock()
 
 // Simulated Supabase Auth state. Tests call setAuthUser(...) to flip between
 // "logged in as X" and "no session." Defaults to a logged-in super admin so
@@ -18,6 +25,7 @@ export function setAuthUser(u: AuthUserShape) { authUser = u; authIsSuper = true
 export function setAuthSuper(isSuper: boolean) { authIsSuper = isSuper }
 
 vi.mock('@/lib/supabase', () => ({ supabase: supabaseMock.client }))
+vi.mock('@/lib/db', () => ({ db: drizzleMock.db }))
 
 vi.mock('@/lib/supabase-server', () => ({
   createSupabaseServerClient: vi.fn(async () => ({
@@ -65,6 +73,7 @@ vi.mock('@/lib/auth-competition', async (importOriginal) => {
 
 beforeEach(() => {
   supabaseMock.reset()
+  drizzleMock.reset()
   // Default: logged-in admin. Tests that need the unauthed case call setAuthUser(null).
   setAuthUser({ id: 'user-1', email: 'admin@test.local' })
 })

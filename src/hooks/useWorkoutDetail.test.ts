@@ -86,4 +86,29 @@ describe('workout mutations — HTTP contract', () => {
     await api.saveAll([{ athleteId: 1, rawScore: 100, tiebreakRawScore: null, partBRawScore: null }])
     expect(urls[0]).toContain('slug=slug%20with%20spaces')
   })
+
+  it('reorderAssignments issues a single PUT to /assignments/reorder with the updates', async () => {
+    const received: Array<{ url: string; body: unknown; method?: string }> = []
+    mockFetch((url: string, init?: RequestInit) => {
+      received.push({ url, method: init?.method, body: JSON.parse((init?.body as string) ?? 'null') })
+      return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })
+    })
+    const api = buildWorkoutMutations('42', 'comp')
+    const updates = [
+      { id: 1, heatNumber: 2, lane: 1 },
+      { id: 2, heatNumber: 1, lane: 1 },
+    ]
+    await api.reorderAssignments(updates)
+    expect(received).toHaveLength(1)
+    expect(received[0].url).toBe('/api/workouts/42/assignments/reorder?slug=comp')
+    expect(received[0].method).toBe('PUT')
+    expect(received[0].body).toEqual({ updates })
+  })
+
+  it('reorderAssignments rejects with HttpError on non-OK', async () => {
+    mockFetch(() => new Response('boom', { status: 409 }))
+    const api = buildWorkoutMutations('1', 'default')
+    await expect(api.reorderAssignments([{ id: 1, heatNumber: 1, lane: 1 }]))
+      .rejects.toMatchObject({ status: 409 })
+  })
 })

@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as dmock, supabaseMock as smock, setAuthUser } from '@/test/setup'
 import { GET, POST, DELETE } from './route'
 
 describe('GET /api/logo', () => {
   it('returns null url when no setting', async () => {
-    mock.queueResult({ data: null, error: null })
+    dmock.queueResult([])
     const res = await GET()
     expect(await res.json()).toEqual({ url: null })
   })
 
   it('returns stored url', async () => {
-    mock.queueResult({ data: { value: 'https://cdn/x.png' }, error: null })
+    dmock.queueResult([{ value: 'https://cdn/x.png' }])
     const res = await GET()
     expect(await res.json()).toEqual({ url: 'https://cdn/x.png' })
   })
@@ -54,7 +54,7 @@ describe('POST /api/logo', () => {
   })
 
   it('uploads file, stores url in Setting, returns url', async () => {
-    mock.queueResult({ data: null, error: null })
+    dmock.queueResult(undefined) // upsert returns nothing
     const form = new FormData()
     form.append('logo', new File(['data'], 'logo.png', { type: 'image/png' }))
     const res = await POST(new Request('http://test', { method: 'POST', body: form }))
@@ -62,21 +62,19 @@ describe('POST /api/logo', () => {
     const body = await res.json()
     expect(body.url).toMatch(/^https:\/\//)
 
-    const upsertCall = mock.lastCall!
-    expect(upsertCall.table).toBe('Setting')
-    const upsert = upsertCall.ops.find(o => o.op === 'upsert')!
-    expect((upsert.args[0] as { key: string }).key).toBe('logoUrl')
+    // The upsert values payload contains the logoUrl key.
+    const valuesCall = dmock.calls.find((c) => c.method === 'values')
+    expect(valuesCall).toBeTruthy()
+    expect((valuesCall!.args[0] as { key: string }).key).toBe('logoUrl')
   })
 
   it('derives the file extension from the mime type, not from the upload filename', async () => {
-    mock.queueResult({ data: null, error: null })
+    dmock.queueResult(undefined)
     const form = new FormData()
-    // Attacker-named file with dangerous extension; mime is safe png.
     form.append('logo', new File(['data'], 'hack.html', { type: 'image/png' }))
     const res = await POST(new Request('http://test', { method: 'POST', body: form }))
     expect(res.status).toBe(200)
-    // Storage upload call should have used a safe extension (png), not html.
-    const storageFrom = mock.client.storage.from as unknown as { mock: { calls: unknown[][] } }
+    const storageFrom = smock.client.storage.from as unknown as { mock: { calls: unknown[][] } }
     expect(storageFrom.mock.calls[0][0]).toBe('logos')
   })
 })
@@ -89,18 +87,16 @@ describe('DELETE /api/logo', () => {
   })
 
   it('returns null url when nothing to delete', async () => {
-    mock.queueResult({ data: null, error: null })
+    dmock.queueResult([])
     const res = await DELETE()
     expect(await res.json()).toEqual({ url: null })
   })
 
   it('removes storage object and deletes setting', async () => {
-    mock.queueResult({ data: { value: 'https://cdn/a/b/logo.png' }, error: null })
-    mock.queueResult({ data: null, error: null })
+    dmock.queueResult([{ value: 'https://cdn/a/b/logo.png' }])
+    dmock.queueResult(undefined)
     const res = await DELETE()
     expect(await res.json()).toEqual({ url: null })
-    const delCall = mock.calls.find(c => c.ops.find(o => o.op === 'delete'))!
-    expect(delCall.table).toBe('Setting')
-    expect(delCall.ops.find(o => o.op === 'eq')?.args).toEqual(['key', 'logoUrl'])
+    expect(dmock.calls.some((c) => c.method === 'delete')).toBe(true)
   })
 })

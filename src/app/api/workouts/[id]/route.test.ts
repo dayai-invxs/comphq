@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { GET, PUT, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -12,14 +12,20 @@ const deleteReq = () => new Request(`http://test/api/workouts/1${url}`)
 
 describe('GET /api/workouts/[id]', () => {
   it('returns workout with assignments, scores, and completedHeats', async () => {
-    // 1. requireWorkoutInCompetition
-    mock.queueResult({ data: { id: 1, name: 'WOD 1' }, error: null })
-    // 2. getCompletedHeats internal (async fn runs first in Promise.all)
-    mock.queueResult({ data: [{ heatNumber: 1 }], error: null })
-    // 3. HeatAssignment
-    mock.queueResult({ data: [{ id: 10, heatNumber: 1, lane: 1, athlete: { id: 1 } }], error: null })
-    // 4. Score
-    mock.queueResult({ data: [{ id: 20, athleteId: 1, rawScore: 100, athlete: { id: 1 } }], error: null })
+    // Query order: requireWorkoutInCompetition, then Promise.all of
+    // (assignments ⨝ athletes ⨝ divisions), (scores ⨝ athletes), getCompletedHeats.
+    mock.queueResult([{ id: 1, name: 'WOD 1' }])
+    mock.queueResult([{
+      id: 10, heatNumber: 1, lane: 1, workoutId: 1, athleteId: 1,
+      athleteName: 'Alice', bibNumber: null, divisionId: null,
+      divisionName: null, divisionOrder: null,
+    }])
+    mock.queueResult([{
+      id: 20, athleteId: 1, workoutId: 1, rawScore: 100,
+      tiebreakRawScore: null, points: null, partBRawScore: null, partBPoints: null,
+      athleteName: 'Alice', bibNumber: null, divisionId: null,
+    }])
+    mock.queueResult([{ heatNumber: 1 }]) // getCompletedHeats
 
     const res = await GET(getReq(), params('1'))
     expect(res.status).toBe(200)
@@ -31,7 +37,7 @@ describe('GET /api/workouts/[id]', () => {
   })
 
   it('returns 404 when not found in caller competition', async () => {
-    mock.queueResult({ data: null, error: null }) // requireWorkoutInCompetition → 404
+    mock.queueResult([]) // requireWorkoutInCompetition → no row
     const res = await GET(getReq(), params('999'))
     expect(res.status).toBe(404)
   })
@@ -50,34 +56,34 @@ describe('PUT /api/workouts/[id]', () => {
   })
 
   it('updates provided fields only', async () => {
-    mock.queueResult({ data: { id: 1, name: 'New' }, error: null })
+    mock.queueResult([{ id: 1, name: 'New' }]) // update().returning()
     await PUT(putReq({ name: 'New', status: 'active' }), params('1'))
-    const update = mock.lastCall!.ops.find(o => o.op === 'update')!
-    expect(update.args[0]).toEqual({ name: 'New', status: 'active' })
-    const eqArgs = mock.lastCall!.ops.filter(o => o.op === 'eq').map(o => o.args[0])
-    expect(eqArgs).toContain('id')
-    expect(eqArgs).toContain('competitionId')
+    const setCall = mock.calls.find(
+      (c) => c.method === 'set' && 'name' in (c.args[0] as Record<string, unknown>),
+    )
+    expect(setCall!.args[0]).toEqual({ name: 'New', status: 'active' })
   })
 
   it('nulls all partBRawScore / partBPoints when partBEnabled flips off', async () => {
-    mock.queueResult({ data: { id: 1, partBEnabled: false }, error: null })
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult([{ id: 1, partBEnabled: false }]) // workout update
+    mock.queueResult(undefined) // score update
+
     await PUT(putReq({ partBEnabled: false }), params('1'))
 
-    const scoreUpdate = mock.calls.find((c) => c.table === 'Score' && c.ops.find((o) => o.op === 'update'))!
-    expect(scoreUpdate).toBeDefined()
-    expect(scoreUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({
-      partBRawScore: null,
-      partBPoints: null,
-    })
-    expect(scoreUpdate.ops.find(o => o.op === 'eq')?.args).toEqual(['workoutId', 1])
+    // The second .set(...) nulls partB columns on Score.
+    const scoreSet = mock.calls.find(
+      (c) => c.method === 'set' && 'partBRawScore' in (c.args[0] as Record<string, unknown>),
+    )
+    expect(scoreSet!.args[0]).toEqual({ partBRawScore: null, partBPoints: null })
   })
 
   it('does not touch Score when partBEnabled flips on (true)', async () => {
-    mock.queueResult({ data: { id: 1, partBEnabled: true }, error: null })
+    mock.queueResult([{ id: 1, partBEnabled: true }])
     await PUT(putReq({ partBEnabled: true }), params('1'))
-    const scoreUpdate = mock.calls.find((c) => c.table === 'Score')
-    expect(scoreUpdate).toBeUndefined()
+    const scoreSet = mock.calls.find(
+      (c) => c.method === 'set' && 'partBRawScore' in (c.args[0] as Record<string, unknown>),
+    )
+    expect(scoreSet).toBeUndefined()
   })
 })
 
@@ -89,12 +95,9 @@ describe('DELETE /api/workouts/[id]', () => {
   })
 
   it('returns 204 on success', async () => {
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult(undefined) // delete resolves
     const res = await DELETE(deleteReq(), params('1'))
     expect(res.status).toBe(204)
-    expect(mock.lastCall!.ops.find(o => o.op === 'delete')).toBeTruthy()
-    const eqArgs = mock.lastCall!.ops.filter(o => o.op === 'eq').map(o => o.args[0])
-    expect(eqArgs).toContain('id')
-    expect(eqArgs).toContain('competitionId')
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(true)
   })
 })

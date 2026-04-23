@@ -31,16 +31,4 @@ jobs:
           SUPABASE_SERVICE_KEY: build-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://build.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: build-placeholder
-
-      # Fails if `supabase/migrations/*` has changed without regenerating
-      # `src/lib/db-types.ts`. Skipped when the optional access token secret
-      # isn't configured (first-run projects).
-      - name: Verify db-types is up to date
-        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-        run: |
-          npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          npm run db:types
-          git diff --exit-code src/lib/db-types.ts
+          SUPABASE_DB_URL: postgres://placeholder:placeholder@localhost:5432/placeholder

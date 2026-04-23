@@ -1,5 +1,7 @@
-import type { Athlete, Score } from '@/lib/types'
-import { supabase } from '@/lib/supabase'
+import { sql } from 'drizzle-orm'
+import type { Athlete, Score } from '@/db/schema'
+import { db } from '@/lib/db'
+import { score as scoreTable } from '@/db/schema'
 
 export type AthleteWithScore = Athlete & { scores: Score[] }
 
@@ -214,9 +216,25 @@ export async function rankAndPersist(
     }
   })
 
-  const { error } = await supabase
-    .from('Score')
-    .upsert(rows, { onConflict: 'athleteId,workoutId' })
-
-  return { count: rankedA.length, error: error?.message ?? null }
+  try {
+    await db
+      .insert(scoreTable)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [scoreTable.athleteId, scoreTable.workoutId],
+        // Per-row values from the incoming batch: EXCLUDED refers to the
+        // would-be-inserted row for each conflict.
+        set: {
+          rawScore: sql`excluded."rawScore"`,
+          tiebreakRawScore: sql`excluded."tiebreakRawScore"`,
+          partBRawScore: sql`excluded."partBRawScore"`,
+          points: sql`excluded."points"`,
+          partBPoints: sql`excluded."partBPoints"`,
+        },
+      })
+    return { count: rankedA.length, error: null }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'unknown'
+    return { count: rankedA.length, error: msg }
+  }
 }

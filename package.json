@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test:e2e": "playwright test",
-    "db:types": "npx supabase gen types typescript --linked 2>/dev/null > src/lib/db-types.ts"
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -19,9 +20,11 @@
     "@supabase/supabase-js": "^2.103.3",
     "@tanstack/react-query": "^5.99.2",
     "@vercel/analytics": "^2.0.1",
+    "drizzle-orm": "^0.45.2",
     "fflate": "^0.8.2",
     "gsap": "^3.15.0",
     "next": "16.2.4",
+    "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
@@ -35,8 +38,10 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
     "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "husky": "^9.1.7",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",

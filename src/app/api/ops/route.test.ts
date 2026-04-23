@@ -1,24 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock } from '@/test/setup'
+import { drizzleMock as mock } from '@/test/setup'
 import { GET } from './route'
 
 describe('GET /api/ops', () => {
   it('returns workouts with heats grouped and completion flags', async () => {
+    // Shift order:
+    //   1. showBib setting (sequential await)
+    //   2. workouts (sequential await)
+    //   3. heatCompletion (inside Promise.all, getCompletedHeatsByWorkout
+    //      helper shifts at array-evaluation time)
+    //   4-5. assignments, scores (Promise.all iterates the proxies)
     mock.queueResults(
-      // 1. showBib setting
-      { data: { value: 'true' }, error: null },
-      // 2. workouts
-      { data: [{ id: 1, number: 1, name: 'WOD', status: 'active', startTime: null, heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120, callTimeSecs: 60, walkoutTimeSecs: 30 }], error: null },
-      // 3. getCompletedHeatsByWorkout (async fn body runs first in Promise.all)
-      { data: [{ workoutId: 1, heatNumber: 1 }], error: null },
-      // 4. assignments select
-      {
-        data: [
-          { workoutId: 1, athleteId: 1, heatNumber: 1, lane: 1, athlete: { id: 1, name: 'A', bibNumber: null, division: null } },
-          { workoutId: 1, athleteId: 2, heatNumber: 2, lane: 1, athlete: { id: 2, name: 'B', bibNumber: null, division: null } },
-        ],
-        error: null,
-      },
+      [{ value: 'true' }],
+      [{
+        id: 1, number: 1, name: 'WOD', status: 'active', startTime: null,
+        heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120,
+        callTimeSecs: 60, walkoutTimeSecs: 30, scoreType: 'time',
+        tiebreakEnabled: false, tiebreakScoreType: 'time', locationName: null,
+      }],
+      [{ workoutId: 1, heatNumber: 1 }], // heatCompletion
+      [
+        { workoutId: 1, athleteId: 1, heatNumber: 1, lane: 1, athleteName: 'A', bibNumber: null, divisionName: null },
+        { workoutId: 1, athleteId: 2, heatNumber: 2, lane: 1, athleteName: 'B', bibNumber: null, divisionName: null },
+      ],
+      [], // scores
     )
     const res = await GET(new Request('http://test/api/ops?slug=default'))
     const body = await res.json()

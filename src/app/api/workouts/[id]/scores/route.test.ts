@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { GET, POST, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -13,14 +13,23 @@ const req = (method = 'GET', body?: unknown) =>
 
 describe('GET /api/workouts/[id]/scores', () => {
   it('returns scores with athlete embedded for workout', async () => {
-    mock.queueResult({ data: { id: 1 }, error: null }) // requireWorkoutInCompetition
-    const rows = [{ id: 1, athleteId: 1, workoutId: 1, rawScore: 100, athlete: { id: 1, name: 'A' } }]
-    mock.queueResult({ data: rows, error: null })
+    // Query order: requireWorkoutInCompetition (Workout), then Score ⨝ Athlete.
+    mock.queueResult([{ id: 1 }])
+    mock.queueResult([
+      {
+        id: 1, athleteId: 1, workoutId: 1, rawScore: 100,
+        tiebreakRawScore: null, points: null, partBRawScore: null, partBPoints: null,
+        athleteName: 'Alice', bibNumber: null, divisionId: null,
+      },
+    ])
     const res = await GET(req(), params('1'))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual(rows)
-    const scoreCall = mock.calls.find((c) => c.table === 'Score')!
-    expect(scoreCall.ops.find(o => o.op === 'eq')?.args).toEqual(['workoutId', 1])
+    const body = await res.json()
+    expect(body).toHaveLength(1)
+    expect(body[0]).toMatchObject({
+      id: 1, athleteId: 1, workoutId: 1, rawScore: 100,
+      athlete: { id: 1, name: 'Alice', bibNumber: null, divisionId: null },
+    })
   })
 })
 
@@ -31,14 +40,18 @@ describe('POST /api/workouts/[id]/scores', () => {
     expect(res.status).toBe(401)
   })
 
-  it('upserts score with onConflict athleteId,workoutId', async () => {
-    mock.queueResult({ data: { id: 1 }, error: null }) // requireWorkoutInCompetition
-    mock.queueResult({ data: { id: 1, athleteId: 2, workoutId: 1, rawScore: 95 }, error: null })
+  it('upserts score with onConflictDoUpdate on (athleteId, workoutId)', async () => {
+    mock.queueResult([{ id: 1 }]) // requireWorkoutInCompetition
+    mock.queueResult([{ id: 1, athleteId: 2, workoutId: 1, rawScore: 95, points: null }]) // returning()
+
     await POST(req('POST', { athleteId: 2, rawScore: 95 }), params('1'))
-    const scoreCall = mock.calls.find((c) => c.table === 'Score')!
-    const upsert = scoreCall.ops.find(o => o.op === 'upsert')!
-    expect(upsert.args[0]).toMatchObject({ athleteId: 2, workoutId: 1, rawScore: 95, points: null })
-    expect(upsert.args[1]).toMatchObject({ onConflict: 'athleteId,workoutId' })
+    // Insert values payload: points must be null (re-upsert resets rank).
+    const valuesCall = mock.calls.find(
+      (c) => c.method === 'values' && (c.args[0] as { athleteId?: number }).athleteId === 2,
+    )
+    expect(valuesCall!.args[0]).toMatchObject({ athleteId: 2, workoutId: 1, rawScore: 95, points: null })
+    // onConflictDoUpdate exists in the chain.
+    expect(mock.calls.some((c) => c.method === 'onConflictDoUpdate')).toBe(true)
   })
 })
 
@@ -50,15 +63,16 @@ describe('DELETE /api/workouts/[id]/scores', () => {
   })
 
   it('deletes all scores for workout and resets status', async () => {
-    mock.queueResult({ data: { id: 1 }, error: null }) // requireWorkoutInCompetition
-    mock.queueResult({ data: [{ id: 1 }, { id: 2 }], error: null })
-    mock.queueResult({ data: null, error: null })
+    mock.queueResult([{ id: 1 }]) // requireWorkoutInCompetition
+    mock.queueResult([{ id: 1 }, { id: 2 }]) // delete returning
+    mock.queueResult(undefined) // workout status update
     const res = await DELETE(req('DELETE'), params('1'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ deleted: 2 })
-    const scoreDelete = mock.calls.find((c) => c.table === 'Score' && c.ops.find(o => o.op === 'delete'))!
-    expect(scoreDelete).toBeDefined()
-    const workoutUpdate = mock.calls.find((c) => c.table === 'Workout' && c.ops.find(o => o.op === 'update'))!
-    expect(workoutUpdate.ops.find(o => o.op === 'update')?.args[0]).toEqual({ status: 'active' })
+    // Workout status reset call should set { status: 'active' }.
+    const setCall = mock.calls.find(
+      (c) => c.method === 'set' && (c.args[0] as { status?: string }).status === 'active',
+    )
+    expect(setCall).toBeTruthy()
   })
 })

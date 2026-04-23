@@ -162,10 +162,12 @@ export const AssignmentRegen = z.object({
   useCumulative: z.boolean().optional(),
 }).optional().default({})
 
-export const AssignmentPatch = z.object({
-  id: Id,
-  heatNumber: NumericInt.pipe(z.number().int().positive()),
-  lane: NumericInt.pipe(z.number().int().positive()),
+export const AssignmentReorder = z.object({
+  updates: z.array(z.object({
+    id: Id,
+    heatNumber: NumericInt.pipe(z.number().int().positive()),
+    lane: NumericInt.pipe(z.number().int().positive()),
+  })).max(500),
 })
 
 export const HeatTimeSet = z.object({

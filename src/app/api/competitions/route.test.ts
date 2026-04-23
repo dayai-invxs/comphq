@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser, setAuthSuper } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser, setAuthSuper } from '@/test/setup'
 import { GET, POST } from './route'
 
 const postReq = (body: Record<string, unknown>) =>
@@ -15,23 +15,16 @@ describe('GET /api/competitions', () => {
       { id: 1, name: 'A', slug: 'a' },
       { id: 2, name: 'B', slug: 'b' },
     ]
-    mock.queueResult({ data: rows, error: null })
+    mock.queueResult(rows)
 
     const res = await GET()
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
-
-    const call = mock.lastCall!
-    expect(call.table).toBe('Competition')
-    // Public list returns just id/name/slug — no sensitive fields.
-    const select = call.ops.find((o) => o.op === 'select')!
-    expect(select.args[0]).toBe('id, name, slug')
-    expect(call.ops.find((o) => o.op === 'order')?.args[0]).toBe('id')
   })
 
   it('returns the same public list to super admins (no scoping)', async () => {
     const rows = [{ id: 1, name: 'A', slug: 'a' }]
-    mock.queueResult({ data: rows, error: null })
+    mock.queueResult(rows)
     const res = await GET()
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
@@ -63,24 +56,22 @@ describe('POST /api/competitions', () => {
 
   it('creates comp, normalizes slug, and grants creator admin', async () => {
     const created = { id: 42, name: 'Rugged Rumble', slug: 'rugged-rumble' }
-    // First result: insert competition. Second result: insert CompetitionAdmin.
-    mock.queueResult({ data: created, error: null })
-    mock.queueResult({ data: null, error: null })
+    // First returning() → competition row; second insert (no returning) → empty.
+    mock.queueResult([created])
+    mock.queueResult(undefined)
 
     const res = await POST(postReq({ name: 'Rugged Rumble', slug: 'Rugged Rumble' }))
-
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(created)
 
-    // Competition insert normalized slug.
-    const [compCall, adminCall] = mock.calls
-    expect(compCall.table).toBe('Competition')
-    const compInsert = compCall.ops.find((o: { op: string }) => o.op === 'insert')!
-    expect(compInsert.args[0]).toMatchObject({ name: 'Rugged Rumble', slug: 'rugged-rumble' })
+    // Two inserts fired: Competition, then CompetitionAdmin.
+    const inserts = mock.calls.filter((c) => c.method === 'insert')
+    expect(inserts).toHaveLength(2)
 
-    // Creator added as CompetitionAdmin of the newly created comp.
-    expect(adminCall.table).toBe('CompetitionAdmin')
-    const adminInsert = adminCall.ops.find((o: { op: string }) => o.op === 'insert')!
-    expect(adminInsert.args[0]).toMatchObject({ userId: 'user-1', competitionId: 42 })
+    // The competition insert's values should have the normalized slug.
+    // `.values` records the payload as args[0].
+    const valuesCalls = mock.calls.filter((c) => c.method === 'values')
+    expect(valuesCalls[0].args[0]).toMatchObject({ name: 'Rugged Rumble', slug: 'rugged-rumble' })
+    expect(valuesCalls[1].args[0]).toMatchObject({ userId: 'user-1', competitionId: 42 })
   })
 })

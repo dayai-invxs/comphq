@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { competition, competitionAdmin } from '@/db/schema'
 import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 
 /**
@@ -11,17 +13,20 @@ export async function GET() {
   try {
     const user = await requireSession()
     if (user.isSuper) {
-      const { data, error } = await supabase.from('Competition').select('*').order('id')
-      if (error) return new Response(error.message, { status: 500 })
-      return Response.json(data ?? [])
+      const rows = await db.select().from(competition).orderBy(competition.id)
+      return Response.json(rows)
     }
-    const { data, error } = await supabase
-      .from('Competition')
-      .select('*, CompetitionAdmin!inner(userId)')
-      .eq('CompetitionAdmin.userId', user.id)
-      .order('id')
-    if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data ?? [])
+    const rows = await db
+      .select({
+        id: competition.id,
+        name: competition.name,
+        slug: competition.slug,
+      })
+      .from(competition)
+      .innerJoin(competitionAdmin, eq(competitionAdmin.competitionId, competition.id))
+      .where(eq(competitionAdmin.userId, user.id))
+      .orderBy(competition.id)
+    return Response.json(rows)
   } catch (e) {
     return authErrorResponse(e)
   }

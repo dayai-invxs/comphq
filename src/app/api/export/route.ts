@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { asc, eq, inArray } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
 
@@ -26,77 +28,78 @@ export async function GET(req: Request) {
     return authErrorResponse(e)
   }
 
-  const { data: workouts } = await supabase.from('Workout').select('*').eq('competitionId', competition.id).order('number')
-  const workoutIds = (workouts ?? []).map((w) => (w as { id: number }).id)
+  const workouts = await db
+    .select()
+    .from(workout)
+    .where(eq(workout.competitionId, competition.id))
+    .orderBy(asc(workout.number))
+  const workoutIds = workouts.map((w) => w.id)
 
-  const [
-    { data: athletes },
-    { data: divisions },
-    { data: assignments },
-    { data: scores },
-  ] = await Promise.all([
-    supabase.from('Athlete').select('*').eq('competitionId', competition.id).order('name'),
-    supabase.from('Division').select('*').eq('competitionId', competition.id).order('order'),
-    supabase.from('HeatAssignment').select('*, athlete:Athlete(id, name, bibNumber, divisionId)').in('workoutId', workoutIds),
-    supabase.from('Score').select('*').in('workoutId', workoutIds),
+  const [athletes, divisions, assignmentRows, scores] = await Promise.all([
+    db.select().from(athleteTable).where(eq(athleteTable.competitionId, competition.id)).orderBy(asc(athleteTable.name)),
+    db.select().from(divisionTable).where(eq(divisionTable.competitionId, competition.id)).orderBy(asc(divisionTable.order)),
+    workoutIds.length > 0
+      ? db
+          .select({
+            workoutId: heatAssignment.workoutId,
+            heatNumber: heatAssignment.heatNumber,
+            lane: heatAssignment.lane,
+            athleteId: athleteTable.id,
+            athleteName: athleteTable.name,
+            bibNumber: athleteTable.bibNumber,
+            divisionId: athleteTable.divisionId,
+          })
+          .from(heatAssignment)
+          .innerJoin(athleteTable, eq(athleteTable.id, heatAssignment.athleteId))
+          .where(inArray(heatAssignment.workoutId, workoutIds))
+      : Promise.resolve([]),
+    workoutIds.length > 0
+      ? db.select().from(score).where(inArray(score.workoutId, workoutIds))
+      : Promise.resolve([]),
   ])
 
-  type Workout = { id: number; number: number; name: string; scoreType: string; status: string; lanes: number; halfWeight?: boolean }
-  type Athlete = { id: number; name: string; bibNumber: string | null; divisionId: number | null }
-  type Division = { id: number; name: string; order: number }
-  type Assignment = { workoutId: number; heatNumber: number; lane: number; athlete: Athlete }
-  type Score = { athleteId: number; workoutId: number; rawScore: number; points: number | null; partBRawScore: number | null; partBPoints: number | null }
-
-  const ws = (workouts ?? []) as Workout[]
-  const as_ = (athletes ?? []) as Athlete[]
-  const ds = (divisions ?? []) as Division[]
-  const hs = (assignments ?? []) as Assignment[]
-  const ss = (scores ?? []) as Score[]
-
-  const divMap = new Map(ds.map((d) => [d.id, d.name]))
+  const divMap = new Map(divisions.map((d) => [d.id, d.name]))
   const scoreKey = (athleteId: number, workoutId: number) => `${athleteId}-${workoutId}`
-  const scoreMap = new Map(ss.map((s) => [scoreKey(s.athleteId, s.workoutId), s]))
+  const scoreMap = new Map(scores.map((s) => [scoreKey(s.athleteId, s.workoutId), s]))
 
   const lines: string[] = []
   const now = new Date().toLocaleString()
 
-  // Header
   lines.push(row('Competition', competition.name))
   lines.push(row('Exported', now))
 
   // ── WORKOUTS ─────────────────────────────────────────────────────────────
   lines.push(section('WORKOUTS'))
   lines.push(row('WOD #', 'Name', 'Score Type', 'Status', 'Lanes', 'Half Weight'))
-  for (const w of ws) {
+  for (const w of workouts) {
     lines.push(row(w.number, w.name, w.scoreType, w.status, w.lanes, w.halfWeight ? 'Yes' : 'No'))
   }
 
   // ── HEAT ASSIGNMENTS ─────────────────────────────────────────────────────
-  for (const w of ws) {
+  for (const w of workouts) {
     lines.push(section(`HEAT ASSIGNMENTS — WOD ${w.number}: ${w.name}`))
     lines.push(row('Heat', 'Lane', 'Athlete', 'Division', 'Bib #'))
-    const wAssignments = hs
+    const wAssignments = assignmentRows
       .filter((h) => h.workoutId === w.id)
       .sort((a, b) => a.heatNumber - b.heatNumber || a.lane - b.lane)
     for (const h of wAssignments) {
       lines.push(row(
         h.heatNumber,
         h.lane,
-        h.athlete.name,
-        h.athlete.divisionId ? (divMap.get(h.athlete.divisionId) ?? '—') : '—',
-        h.athlete.bibNumber ?? '—',
+        h.athleteName,
+        h.divisionId ? (divMap.get(h.divisionId) ?? '—') : '—',
+        h.bibNumber ?? '—',
       ))
     }
   }
 
   // ── ATHLETES & SCORES ────────────────────────────────────────────────────
   lines.push(section('ATHLETES & SCORES'))
-  const scoreHeaders = ws.map((w) => `WOD ${w.number}${w.halfWeight ? ' (½)' : ''}`)
+  const scoreHeaders = workouts.map((w) => `WOD ${w.number}${w.halfWeight ? ' (½)' : ''}`)
   lines.push(row('Name', 'Division', 'Bib #', ...scoreHeaders, 'Total Points'))
 
-  // Group athletes by division
-  const byDivision = new Map<string, Athlete[]>()
-  for (const a of as_) {
+  const byDivision = new Map<string, typeof athletes>()
+  for (const a of athletes) {
     const divName = a.divisionId ? (divMap.get(a.divisionId) ?? 'No Division') : 'No Division'
     if (!byDivision.has(divName)) byDivision.set(divName, [])
     byDivision.get(divName)!.push(a)
@@ -106,7 +109,7 @@ export async function GET(req: Request) {
     lines.push(row(`— ${divName} —`))
     for (const a of divAthletes) {
       let total = 0
-      const workoutCols = ws.map((w) => {
+      const workoutCols = workouts.map((w) => {
         const s = scoreMap.get(scoreKey(a.id, w.id))
         if (!s || s.points == null) return 'DNS'
         total += w.halfWeight ? s.points * 0.5 : s.points
@@ -127,8 +130,8 @@ export async function GET(req: Request) {
   lines.push(section('OVERALL LEADERBOARD'))
   lines.push(row('Rank', 'Name', 'Division', ...scoreHeaders, 'Total Points'))
 
-  const completedWorkouts = ws.filter((w) => w.status === 'completed')
-  const leaderboardEntries = as_.map((a) => {
+  const completedWorkouts = workouts.filter((w) => w.status === 'completed')
+  const leaderboardEntries = athletes.map((a) => {
     let total = 0
     const workoutScores: Record<number, { points: number; rawScore: number } | null> = {}
     for (const w of completedWorkouts) {

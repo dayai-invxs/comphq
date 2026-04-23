@@ -8,6 +8,7 @@ import { useScoreInputs } from '@/hooks/useScoreInputs'
 import WorkoutEditForm from '@/components/workout-detail/WorkoutEditForm'
 import WorkoutEquipmentPopover from '@/components/workout-detail/WorkoutEquipmentPopover'
 import HeatCard from '@/components/workout-detail/HeatCard'
+import { HeatDndProvider } from '@/components/workout-detail/heat-dnd-context'
 import WorkoutLeaderboard from '@/components/workout-detail/WorkoutLeaderboard'
 import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
 import { getJson } from '@/lib/http'
@@ -188,23 +189,25 @@ export default function WorkoutDetailPage() {
             </div>
           </div>
 
-          {heatNums.map((heatNum) => (
-            <HeatCard
-              key={heatNum}
-              workout={workout}
-              heatNumber={heatNum}
-              entries={byHeat[heatNum] ?? []}
-              isComplete={completedHeatNums.includes(heatNum)}
-              loading={detail.loading}
-              scoreInputs={inputs}
-              onSaveHeat={saveHeat}
-              onCompleteHeat={completeHeat}
-              onUndoHeat={detail.undoHeat}
-              onSaveAssignment={detail.saveAssignment}
-
-              onSaveHeatTime={detail.saveHeatTime}
-            />
-          ))}
+          <HeatDndProvider>
+            {heatNums.map((heatNum) => (
+              <HeatCard
+                key={heatNum}
+                workout={workout}
+                heatNumber={heatNum}
+                entries={byHeat[heatNum] ?? []}
+                isComplete={completedHeatNums.includes(heatNum)}
+                loading={detail.loading}
+                scoreInputs={inputs}
+                onSaveHeat={saveHeat}
+                onCompleteHeat={completeHeat}
+                onUndoHeat={detail.undoHeat}
+                onReorder={detail.reorderAssignments}
+                onSaveHeatTime={detail.saveHeatTime}
+                isSaving={detail.savingHeats.has(heatNum)}
+              />
+            ))}
+          </HeatDndProvider>
         </div>
       )}
 

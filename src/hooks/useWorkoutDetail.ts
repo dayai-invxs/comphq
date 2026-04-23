@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { HttpError } from '@/lib/http'
 import { buildWorkoutMutations } from './useWorkoutDetail.mutations'
+import { computeAssignmentUpdates, getAffectedHeats } from '@/lib/heat-reorder'
 
 type Division = { id: number; name: string; order: number }
 type Athlete = { id: number; name: string; bibNumber: string | null; division: Division | null }
@@ -44,6 +46,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [savingHeats, setSavingHeats] = useState<Set<number>>(() => new Set())
 
   const { slug } = opts
   const api = useMemo(() => buildWorkoutMutations(workoutId, slug), [workoutId, slug])
@@ -91,29 +94,42 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     catch (e) { setError(errorMessage(e)) }
   }, [api, load])
 
-  const saveAssignment = useCallback(async (id: number, heatNumber: number, lane: number) => {
-    try { await api.saveAssignment(id, heatNumber, lane); await load() }
-    catch (e) { setError(errorMessage(e)) }
-  }, [api, load])
+  // Reorder runs through TanStack useMutation so we can track per-heat
+  // "saving" state via onMutate/onSettled. onSuccess consumes the server's
+  // authoritative ordered rows directly — no second GET round-trip, no jitter.
+  // The previous optimistic approach was removed in favor of full skeleton
+  // replacement (affected heats shimmer during flight); that decision is
+  // documented in the plan.
+  const reorderMutation = useMutation({
+    mutationFn: (vars: { dragId: number; destHeat: number; destIndex: number }) => {
+      if (!workout) throw new Error('No workout loaded')
+      const updates = computeAssignmentUpdates(
+        workout.assignments, vars.dragId, vars.destHeat, vars.destIndex,
+      )
+      return api.reorderAssignments(updates) as Promise<Assignment[]>
+    },
+    onMutate: (vars) => {
+      if (!workout) return
+      setError('')
+      setSavingHeats(new Set(getAffectedHeats(workout.assignments, vars.dragId, vars.destHeat)))
+    },
+    onSuccess: (freshAssignments) => {
+      setWorkout((prev) => (prev ? { ...prev, assignments: freshAssignments } : prev))
+    },
+    onError: (e) => {
+      setError(`Reorder failed: ${errorMessage(e)}`)
+    },
+    onSettled: () => {
+      setSavingHeats(new Set())
+    },
+  })
 
-  const swapAssignments = useCallback(async (aId: number, bId: number) => {
-    if (aId === bId || !workout) return
-    const a = workout.assignments.find((x) => x.id === aId)
-    const b = workout.assignments.find((x) => x.id === bId)
-    if (!a || !b) return
-    setLoading(true); setError('')
-    try {
-      await Promise.all([
-        api.saveAssignment(aId, b.heatNumber, b.lane),
-        api.saveAssignment(bId, a.heatNumber, a.lane),
-      ])
-      await load()
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [api, workout, load])
+  const reorderAssignments = useCallback((dragId: number, destHeat: number, destIndex: number) => {
+    if (!workout) return
+    const updates = computeAssignmentUpdates(workout.assignments, dragId, destHeat, destIndex)
+    if (updates.length === 0) return
+    reorderMutation.mutate({ dragId, destHeat, destIndex })
+  }, [workout, reorderMutation])
 
   const saveMany = useCallback(async (payloads: ScorePayload[], successMsg: string) => {
     setLoading(true); setError('')
@@ -210,13 +226,14 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     loading,
     msg,
     error,
+    savingHeats,
+    reorderError: reorderMutation.error,
     setMsg,
     load,
     setStatus,
     generateAssignments,
     saveHeatTime,
-    saveAssignment,
-    swapAssignments,
+    reorderAssignments,
     saveMany,
     completeHeat,
     undoHeat,

@@ -1,3 +1,6 @@
+import { sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { userProfile, competitionAdmin, competition } from '@/db/schema'
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
@@ -11,32 +14,33 @@ const UserCreate = z.object({
 })
 
 type AdminUser = { id: string; email?: string | null }
-type ProfileRow = { id: string; isSuper: boolean }
-type MembershipRow = {
-  userId: string
-  competitionId: number
-  Competition: { id: number; name: string; slug: string } | null
-}
 
 export async function GET() {
   try {
     await requireSiteAdmin()
 
-    // Pull auth.users (email) + UserProfile (isSuper) + CompetitionAdmin memberships.
+    // auth.users still lives in Supabase Auth — the admin API is the only way
+    // to enumerate it. For the app-owned tables (UserProfile + CompetitionAdmin)
+    // we hit Drizzle.
     const { data: authRes, error: authErr } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
     if (authErr) return new Response(authErr.message, { status: 500 })
 
-    const { data: profiles } = await supabase.from('UserProfile').select('id, isSuper')
-    const { data: members } = await supabase
-      .from('CompetitionAdmin')
-      .select('userId, competitionId, Competition(id, name, slug)')
+    const profiles = await db.select({ id: userProfile.id, isSuper: userProfile.isSuper }).from(userProfile)
+    const memberships = await db
+      .select({
+        userId: competitionAdmin.userId,
+        competitionId: competition.id,
+        name: competition.name,
+        slug: competition.slug,
+      })
+      .from(competitionAdmin)
+      .innerJoin(competition, sql`${competition.id} = ${competitionAdmin.competitionId}`)
 
-    const profileById = new Map((profiles as ProfileRow[] | null | undefined ?? []).map((p) => [p.id, p.isSuper]))
+    const profileById = new Map(profiles.map((p) => [p.id, p.isSuper]))
     const compsByUser = new Map<string, { id: number; name: string; slug: string }[]>()
-    for (const m of (members as MembershipRow[] | null | undefined ?? [])) {
-      if (!m.Competition) continue
+    for (const m of memberships) {
       if (!compsByUser.has(m.userId)) compsByUser.set(m.userId, [])
-      compsByUser.get(m.userId)!.push(m.Competition)
+      compsByUser.get(m.userId)!.push({ id: m.competitionId, name: m.name, slug: m.slug })
     }
 
     const rows = (authRes?.users ?? []).map((u: AdminUser) => ({
@@ -70,14 +74,21 @@ export async function POST(req: Request) {
 
     // UserProfile row auto-creates via trigger with isSuper=false. Override if requested.
     if (isSuper) {
-      await supabase.from('UserProfile').upsert({ id: userId, isSuper: true }, { onConflict: 'id' })
+      await db
+        .insert(userProfile)
+        .values({ id: userId, isSuper: true })
+        .onConflictDoUpdate({ target: userProfile.id, set: { isSuper: true } })
     }
 
     // Grant comp memberships.
     if (competitionIds?.length) {
       const rows = competitionIds.map((competitionId) => ({ userId, competitionId }))
-      const { error: mErr } = await supabase.from('CompetitionAdmin').insert(rows)
-      if (mErr) return new Response(`User created but membership insert failed: ${mErr.message}`, { status: 500 })
+      try {
+        await db.insert(competitionAdmin).values(rows)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'unknown'
+        return new Response(`User created but membership insert failed: ${msg}`, { status: 500 })
+      }
     }
 
     return Response.json({ id: userId, email, isSuper: !!isSuper }, { status: 201 })

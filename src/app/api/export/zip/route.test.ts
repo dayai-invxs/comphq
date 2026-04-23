@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { unzipSync, strFromU8 } from 'fflate'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { GET } from './route'
 
 const req = (slug = 'default') => new Request(`http://test/api/export/zip?slug=${slug}`)
@@ -13,13 +13,24 @@ describe('GET /api/export/zip', () => {
   })
 
   it('returns a valid ZIP with per-table CSVs + manifest', async () => {
-    // 1. workouts
-    mock.queueResult({ data: [{ id: 10, number: 1, name: 'Fran', scoreType: 'time', status: 'completed', lanes: 3, halfWeight: false }], error: null })
-    // 2-5. Promise.all: athletes, divisions, assignments, scores
-    mock.queueResult({ data: [{ id: 1, name: 'Alice', bibNumber: '101', divisionId: 1 }], error: null })
-    mock.queueResult({ data: [{ id: 1, name: 'Rx', order: 0 }], error: null })
-    mock.queueResult({ data: [{ workoutId: 10, heatNumber: 1, lane: 1, athlete: { id: 1, name: 'Alice', bibNumber: '101', divisionId: 1 } }], error: null })
-    mock.queueResult({ data: [{ athleteId: 1, workoutId: 10, rawScore: 225123, tiebreakRawScore: null, points: 1, partBRawScore: null, partBPoints: null }], error: null })
+    // Query order: workouts, then Promise.all of athletes, divisions,
+    // assignments⨝athletes, scores.
+    mock.queueResults(
+      [{
+        id: 10, number: 1, name: 'Fran', scoreType: 'time', status: 'completed',
+        lanes: 3, halfWeight: false,
+      }],
+      [{ id: 1, name: 'Alice', bibNumber: '101', divisionId: 1 }],
+      [{ id: 1, name: 'Rx', order: 0 }],
+      [{
+        workoutId: 10, heatNumber: 1, lane: 1,
+        athleteId: 1, athleteName: 'Alice', bibNumber: '101', divisionId: 1,
+      }],
+      [{
+        athleteId: 1, workoutId: 10, rawScore: 225123,
+        tiebreakRawScore: null, points: 1, partBRawScore: null, partBPoints: null,
+      }],
+    )
 
     const res = await GET(req())
     expect(res.status).toBe(200)
@@ -29,7 +40,10 @@ describe('GET /api/export/zip', () => {
     const buf = new Uint8Array(await res.arrayBuffer())
     const files = unzipSync(buf)
     const names = Object.keys(files).sort()
-    expect(names).toEqual(['athletes.csv', 'divisions.csv', 'heat_assignments.csv', 'manifest.json', 'scores.csv', 'workouts.csv'])
+    expect(names).toEqual([
+      'athletes.csv', 'divisions.csv', 'heat_assignments.csv',
+      'manifest.json', 'scores.csv', 'workouts.csv',
+    ])
 
     const manifest = JSON.parse(strFromU8(files['manifest.json']))
     expect(manifest.counts).toEqual({ athletes: 1, divisions: 1, workouts: 1, assignments: 1, scores: 1 })

@@ -1,5 +1,6 @@
 import { postJson, putJson, delJson } from '@/lib/http'
 import type { ScorePayload } from './useWorkoutDetail'
+import type { AssignmentUpdate } from '@/lib/heat-reorder'
 
 /**
  * Extract-and-test HTTP surface of the workout detail hook. React state
@@ -62,15 +63,8 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
       return putJson(`${base}/heat-times${qs}`, { heatNumber, isoTime })
     },
 
-    async saveAssignment(id: number, heatNumber: number, lane: number) {
-      return fetch(`${base}/assignments${qs}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, heatNumber, lane }),
-      }).then((r) => {
-        if (!r.ok) throw new Error(`PATCH assignment → ${r.status}`)
-        return r.json()
-      })
+    async reorderAssignments(updates: AssignmentUpdate[]) {
+      return putJson(`${base}/assignments/reorder${qs}`, { updates })
     },
 
     async clearScores() {

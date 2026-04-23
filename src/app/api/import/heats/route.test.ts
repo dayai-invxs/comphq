@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthUser } from '@/test/setup'
 import { POST } from './route'
 
 function jsonReq(csv: string, slug = 'default') {
@@ -23,9 +23,10 @@ describe('POST /api/import/heats', () => {
   })
 
   it('reports errors for missing workouts and athletes but imports valid rows', async () => {
-    mock.queueResult({ data: [{ id: 10, number: 1 }], error: null })     // Workout lookup
-    mock.queueResult({ data: [{ id: 100, name: 'Alice' }], error: null }) // Athlete lookup
-    mock.queueResult({ data: null, error: null })                         // RPC replace_workout_heat_assignments
+    // Promise.all: workouts lookup, athletes lookup. Then the RPC via db.execute.
+    mock.queueResult([{ id: 10, number: 1 }])
+    mock.queueResult([{ id: 100, name: 'Alice' }])
+    mock.queueResult(undefined) // RPC execute
 
     const csv = 'workout,heat,lane,athlete\n1,1,1,Alice\n1,1,2,Unknown\n2,1,1,Alice'
     const res = await POST(jsonReq(csv))
@@ -38,14 +39,13 @@ describe('POST /api/import/heats', () => {
       { line: 3, message: 'Athlete not found: "Unknown"' },
       { line: 4, message: 'Workout #2 not found' },
     ])
-
-    const rpcCall = mock.calls.find(c => c.table === 'rpc:replace_workout_heat_assignments')
-    expect(rpcCall).toBeTruthy()
+    // The RPC was invoked via db.execute.
+    expect(mock.calls.some((c) => c.method === 'execute')).toBe(true)
   })
 
   it('rejects malformed numeric cells', async () => {
-    mock.queueResult({ data: [], error: null })
-    mock.queueResult({ data: [], error: null })
+    mock.queueResult([])
+    mock.queueResult([])
     const res = await POST(jsonReq('x,y,z,Alice'))
     const body = await res.json()
     expect(body.imported).toBe(0)
