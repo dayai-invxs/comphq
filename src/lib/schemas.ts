@@ -175,6 +175,30 @@ export const HeatTimeSet = z.object({
   isoTime: z.iso.datetime(),
 })
 
+// ─── Judge Assignments ────────────────────────────────────────────────────
+
+export const JudgeAssignmentCreate = z.object({
+  volunteerId: Id,
+  heatNumber: NumericInt.pipe(z.number().int().positive()),
+  lane: NumericInt.pipe(z.number().int().positive()),
+})
+
+export const JudgeAssignmentBulkDelete = z.object({
+  ids: z.array(Id).min(1).max(1000),
+})
+
+export const JudgeAssignmentGenerate = z.object({
+  maxConsecutive: NumericInt.pipe(z.number().int().min(1).max(20)),
+})
+
+export const JudgeAssignmentImport = z.object({
+  lines: z.array(z.object({
+    judgeName: NonEmptyString,
+    heatNumber: NumericInt.pipe(z.number().int().positive()),
+    lane: NumericInt.pipe(z.number().int().positive()),
+  })).min(1).max(1000),
+})
+
 // ─── Settings / Import / Users ────────────────────────────────────────────
 
 export const SettingsPatch = z.object({

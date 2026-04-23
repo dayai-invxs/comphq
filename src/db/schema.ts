@@ -171,6 +171,18 @@ export const volunteer = pgTable('Volunteer', {
   roleId: integer('roleId').references(() => volunteerRole.id, { onDelete: 'set null' }),
 })
 
+export const judgeAssignment = pgTable('JudgeAssignment', {
+  id: serial('id').primaryKey(),
+  workoutId: integer('workoutId').notNull().references(() => workout.id, { onDelete: 'cascade' }),
+  volunteerId: integer('volunteerId').notNull().references(() => volunteer.id, { onDelete: 'cascade' }),
+  heatNumber: integer('heatNumber').notNull(),
+  lane: integer('lane').notNull(),
+}, (t) => [
+  uniqueIndex('JudgeAssignment_workoutId_heatNumber_lane_key').on(t.workoutId, t.heatNumber, t.lane),
+  uniqueIndex('JudgeAssignment_workoutId_heatNumber_volunteerId_key').on(t.workoutId, t.heatNumber, t.volunteerId),
+  index('JudgeAssignment_workoutId_idx').on(t.workoutId),
+])
+
 export const workoutEquipment = pgTable('WorkoutEquipment', {
   id: serial('id').primaryKey(),
   workoutId: integer('workoutId').notNull().references(() => workout.id, { onDelete: 'cascade' }),
@@ -218,6 +230,8 @@ export type VolunteerRole = typeof volunteerRole.$inferSelect
 export type NewVolunteerRole = typeof volunteerRole.$inferInsert
 export type Volunteer = typeof volunteer.$inferSelect
 export type NewVolunteer = typeof volunteer.$inferInsert
+export type JudgeAssignment = typeof judgeAssignment.$inferSelect
+export type NewJudgeAssignment = typeof judgeAssignment.$inferInsert
 export type WorkoutEquipment = typeof workoutEquipment.$inferSelect
 export type NewWorkoutEquipment = typeof workoutEquipment.$inferInsert
 export type AuditLog = typeof auditLog.$inferSelect

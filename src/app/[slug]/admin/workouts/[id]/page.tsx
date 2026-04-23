@@ -10,6 +10,7 @@ import WorkoutEquipmentPopover from '@/components/workout-detail/WorkoutEquipmen
 import HeatCard from '@/components/workout-detail/HeatCard'
 import { HeatDndProvider } from '@/components/workout-detail/heat-dnd-context'
 import WorkoutLeaderboard from '@/components/workout-detail/WorkoutLeaderboard'
+import JudgeAssignmentsSection from '@/components/workout-detail/JudgeAssignmentsSection'
 import { scoreTypeLabel, statusStyle } from '@/lib/workoutEnums'
 import { getJson } from '@/lib/http'
 
@@ -209,6 +210,15 @@ export default function WorkoutDetailPage() {
             ))}
           </HeatDndProvider>
         </div>
+      )}
+
+      {heatNums.length > 0 && (
+        <JudgeAssignmentsSection
+          workoutId={id}
+          slug={slug}
+          lanes={workout.lanes}
+          heatNums={heatNums}
+        />
       )}
 
       {workout.status === 'completed' && workout.scores.length > 0 && (
