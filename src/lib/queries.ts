@@ -18,7 +18,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 // ─── Leaderboard ────────────────────────────────────────────────────────
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
-type WorkoutScore = { points: number; display: string } | null
+type WorkoutScore = { points: number; display: string; tiebreakDisplay: string | null } | null
 type LeaderboardEntry = {
   athleteId: number
   athleteName: string
