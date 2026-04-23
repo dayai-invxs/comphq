@@ -185,7 +185,7 @@ export default function EquipmentControl({ workouts, slug }: Props) {
                               {/* Lane assignments */}
                               <div>
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Lane Assignments</p>
-                                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                                <div className="flex flex-col gap-y-1">
                                   {sortedEntries.map((e) => (
                                     <span key={e.athleteId} className="text-sm text-gray-300">
                                       <span className="text-orange-400 font-bold mr-1.5">Lane {e.lane}</span>
