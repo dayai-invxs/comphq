@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { resolveCompetition } from '@/lib/competition'
-import { formatScore } from '@/lib/scoreFormat'
+import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -30,15 +30,18 @@ export async function GET(req: Request) {
     ? await supabase.from('Score').select('*').in('workoutId', workoutIds)
     : { data: [] }
 
-  const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string }>()
+  const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string }>()
   for (const s of (scores ?? [])) {
-    const row = s as { athleteId: number; workoutId: number; points: number | null; rawScore: number }
+    const row = s as { athleteId: number; workoutId: number; points: number | null; rawScore: number; tiebreakRawScore: number | null }
     if (row.points != null) {
-      const wo = visibleWorkouts.find((w) => (w as { id: number }).id === row.workoutId)
+      const wo = visibleWorkouts.find((w) => (w as { id: number }).id === row.workoutId) as { scoreType?: string; tiebreakEnabled?: boolean; tiebreakScoreType?: string } | undefined
       scoreMap.set(`${row.athleteId}-${row.workoutId}`, {
         points: row.points,
         rawScore: row.rawScore,
-        scoreType: (wo as { scoreType?: string })?.scoreType ?? '',
+        scoreType: wo?.scoreType ?? '',
+        tiebreakRawScore: row.tiebreakRawScore ?? null,
+        tiebreakEnabled: wo?.tiebreakEnabled ?? false,
+        tiebreakScoreType: wo?.tiebreakScoreType ?? 'time',
       })
     }
   }
@@ -46,13 +49,16 @@ export async function GET(req: Request) {
   const entries = (athletes ?? []).map((a) => {
     const athlete = a as { id: number; name: string; division: { name: string } | null }
     let totalPoints = 0
-    const workoutScores: Record<number, { points: number; rawScore: number; display: string } | null> = {}
+    const workoutScores: Record<number, { points: number; rawScore: number; display: string; tiebreakDisplay: string | null } | null> = {}
     for (const w of visibleWorkouts) {
       const workout = w as { id: number; halfWeight: boolean }
       const entry = scoreMap.get(`${athlete.id}-${workout.id}`)
       if (entry) {
         totalPoints += workout.halfWeight ? entry.points * 0.5 : entry.points
-        workoutScores[workout.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType) }
+        const tiebreakDisplay = entry.tiebreakEnabled && entry.tiebreakRawScore != null
+          ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
+          : null
+        workoutScores[workout.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType), tiebreakDisplay }
       } else {
         workoutScores[workout.id] = null
       }

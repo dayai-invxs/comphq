@@ -256,7 +256,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
                           <tr key={`${heat.heatNumber}-athletes`} className="border-b border-gray-800 bg-gray-900/50">
                             <td />
                             <td colSpan={4} className="px-3 py-2">
-                              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                              <div className="flex flex-col gap-y-1">
                                 {sortedEntries.map((e) => (
                                   <span key={e.athleteId} className="text-sm text-gray-300">
                                     <span className="text-orange-400 font-bold mr-1.5">{e.lane}</span>
