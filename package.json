@@ -2,6 +2,7 @@
   "name": "comphq",
   "version": "0.1.0",
   "private": true,
+  "browserslist": "chrome 68",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
