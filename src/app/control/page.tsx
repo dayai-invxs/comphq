@@ -6,6 +6,6 @@ export const dynamic = 'force-dynamic'
 
 export default async function AthleteControlRedirect() {
   const slug = await getCompetitionSlug()
-  if (slug) redirect(`/${slug}/athlete-control`)
+  if (slug) redirect(`/${slug}/control`)
   redirect('/')
 }

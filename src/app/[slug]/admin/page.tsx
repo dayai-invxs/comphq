@@ -114,7 +114,7 @@ export default function CompetitionDashboard() {
       )}
 
       <div className="flex gap-4 flex-wrap">
-        <Link href={`${base}/athletes`} className="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors">
+        <Link href={`${base}/people`} className="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors">
           Manage Athletes
         </Link>
         <Link href={`${base}/workouts`} className="bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors">
