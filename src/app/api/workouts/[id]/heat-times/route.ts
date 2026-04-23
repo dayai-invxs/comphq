@@ -15,15 +15,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params
     const workoutId = Number(id)
     const wk = await requireWorkoutInCompetition<{
-      heatStartOverrides: Record<string, string> | string | null
+      heatStartOverrides: Record<string, string>
     }>(workoutId, competition.id)
 
     const { heatNumber, isoTime } = parsed.data
 
-    // Column is TEXT storing JSON; legacy rows may be stringified blobs.
-    const existing = wk.heatStartOverrides
-    const overrides: Record<string, string> =
-      typeof existing === 'string' ? JSON.parse(existing || '{}') : (existing ?? {})
+    const overrides: Record<string, string> = { ...wk.heatStartOverrides }
     for (const key of Object.keys(overrides)) {
       if (Number(key) >= heatNumber) delete overrides[key]
     }
@@ -31,7 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const [row] = await db
       .update(workout)
-      .set({ heatStartOverrides: JSON.stringify(overrides) })
+      .set({ heatStartOverrides: overrides })
       .where(eq(workout.id, workoutId))
       .returning()
 

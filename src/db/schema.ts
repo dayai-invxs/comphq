@@ -104,7 +104,7 @@ export const workout = pgTable('Workout', {
   timeBetweenHeatsSecs: integer('timeBetweenHeatsSecs').notNull().default(120),
   callTimeSecs: integer('callTimeSecs').notNull(),
   walkoutTimeSecs: integer('walkoutTimeSecs').notNull(),
-  startTime: timestamp('startTime', { precision: 3, mode: 'string' }),
+  startTime: timestamp('startTime', { precision: 3, mode: 'string', withTimezone: true }),
   status: text('status').notNull().default('draft'),
   mixedHeats: boolean('mixedHeats').notNull().default(true),
   tiebreakEnabled: boolean('tiebreakEnabled').notNull().default(false),
@@ -112,7 +112,7 @@ export const workout = pgTable('Workout', {
   partBEnabled: boolean('partBEnabled').notNull().default(false),
   partBScoreType: text('partBScoreType').notNull().default('time'),
   halfWeight: boolean('halfWeight').notNull().default(false),
-  heatStartOverrides: text('heatStartOverrides').notNull().default('{}'),
+  heatStartOverrides: jsonb('heatStartOverrides').$type<Record<string, string>>().notNull().default({}),
   locationId: integer('locationId').references(() => workoutLocation.id, { onDelete: 'set null' }),
 }, (t) => [
   uniqueIndex('Workout_competitionId_number_key').on(t.competitionId, t.number),

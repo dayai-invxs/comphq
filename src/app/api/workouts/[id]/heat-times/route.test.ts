@@ -23,27 +23,24 @@ describe('PUT /api/workouts/[id]/heat-times', () => {
   })
 
   it('sets override and clears all later overrides', async () => {
-    // Column is TEXT storing JSON; route calls JSON.parse on read, JSON.stringify on write.
     mock.queueResult([{
-      heatStartOverrides: JSON.stringify({
+      heatStartOverrides: {
         '1': '2026-01-01T10:00:00Z',
         '2': '2026-01-01T10:10:00Z',
         '5': '2026-01-01T10:40:00Z',
-      }),
+      },
     }])
-    mock.queueResult([{ id: 1, heatStartOverrides: '{}' }])
+    mock.queueResult([{ id: 1, heatStartOverrides: {} }])
 
     const res = await PUT(req({ heatNumber: 3, isoTime: '2026-01-01T10:20:00Z' }), params('1'))
     expect(res.status).toBe(200)
 
-    // The route writes the merged overrides via .set({ heatStartOverrides: <json string> }).
     const setCall = mock.calls.find(
       (c) => c.method === 'set' && 'heatStartOverrides' in (c.args[0] as Record<string, unknown>),
     )
     expect(setCall).toBeTruthy()
-    const patch = setCall!.args[0] as { heatStartOverrides: string }
-    const parsed = JSON.parse(patch.heatStartOverrides)
-    expect(parsed).toEqual({
+    const patch = setCall!.args[0] as { heatStartOverrides: Record<string, string> }
+    expect(patch.heatStartOverrides).toEqual({
       '1': '2026-01-01T10:00:00Z',
       '2': '2026-01-01T10:10:00Z',
       '3': '2026-01-01T10:20:00Z',
