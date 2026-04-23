@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeaderboard, useOps, qk, type LeaderboardData } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
@@ -46,6 +46,8 @@ const RANK_COLORS = ['text-yellow-400', 'text-gray-300', 'text-orange-500'] as c
 export default function TVPage() {
   const { slug } = useParams<{ slug: string }>()
   const [view, setView] = useState<'schedule' | 'leaderboard'>('schedule')
+  const [zoom, setZoom] = useState(0.75)
+  const mainRef = useRef<HTMLDivElement>(null)
 
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData } = useLeaderboard(slug)
@@ -60,8 +62,21 @@ export default function TVPage() {
     return () => clearInterval(id)
   }, [])
 
+  // After content renders, measure and shrink to fit if needed
+  useEffect(() => {
+    const el = mainRef.current
+    if (!el) return
+    const available = el.clientHeight
+    const content = el.scrollHeight
+    if (content <= available) {
+      setZoom(1)
+    } else {
+      setZoom(Math.max(0.4, available / content))
+    }
+  }, [opsData, lbData, view])
+
   return (
-    <div className="w-screen h-screen bg-gray-900 text-white overflow-hidden flex flex-col" style={{ zoom: '0.75' }}>
+    <div className="w-screen h-screen bg-gray-900 text-white overflow-hidden flex flex-col">
       <header className="flex items-center justify-between px-10 py-5 bg-gray-800 border-b-2 border-gray-700 flex-shrink-0">
         <h1 className="text-4xl font-bold text-orange-400">
           {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard — Top 3'}
@@ -72,11 +87,13 @@ export default function TVPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden p-8">
-        {view === 'schedule'
-          ? <ScheduleView data={opsData} error={opsError} />
-          : <LeaderboardView data={lbData} />
-        }
+      <main ref={mainRef} className="flex-1 overflow-hidden p-8">
+        <div style={{ zoom }}>
+          {view === 'schedule'
+            ? <ScheduleView data={opsData} error={opsError} />
+            : <LeaderboardView data={lbData} />
+          }
+        </div>
       </main>
     </div>
   )
