@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { heatAssignment, judgeAssignment, volunteer, volunteerRole, workout, workoutLocation } from '@/db/schema'
+import { heatAssignment, heatCompletion, judgeAssignment, volunteer, volunteerRole, workout, workoutLocation } from '@/db/schema'
 import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs, fmtHeatTime } from '@/lib/heatTime'
@@ -62,13 +62,20 @@ export async function GET(req: Request) {
       .where(inArray(judgeAssignment.workoutId, workoutIds))
 
     // Distinct heat numbers per workout (from athlete assignments)
-    const heatRows = await db
-      .select({ workoutId: heatAssignment.workoutId, heatNumber: heatAssignment.heatNumber })
-      .from(heatAssignment)
-      .where(inArray(heatAssignment.workoutId, workoutIds))
+    const [heatRows, completedRows] = await Promise.all([
+      db.select({ workoutId: heatAssignment.workoutId, heatNumber: heatAssignment.heatNumber })
+        .from(heatAssignment)
+        .where(inArray(heatAssignment.workoutId, workoutIds)),
+      db.select({ workoutId: heatCompletion.workoutId, heatNumber: heatCompletion.heatNumber })
+        .from(heatCompletion)
+        .where(inArray(heatCompletion.workoutId, workoutIds)),
+    ])
+
+    const completedSet = new Set(completedRows.map(r => `${r.workoutId}-${r.heatNumber}`))
 
     const heatsByWorkout = new Map<number, Set<number>>()
     for (const r of heatRows) {
+      if (completedSet.has(`${r.workoutId}-${r.heatNumber}`)) continue
       if (!heatsByWorkout.has(r.workoutId)) heatsByWorkout.set(r.workoutId, new Set())
       heatsByWorkout.get(r.workoutId)!.add(r.heatNumber)
     }

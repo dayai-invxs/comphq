@@ -224,25 +224,25 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
   })
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(460px, 1fr))', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '20px' }}>
       {divisions.map(division => {
         const top3 = entries.filter(e => e.divisionName === division).slice(0, 3)
         if (top3.length === 0) return null
 
         return (
           <div key={division ?? 'none'} className="bg-gray-800 rounded-xl overflow-hidden">
-            <div className="bg-gray-700 px-6 py-4">
-              <h2 className="text-2xl font-bold text-orange-400">{division ?? 'No Division'}</h2>
+            <div className="bg-gray-700 px-5 py-3">
+              <h2 className="text-xl font-bold text-orange-400">{division ?? 'No Division'}</h2>
             </div>
-            <div className="px-6 py-4" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="px-5 py-3" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {top3.map((entry, i) => (
-                <div key={entry.athleteId} className="flex items-center gap-5">
-                  <span className={`text-5xl font-black w-16 text-center ${RANK_COLORS[i]}`}>
+                <div key={entry.athleteId} className="flex items-center gap-4">
+                  <span className={`text-3xl font-black w-12 text-center ${RANK_COLORS[i]}`}>
                     #{i + 1}
                   </span>
                   <div>
-                    <div className={`text-2xl font-bold ${RANK_COLORS[i]}`}>{entry.athleteName}</div>
-                    <div className="text-gray-400 text-lg">
+                    <div className={`text-xl font-bold ${RANK_COLORS[i]}`}>{entry.athleteName}</div>
+                    <div className="text-gray-400 text-base">
                       {Number.isInteger(entry.totalPoints)
                         ? entry.totalPoints
                         : entry.totalPoints.toFixed(1)
