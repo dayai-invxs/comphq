@@ -185,7 +185,7 @@ export default function HeatCard({
         </div>
       </div>
 
-      <div>
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-800/50">
             <tr>

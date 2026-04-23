@@ -6,7 +6,7 @@ import AthleteControl from '@/components/AthleteControl'
 export default async function AthleteControlPage({ params }: { params: Promise<{ slug: string }> }) {
   const client = await createSupabaseServerClient()
   const { data: { user } } = await client.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect(`/login?callbackUrl=/${(await params).slug}/control`)
 
   const { slug } = await params
   const competition = await resolveCompetition(slug)
