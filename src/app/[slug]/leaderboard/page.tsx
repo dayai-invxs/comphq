@@ -24,6 +24,7 @@ export default function PublicLeaderboardPage() {
   const workouts = data?.workouts ?? []
   const entries = data?.entries ?? []
   const halfWeightIds = data?.halfWeightIds ?? []
+  const tiebreakWorkoutId = data?.tiebreakWorkoutId ?? null
 
   const visibleWorkouts = workoutFilter === 'all' ? workouts : workouts.filter((w) => w.id === workoutFilter)
 
@@ -119,6 +120,11 @@ export default function PublicLeaderboardPage() {
                     {workoutFilter === 'all' && (
                       <td className="px-5 py-3 font-bold text-white">
                         {hasAnyScore ? (Number.isInteger(entry.totalPoints) ? entry.totalPoints : entry.totalPoints.toFixed(1)) : '—'}
+                        {tiebreakWorkoutId && entry.workoutScores[tiebreakWorkoutId]?.display && (
+                          <div className="text-blue-400 text-xs font-normal mt-0.5">
+                            TB {entry.workoutScores[tiebreakWorkoutId]?.display}
+                          </div>
+                        )}
                       </td>
                     )}
                   </tr>

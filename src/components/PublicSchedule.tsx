@@ -107,13 +107,13 @@ export default function PublicSchedule({ slug }: { slug: string }) {
                         return divs.length > 0 ? <p className="text-gray-400 text-xs">{divs.join(' / ')}</p> : null
                       })()}
                       {heatMs != null && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Corral: <span className="text-yellow-400 font-mono">{fmtMs(corralMs)}</span>
-                          {' · '}
-                          Walk Out: <span className="text-blue-400 font-mono">{fmtMs(walkoutMs)}</span>
-                          {' · '}
-                          Start: <span className="text-white font-mono">{fmtMs(heatMs)}</span>
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-gray-400 mt-0.5">
+                          <span className="whitespace-nowrap">Corral: <span className="text-yellow-400 font-mono">{fmtMs(corralMs)}</span></span>
+                          <span className="text-gray-600">·</span>
+                          <span className="whitespace-nowrap">Walk Out: <span className="text-blue-400 font-mono">{fmtMs(walkoutMs)}</span></span>
+                          <span className="text-gray-600">·</span>
+                          <span className="whitespace-nowrap">Start: <span className="text-white font-mono">{fmtMs(heatMs)}</span></span>
+                        </div>
                       )}
                     </div>
                     <table className="w-full text-sm">

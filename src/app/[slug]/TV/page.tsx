@@ -174,16 +174,13 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
                         <p className="text-gray-300 text-lg mt-1">{divs.join(' / ')}</p>
                       )}
                       {heatMs != null && (
-                        <p className="text-lg text-gray-300 mt-2">
-                          <span className="text-gray-400">Corral </span>
-                          <span className="text-yellow-300 font-mono font-bold">{fmtMs(corralMs)}</span>
-                          <span className="mx-3 text-gray-600">·</span>
-                          <span className="text-gray-400">Walk Out </span>
-                          <span className="text-blue-300 font-mono font-bold">{fmtMs(walkoutMs)}</span>
-                          <span className="mx-3 text-gray-600">·</span>
-                          <span className="text-gray-400">Start </span>
-                          <span className="text-white font-mono font-bold">{fmtMs(heatMs)}</span>
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg text-gray-300 mt-2">
+                          <span className="whitespace-nowrap"><span className="text-gray-400">Corral: </span><span className="text-yellow-300 font-mono font-bold">{fmtMs(corralMs)}</span></span>
+                          <span className="text-gray-600">·</span>
+                          <span className="whitespace-nowrap"><span className="text-gray-400">Walk Out: </span><span className="text-blue-300 font-mono font-bold">{fmtMs(walkoutMs)}</span></span>
+                          <span className="text-gray-600">·</span>
+                          <span className="whitespace-nowrap"><span className="text-gray-400">Start: </span><span className="text-white font-mono font-bold">{fmtMs(heatMs)}</span></span>
+                        </div>
                       )}
                     </div>
                     <div className="px-6 py-3">
