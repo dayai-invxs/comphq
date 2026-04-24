@@ -171,7 +171,7 @@ export default function WorkoutDetailPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-white">WOD {workout.number}: {workout.name}</h1>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(workout.status).className}`}>{workout.status}</span>
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyle(workout.status).className}`}>{statusStyle(workout.status).label}</span>
             <span className="text-gray-400 text-sm">
               {workout.lanes} lanes · {scoreTypeLabel(workout.scoreType)} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(workout.timeBetweenHeatsSecs / 60)}m {workout.timeBetweenHeatsSecs % 60 > 0 ? `${workout.timeBetweenHeatsSecs % 60}s ` : ''}between heats
             </span>

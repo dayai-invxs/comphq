@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { QRCodeSVG } from 'qrcode.react'
 import { useLeaderboard, useOps, qk, type LeaderboardData } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
@@ -81,9 +82,15 @@ export default function TVPage() {
         <h1 className="text-4xl font-bold text-orange-400">
           {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard'}
         </h1>
-        <div className="flex gap-3 items-center">
-          <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} />
-          <div className={`w-4 h-4 rounded-full transition-colors ${view === 'leaderboard' ? 'bg-orange-400' : 'bg-gray-600'}`} />
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col items-center gap-1">
+            <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
+            <span className="text-xs text-gray-400">Athlete Overview</span>
+          </div>
+          <div className="flex gap-3">
+            <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} />
+            <div className={`w-4 h-4 rounded-full transition-colors ${view === 'leaderboard' ? 'bg-orange-400' : 'bg-gray-600'}`} />
+          </div>
         </div>
       </header>
 

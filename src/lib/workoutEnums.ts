@@ -30,7 +30,7 @@ export function scoreTypeLabel(v: string): string {
 // Status badge styling — single source of truth for draft/active/completed
 // appearance across admin pages + public schedule.
 export const STATUS_STYLES: Record<WorkoutStatusValue, { label: string; className: string }> = {
-  draft:     { label: 'Draft',     className: 'bg-gray-700 text-gray-300' },
+  draft:     { label: 'INactive',   className: 'bg-gray-700 text-gray-300' },
   active:    { label: 'Active',    className: 'bg-green-800 text-green-300' },
   completed: { label: 'Completed', className: 'bg-blue-900 text-blue-300' },
 }

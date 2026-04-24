@@ -119,8 +119,8 @@ export default function CompetitionDashboard() {
                   <span className="font-semibold text-white">WOD {w.number}: {w.name}</span>
                   <span className="text-gray-400 text-sm ml-3">{w.lanes} lanes</span>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle(w.status).className}`}>
-                  {w.status}
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyle(w.status).className}`}>
+                  {statusStyle(w.status).label}
                 </span>
               </Link>
             ))}
