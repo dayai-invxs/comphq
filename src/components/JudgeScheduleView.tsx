@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SlugNav } from '@/components/SlugNav'
 import { getJson } from '@/lib/http'
+import { getSupabaseClient } from '@/lib/supabase-client'
+
+const DEFAULT_PASSWORD = 'rug702'
+const SESSION_KEY = 'judgeUnlocked'
 
 type JudgeAssignment = { judgeId: number; judgeName: string; lane: number }
 type Heat = { heatNumber: number; heatTimeMs: number | null; walkoutTimeMs: number | null; assignments: JudgeAssignment[] }
@@ -15,10 +19,78 @@ type WorkoutData = { id: number; number: number; name: string; locationName: str
 type Judge = { id: number; name: string }
 type ScheduleData = { judges: Judge[]; workouts: WorkoutData[] }
 
+function PasswordGate({ password, onUnlock }: { password: string; onUnlock: () => void }) {
+  const [value, setValue] = useState('')
+  const [wrong, setWrong] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  function submit() {
+    if (value === password) {
+      sessionStorage.setItem(SESSION_KEY, '1')
+      onUnlock()
+    } else {
+      setWrong(true)
+      setValue('')
+      inputRef.current?.focus()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-gray-950 flex items-center justify-center z-50">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-10 w-full max-w-sm flex flex-col items-center gap-5">
+        <h2 className="text-2xl font-bold text-white">Judge Access</h2>
+        <input
+          ref={inputRef}
+          type="password"
+          placeholder="Enter password"
+          value={value}
+          onChange={e => { setValue(e.target.value); setWrong(false) }}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          className="w-full rounded-lg bg-gray-900 border border-gray-600 text-white placeholder-gray-500 px-4 py-2.5 text-center text-lg focus:outline-none focus:border-orange-500"
+        />
+        {wrong && <p className="text-red-400 text-sm -mt-2">Incorrect password</p>}
+        <button
+          onClick={submit}
+          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg py-2.5 transition-colors"
+        >
+          Enter
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function JudgeScheduleView({ slug }: { slug: string }) {
+  const [gateState, setGateState] = useState<'checking' | 'gated' | 'unlocked'>('checking')
+  const [judgePassword, setJudgePassword] = useState(DEFAULT_PASSWORD)
   const [data, setData] = useState<ScheduleData | null>(null)
   const [filter, setFilter] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (sessionStorage.getItem(SESSION_KEY) === '1') {
+      setGateState('unlocked')
+      return
+    }
+    const supabase = getSupabaseClient()
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (user) {
+        setGateState('unlocked')
+        return
+      }
+      try {
+        const d = await getJson<{ judgePassword?: string }>(`/api/settings?slug=${slug}`)
+        if (!cancelled) setJudgePassword(d.judgePassword ?? DEFAULT_PASSWORD)
+      } catch { /* use default */ }
+      if (!cancelled) setGateState('gated')
+    })()
+    return () => { cancelled = true }
+  }, [slug])
 
   useEffect(() => {
     getJson<ScheduleData>(`/api/judge-schedule?slug=${slug}`)
@@ -35,6 +107,9 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
           .filter(h => h.assignments.length > 0),
       })).filter(wk => wk.heats.length > 0)
     : data?.workouts
+
+  if (gateState === 'checking') return null
+  if (gateState === 'gated') return <PasswordGate password={judgePassword} onUnlock={() => setGateState('unlocked')} />
 
   return (
     <div className="min-h-screen flex flex-col">

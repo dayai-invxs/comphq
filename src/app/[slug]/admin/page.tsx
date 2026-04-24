@@ -19,6 +19,7 @@ export default function CompetitionDashboard() {
   const [divisions, setDivisions] = useState<{ id: number; name: string }[]>([])
   const [tvPercentages, setTvPercentages] = useState<Record<string, number>>({})
   const [tvOrder, setTvOrder] = useState<Record<string, number>>({})
+  const [judgePassword, setJudgePassword] = useState('rug702')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function CompetitionDashboard() {
       setLeaderboardVisibility(d.leaderboardVisibility ?? 'per_workout')
       setTvPercentages(d.tvLeaderboardPercentages ?? {})
       setTvOrder(d.tvLeaderboardOrder ?? {})
+      if (d.judgePassword) setJudgePassword(d.judgePassword)
     })
     fetch(`/api/divisions?slug=${slug}`).then((r) => r.json()).then((d) => {
       if (Array.isArray(d)) setDivisions(d.map((div: { id: number; name: string }) => ({ id: div.id, name: div.name })))
@@ -53,6 +55,15 @@ export default function CompetitionDashboard() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, leaderboardVisibility: next }),
+    })
+  }
+
+  async function saveJudgePassword(value: string) {
+    if (!value.trim()) return
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, judgePassword: value.trim() }),
     })
   }
 
@@ -193,6 +204,18 @@ export default function CompetitionDashboard() {
             </p>
           </div>
         </label>
+        <div>
+          <label className="block text-sm text-white font-medium mb-1">Judge Screen Password</label>
+          <p className="text-xs text-gray-500 mb-2">Required to open the judge schedule. Admins are never prompted.</p>
+          <input
+            type="text"
+            value={judgePassword}
+            onChange={e => setJudgePassword(e.target.value)}
+            onBlur={e => saveJudgePassword(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+            className="w-full rounded-lg bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 focus:outline-none focus:border-orange-500"
+          />
+        </div>
       </div>
 
       {divisions.length > 0 && (

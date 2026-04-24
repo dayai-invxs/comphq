@@ -208,6 +208,7 @@ export const SettingsPatch = z.object({
   leaderboardVisibility: z.enum(['per_heat', 'per_workout']).optional(),
   tvLeaderboardPercentages: z.record(z.string(), z.number().int().min(0).max(100)).optional(),
   tvLeaderboardOrder: z.record(z.string(), z.number().int().min(1)).optional(),
+  judgePassword: z.string().min(1).max(100).optional(),
 })
 
 export const CsvImport = z.object({
