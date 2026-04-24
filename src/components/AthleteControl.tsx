@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
@@ -47,8 +47,20 @@ export default function AthleteControl({ slug }: { slug: string }) {
   const workouts = data?.workouts ?? []
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
   const [tab, setTab] = useState<Tab>('athletes')
-  const [checks, setChecks] = useState<Record<string, RowChecks>>({})
-  const [equipChecks, setEquipChecks] = useState<Record<string, boolean>>({})
+  const [checks, setChecks] = useState<Record<string, RowChecks>>(() => {
+    try { return JSON.parse(localStorage.getItem(`athlete-checks-${slug}`) ?? 'null') ?? {} } catch { return {} }
+  })
+  const [equipChecks, setEquipChecks] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(`equip-checks-${slug}`) ?? 'null') ?? {} } catch { return {} }
+  })
+
+  useEffect(() => {
+    localStorage.setItem(`athlete-checks-${slug}`, JSON.stringify(checks))
+  }, [checks, slug])
+
+  useEffect(() => {
+    localStorage.setItem(`equip-checks-${slug}`, JSON.stringify(equipChecks))
+  }, [equipChecks, slug])
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
   const [heatTimeInput, setHeatTimeInput] = useState('')
