@@ -143,66 +143,50 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
     return <div className="text-gray-500 text-3xl text-center mt-20">No upcoming heats.</div>
   }
 
-  // Group by workout for display
-  const byWorkout = new Map<number, { workout: WorkoutData; heats: FlatHeat[] }>()
-  for (const item of upcoming) {
-    if (!byWorkout.has(item.workout.id)) byWorkout.set(item.workout.id, { workout: item.workout, heats: [] })
-    byWorkout.get(item.workout.id)!.heats.push(item)
-  }
-
   return (
-    <div className="space-y-8 h-full overflow-hidden">
-      {[...byWorkout.values()].map(({ workout, heats }) => (
-          <div key={workout.id}>
-            <h2 className="text-3xl font-bold text-white mb-5">
-              Workout {workout.number}: {workout.name}
-              {workout.locationName && (
-                <span className="ml-3 text-xl font-normal text-gray-400">· {workout.locationName}</span>
-              )}
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '20px' }}>
-              {heats.map(({ heat, heatMs }) => {
-                const corralMs = heatMs != null ? heatMs - workout.callTimeSecs * 1000 : null
-                const walkoutMs = heatMs != null ? heatMs - workout.walkoutTimeSecs * 1000 : null
-                const divs = [...new Set(heat.entries.map(e => e.divisionName).filter(Boolean))]
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+      {upcoming.map(({ workout, heat, heatMs }) => {
+        const corralMs = heatMs != null ? heatMs - workout.callTimeSecs * 1000 : null
+        const walkoutMs = heatMs != null ? heatMs - workout.walkoutTimeSecs * 1000 : null
+        const divs = [...new Set(heat.entries.map(e => e.divisionName).filter(Boolean))]
 
-                return (
-                  <div key={heat.heatNumber} className="bg-gray-800 rounded-xl overflow-hidden">
-                    <div className="bg-gray-700 px-6 py-4">
-                      <h3 className="text-2xl font-bold text-orange-400">Heat {heat.heatNumber}</h3>
-                      {divs.length > 0 && (
-                        <p className="text-gray-300 text-lg mt-1">{divs.join(' / ')}</p>
-                      )}
-                      {heatMs != null && (
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg text-gray-300 mt-2">
-                          <span className="whitespace-nowrap"><span className="text-gray-400">Corral: </span><span className="text-yellow-300 font-mono font-bold">{fmtMs(corralMs)}</span></span>
-                          <span className="text-gray-600">·</span>
-                          <span className="whitespace-nowrap"><span className="text-gray-400">Walk Out: </span><span className="text-blue-300 font-mono font-bold">{fmtMs(walkoutMs)}</span></span>
-                          <span className="text-gray-600">·</span>
-                          <span className="whitespace-nowrap"><span className="text-gray-400">Start: </span><span className="text-white font-mono font-bold">{fmtMs(heatMs)}</span></span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="px-6 py-3">
-                      {heat.entries
-                        .sort((a, b) => a.lane - b.lane)
-                        .map(e => (
-                          <div key={e.athleteId} className="flex items-center gap-5 py-3 border-b border-gray-700" style={{ borderBottom: '1px solid #374151' }}>
-                            <span className="text-orange-400 font-bold text-xl w-10">L{e.lane}</span>
-                            <span className="text-white text-2xl font-medium">{e.athleteName}</span>
-                            {e.divisionName && (
-                              <span className="text-gray-400 text-lg ml-auto">{e.divisionName}</span>
-                            )}
-                          </div>
-                        ))}
-                    </div>
+        return (
+          <div key={`${workout.id}-${heat.heatNumber}`} className="bg-gray-800 rounded-xl overflow-hidden">
+            <div className="bg-gray-700 px-6 py-4">
+              <p className="text-gray-400 text-base font-medium mb-1">
+                Workout {workout.number}: {workout.name}
+                {workout.locationName && <span className="ml-2">· {workout.locationName}</span>}
+              </p>
+              <h3 className="text-2xl font-bold text-orange-400">Heat {heat.heatNumber}</h3>
+              {divs.length > 0 && (
+                <p className="text-gray-300 text-lg mt-1">{divs.join(' / ')}</p>
+              )}
+              {heatMs != null && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg text-gray-300 mt-2">
+                  <span className="whitespace-nowrap"><span className="text-gray-400">Corral: </span><span className="text-yellow-300 font-mono font-bold">{fmtMs(corralMs)}</span></span>
+                  <span className="text-gray-600">·</span>
+                  <span className="whitespace-nowrap"><span className="text-gray-400">Walk Out: </span><span className="text-blue-300 font-mono font-bold">{fmtMs(walkoutMs)}</span></span>
+                  <span className="text-gray-600">·</span>
+                  <span className="whitespace-nowrap"><span className="text-gray-400">Start: </span><span className="text-white font-mono font-bold">{fmtMs(heatMs)}</span></span>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-3">
+              {heat.entries
+                .sort((a, b) => a.lane - b.lane)
+                .map(e => (
+                  <div key={e.athleteId} className="flex items-center gap-5 py-3 border-b border-gray-700" style={{ borderBottom: '1px solid #374151' }}>
+                    <span className="text-orange-400 font-bold text-xl w-10">L{e.lane}</span>
+                    <span className="text-white text-2xl font-medium">{e.athleteName}</span>
+                    {e.divisionName && (
+                      <span className="text-gray-400 text-lg ml-auto">{e.divisionName}</span>
+                    )}
                   </div>
-                )
-              })}
+                ))}
             </div>
           </div>
         )
-      )}
+      })}
     </div>
   )
 }
