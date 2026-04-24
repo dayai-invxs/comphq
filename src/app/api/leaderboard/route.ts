@@ -100,9 +100,6 @@ export async function GET(req: Request) {
     return { athleteId: a.id, athleteName: a.name, divisionName: a.divisionName ?? null, totalPoints, workoutScores }
   })
 
-  const workoutsByNumber = [...visibleWorkouts].sort((x, y) => y.number - x.number)
-  const tiedWorkoutIds = workoutsByNumber.map((w) => w.id)
-
   const tiebreakWorkout = tiebreakWorkoutId
     ? visibleWorkouts.find((w) => w.id === tiebreakWorkoutId)
     : undefined
@@ -113,13 +110,18 @@ export async function GET(req: Request) {
     if (aHas && !bHas) return -1
     if (!aHas && bHas) return 1
     if (a.totalPoints !== b.totalPoints) return a.totalPoints - b.totalPoints
-    for (const wId of tiedWorkoutIds) {
-      const aScore = a.workoutScores[wId]
-      const bScore = b.workoutScores[wId]
-      if (aScore && bScore && aScore.points !== bScore.points) return aScore.points - bScore.points
-      if (aScore && !bScore) return -1
-      if (!aScore && bScore) return 1
+    // Tied on total points: compare rank distributions — athlete with more 1st places wins,
+    // then more 2nd places, etc.
+    const ranksPresent = [...new Set([
+      ...Object.values(a.workoutScores).filter(Boolean).map((s) => s!.points),
+      ...Object.values(b.workoutScores).filter(Boolean).map((s) => s!.points),
+    ])].sort((x, y) => x - y)
+    for (const rank of ranksPresent) {
+      const aCount = Object.values(a.workoutScores).filter((s) => s?.points === rank).length
+      const bCount = Object.values(b.workoutScores).filter((s) => s?.points === rank).length
+      if (aCount !== bCount) return bCount - aCount // more of a better rank wins
     }
+    // Still tied: use designated tiebreaker workout score
     if (tiebreakWorkout) {
       const aRaw = a.workoutScores[tiebreakWorkout.id]?.rawScore ?? null
       const bRaw = b.workoutScores[tiebreakWorkout.id]?.rawScore ?? null
