@@ -142,13 +142,17 @@ export default function WorkoutsPage() {
     if (!judgeImportCsv.trim()) return
     setJudgeImportLoading(true)
     setJudgeImportResult(null)
-    const res = await fetch('/api/import/judge-assignments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, csv: judgeImportCsv }),
-    })
-    const data = await res.json()
-    setJudgeImportResult(data)
+    try {
+      const res = await fetch('/api/import/judge-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, csv: judgeImportCsv }),
+      })
+      const data = await res.json()
+      setJudgeImportResult(data)
+    } catch (e) {
+      setJudgeImportResult({ imported: 0, workoutsAffected: [], errors: [{ line: 0, message: e instanceof Error ? e.message : String(e) }] })
+    }
     setJudgeImportLoading(false)
   }
 

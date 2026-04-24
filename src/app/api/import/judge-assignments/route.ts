@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { judgeAssignment, volunteer, volunteerRole, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     if (toInsert.length > 0) {
       await db.insert(judgeAssignment).values(toInsert).onConflictDoUpdate({
         target: [judgeAssignment.workoutId, judgeAssignment.heatNumber, judgeAssignment.lane],
-        set: { volunteerId: judgeAssignment.volunteerId },
+        set: { volunteerId: sql`excluded."volunteerId"` },
       })
     }
 
