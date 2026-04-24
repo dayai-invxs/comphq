@@ -233,7 +233,7 @@ export default function WorkoutsPage() {
       </div>
 
       {workouts.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-w-2xl">
           {workouts.map((w) => (
             <Link key={w.id} href={`${base}/workouts/${w.id}`} className="flex items-center justify-between bg-gray-900 hover:bg-gray-800 rounded-xl px-5 py-4 transition-colors">
               <div>

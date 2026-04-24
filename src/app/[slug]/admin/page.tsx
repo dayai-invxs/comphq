@@ -119,7 +119,7 @@ export default function CompetitionDashboard() {
       {workouts.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold text-white mb-3">Workouts</h2>
-          <div className="space-y-2">
+          <div className="space-y-2 max-w-2xl">
             {workouts.map((w) => (
               <Link
                 key={w.id}

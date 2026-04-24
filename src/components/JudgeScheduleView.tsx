@@ -84,8 +84,11 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
                     <div key={heat.heatNumber} className="bg-gray-900 rounded-xl overflow-hidden">
                       <div className="bg-gray-800 px-4 py-2.5">
                         <h3 className="text-base font-semibold text-orange-400">Heat {heat.heatNumber}</h3>
-                        {heat.walkoutTimeMs != null && (
-                          <p className="text-xs text-gray-400 mt-0.5">Walk out: <span className="text-white font-mono">{fmtTime(heat.walkoutTimeMs)}</span></p>
+                        {(heat.walkoutTimeMs != null || heat.heatTimeMs != null) && (
+                          <p className="text-xs text-gray-400 mt-0.5 flex gap-3">
+                            {heat.walkoutTimeMs != null && <span>Walk out: <span className="text-white font-mono">{fmtTime(heat.walkoutTimeMs)}</span></span>}
+                            {heat.heatTimeMs != null && <span>Start: <span className="text-white font-mono">{fmtTime(heat.heatTimeMs)}</span></span>}
+                          </p>
                         )}
                       </div>
                       <table className="w-full text-sm">
