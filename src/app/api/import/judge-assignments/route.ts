@@ -1,6 +1,6 @@
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { judgeAssignment, volunteer, volunteerRole, workout } from '@/db/schema'
+import { judgeAssignment, volunteer, workout } from '@/db/schema'
 import { requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CsvImport } from '@/lib/schemas'
@@ -25,14 +25,12 @@ export async function POST(req: Request) {
       .where(eq(workout.competitionId, competition.id))
     const workoutByNumber = new Map(workouts.map(w => [w.number, w.id]))
 
-    // Load all judges (volunteers with Judge role)
+    // Load all volunteers for this competition (any role or none)
     const judgeRows = await db
-      .select({ id: volunteer.id, name: volunteer.name, roleName: volunteerRole.name })
+      .select({ id: volunteer.id, name: volunteer.name })
       .from(volunteer)
-      .innerJoin(volunteerRole, eq(volunteerRole.id, volunteer.roleId))
       .where(eq(volunteer.competitionId, competition.id))
-    const judges = judgeRows.filter(r => r.roleName.toLowerCase() === 'judge')
-    const judgeByName = new Map(judges.map(j => [j.name.toLowerCase().trim(), j.id]))
+    const judgeByName = new Map(judgeRows.map(j => [j.name.toLowerCase().trim(), j.id]))
 
     const errors: { line: number; message: string }[] = []
     const toInsert: { workoutId: number; volunteerId: number; heatNumber: number; lane: number }[] = []
