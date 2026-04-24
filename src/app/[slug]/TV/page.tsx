@@ -63,17 +63,24 @@ export default function TVPage() {
     return () => clearInterval(id)
   }, [])
 
-  // Reset to 100%, measure the natural height, then scale down to fit if needed.
-  // Direct DOM manipulation in useLayoutEffect so reset + measure + apply
-  // all happen in one synchronous pass before the browser paints.
+  // Reset to natural size, measure, then scale down to fit if needed.
+  // Uses transform instead of zoom for broader browser compatibility (webOS 4.x / Chrome 56).
+  // transform-origin top-left + width compensation keeps content flush to the container edges.
   useLayoutEffect(() => {
     const container = mainRef.current
     const content = contentRef.current
     if (!container || !content) return
-    content.style.zoom = '1'
+    content.style.transform = ''
+    content.style.transformOrigin = ''
+    content.style.width = ''
     const available = container.clientHeight
     const natural = content.scrollHeight
-    if (natural > available) content.style.zoom = String(available / natural)
+    if (natural > available) {
+      const ratio = available / natural
+      content.style.transform = 'scale(' + ratio + ')'
+      content.style.transformOrigin = 'top left'
+      content.style.width = (100 / ratio).toFixed(4) + '%'
+    }
   }, [opsData, lbData, view])
 
   return (
@@ -82,10 +89,12 @@ export default function TVPage() {
         <h1 className="text-4xl font-bold text-orange-400">
           {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard'}
         </h1>
-        <div className="flex items-center gap-6">
-          <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
-          <div className="flex gap-3">
-            <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} />
+        <div className="flex items-center">
+          <div style={{ marginRight: 24 }}>
+            <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
+          </div>
+          <div className="flex">
+            <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} style={{ marginRight: 12 }} />
             <div className={`w-4 h-4 rounded-full transition-colors ${view === 'leaderboard' ? 'bg-orange-400' : 'bg-gray-600'}`} />
           </div>
         </div>
@@ -144,7 +153,7 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: '20px' }}>
       {upcoming.map(({ workout, heat, heatMs }) => {
         const corralMs = heatMs != null ? heatMs - workout.callTimeSecs * 1000 : null
         const walkoutMs = heatMs != null ? heatMs - workout.walkoutTimeSecs * 1000 : null
@@ -162,11 +171,11 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
                 <p className="text-gray-300 text-lg mt-1">{divs.join(' / ')}</p>
               )}
               {heatMs != null && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg text-gray-300 mt-2">
-                  <span className="whitespace-nowrap"><span className="text-gray-400">Corral: </span><span className="text-yellow-300 font-mono font-bold">{fmtMs(corralMs)}</span></span>
-                  <span className="text-gray-600">·</span>
-                  <span className="whitespace-nowrap"><span className="text-gray-400">Walk Out: </span><span className="text-blue-300 font-mono font-bold">{fmtMs(walkoutMs)}</span></span>
-                  <span className="text-gray-600">·</span>
+                <div className="flex flex-wrap items-center text-lg text-gray-300 mt-2">
+                  <span className="whitespace-nowrap" style={{ marginRight: 12, marginBottom: 4 }}><span className="text-gray-400">Corral: </span><span className="text-yellow-300 font-mono font-bold">{fmtMs(corralMs)}</span></span>
+                  <span className="text-gray-600" style={{ marginRight: 12, marginBottom: 4 }}>·</span>
+                  <span className="whitespace-nowrap" style={{ marginRight: 12, marginBottom: 4 }}><span className="text-gray-400">Walk Out: </span><span className="text-blue-300 font-mono font-bold">{fmtMs(walkoutMs)}</span></span>
+                  <span className="text-gray-600" style={{ marginRight: 12, marginBottom: 4 }}>·</span>
                   <span className="whitespace-nowrap"><span className="text-gray-400">Start: </span><span className="text-white font-mono font-bold">{fmtMs(heatMs)}</span></span>
                 </div>
               )}
@@ -175,8 +184,8 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
               {heat.entries
                 .sort((a, b) => a.lane - b.lane)
                 .map(e => (
-                  <div key={e.athleteId} className="flex items-center gap-5 py-3 border-b border-gray-700" style={{ borderBottom: '1px solid #374151' }}>
-                    <span className="text-orange-400 font-bold text-xl w-10">L{e.lane}</span>
+                  <div key={e.athleteId} className="flex items-center py-3 border-b border-gray-700" style={{ borderBottom: '1px solid #374151' }}>
+                    <span className="text-orange-400 font-bold text-xl w-10" style={{ marginRight: 20 }}>L{e.lane}</span>
                     <span className="text-white text-2xl font-medium">{e.athleteName}</span>
                     {e.divisionName && (
                       <span className="text-gray-400 text-lg ml-auto">{e.divisionName}</span>
@@ -211,7 +220,7 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
   })
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '20px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gridGap: '20px' }}>
       {divisions.map(division => {
         const divisionEntries = entries.filter(e => e.divisionName === division)
         const pct = division != null ? (tvLeaderboardPercentages[division] ?? 100) : 100
@@ -224,10 +233,10 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
             <div className="bg-gray-700 px-5 py-3">
               <h2 className="text-xl font-bold text-orange-400">{division ?? 'No Division'}</h2>
             </div>
-            <div className="px-5 py-3" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="px-5 py-3" style={{ display: 'flex', flexDirection: 'column' }}>
               {topEntries.map((entry, i) => (
-                <div key={entry.athleteId} className="flex items-center gap-4">
-                  <span className={`text-3xl font-black w-12 text-center ${RANK_COLORS[Math.min(i, RANK_COLORS.length - 1)]}`}>
+                <div key={entry.athleteId} className="flex items-center" style={{ marginBottom: 12 }}>
+                  <span className={`text-3xl font-black w-12 text-center ${RANK_COLORS[Math.min(i, RANK_COLORS.length - 1)]}`} style={{ marginRight: 16 }}>
                     #{i + 1}
                   </span>
                   <div>
