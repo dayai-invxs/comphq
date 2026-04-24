@@ -26,6 +26,7 @@ export default function WorkoutDetailPage() {
   const [heatsUnlocked, setHeatsUnlocked] = useState(false)
   const [locations, setLocations] = useState<WorkoutLocation[]>([])
   const [judges, setJudges] = useState<Judge[]>([])
+  const [allVolunteers, setAllVolunteers] = useState<Judge[]>([])
   const [judgeAssignments, setJudgeAssignments] = useState<JudgeAssignment[]>([])
   const [maxConsecutive, setMaxConsecutive] = useState(3)
   const [judgeError, setJudgeError] = useState<string | null>(null)
@@ -46,6 +47,7 @@ export default function WorkoutDetailPage() {
       ])
       const judgeRoleIds = new Set(roles.filter(r => r.name.toLowerCase() === 'judge').map(r => r.id))
       setJudges(vols.filter(v => v.roleId != null && judgeRoleIds.has(v.roleId)))
+      setAllVolunteers(vols)
       setJudgeAssignments(assignments)
     } catch { /* non-critical */ }
   }, [id, slug])
@@ -301,7 +303,7 @@ export default function WorkoutDetailPage() {
                 onReorder={detail.reorderAssignments}
                 onSaveHeatTime={detail.saveHeatTime}
                 isSaving={detail.savingHeats.has(heatNum)}
-                judges={judges}
+                judges={allVolunteers}
                 judgesByLane={new Map(
                   judgeAssignments
                     .filter(a => a.heatNumber === heatNum)
