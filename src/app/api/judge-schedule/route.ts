@@ -1,14 +1,12 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { heatAssignment, heatCompletion, judgeAssignment, volunteer, volunteerRole, workout, workoutLocation } from '@/db/schema'
-import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
-    await requireSession()
     const competition = await resolveCompetition(slug)
     if (!competition) return new Response('Competition not found', { status: 404 })
 
@@ -124,6 +122,7 @@ export async function GET(req: Request) {
 
     return Response.json({ judges, workouts: result })
   } catch (e) {
-    return authErrorResponse(e)
+    console.error(e)
+    return new Response('Internal server error', { status: 500 })
   }
 }
