@@ -47,7 +47,7 @@ const RANK_COLORS = ['text-yellow-400', 'text-gray-300', 'text-orange-500'] as c
 export default function TVPage() {
   const { slug } = useParams<{ slug: string }>()
   const [view, setView] = useState<'schedule' | 'leaderboard'>('schedule')
-  const [zoom, setZoom] = useState(0.75)
+  const [zoom, setZoom] = useState(0.5)
   const mainRef = useRef<HTMLDivElement>(null)
 
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
@@ -63,17 +63,15 @@ export default function TVPage() {
     return () => clearInterval(id)
   }, [])
 
-  // After content renders, measure and shrink to fit if needed
+  // After content renders at the current zoom, scale up toward 100% if there's room.
+  // Uses prev zoom so the ratio is proportional: newZoom = prev * (available / content).
+  // Clamped to [0.5, 1.0] — never shrinks below the 50% baseline.
   useEffect(() => {
     const el = mainRef.current
-    if (!el) return
+    if (!el || el.scrollHeight === 0) return
     const available = el.clientHeight
     const content = el.scrollHeight
-    if (content <= available) {
-      setZoom(1)
-    } else {
-      setZoom(Math.max(0.4, available / content))
-    }
+    setZoom(prev => Math.max(0.5, Math.min(1, prev * (available / content))))
   }, [opsData, lbData, view])
 
   return (
