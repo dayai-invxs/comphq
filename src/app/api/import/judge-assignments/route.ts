@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { judgeAssignment, volunteer, volunteerRole, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CsvImport } from '@/lib/schemas'
 
@@ -13,7 +13,7 @@ interface ImportResult {
 
 export async function POST(req: Request) {
   const parsed = await parseJson(req, CsvImport)
-  if (!parsed.ok) return parsed.response
+  if (!parsed.ok) return Response.json({ imported: 0, workoutsAffected: [], errors: [{ line: 0, message: await parsed.response.text() }] } satisfies ImportResult, { status: 400 })
 
   try {
     const { competition } = await requireCompetitionAdmin(parsed.data.slug)
@@ -94,6 +94,8 @@ export async function POST(req: Request) {
       errors: [],
     } satisfies ImportResult)
   } catch (e) {
-    return authErrorResponse(e)
+    const msg = e instanceof Error ? e.message : String(e)
+    const status = (e as { status?: number }).status ?? 500
+    return Response.json({ imported: 0, workoutsAffected: [], errors: [{ line: 0, message: msg }] } satisfies ImportResult, { status })
   }
 }
