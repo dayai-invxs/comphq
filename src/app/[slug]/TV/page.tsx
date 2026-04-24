@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import { useLeaderboard, useOps, qk, type LeaderboardData } from '@/lib/queries'
@@ -47,8 +47,8 @@ const RANK_COLORS = ['text-yellow-400', 'text-gray-300', 'text-orange-500'] as c
 export default function TVPage() {
   const { slug } = useParams<{ slug: string }>()
   const [view, setView] = useState<'schedule' | 'leaderboard'>('schedule')
-  const [zoom, setZoom] = useState(0.5)
   const mainRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData } = useLeaderboard(slug)
@@ -63,15 +63,17 @@ export default function TVPage() {
     return () => clearInterval(id)
   }, [])
 
-  // After content renders at the current zoom, scale up toward 100% if there's room.
-  // Uses prev zoom so the ratio is proportional: newZoom = prev * (available / content).
-  // Clamped to [0.5, 1.0] — never shrinks below the 50% baseline.
-  useEffect(() => {
-    const el = mainRef.current
-    if (!el || el.scrollHeight === 0) return
-    const available = el.clientHeight
-    const content = el.scrollHeight
-    setZoom(prev => Math.max(0.5, Math.min(1, prev * (available / content))))
+  // Reset to 100%, measure the natural height, then scale down to fit if needed.
+  // Direct DOM manipulation in useLayoutEffect so reset + measure + apply
+  // all happen in one synchronous pass before the browser paints.
+  useLayoutEffect(() => {
+    const container = mainRef.current
+    const content = contentRef.current
+    if (!container || !content) return
+    content.style.zoom = '1'
+    const available = container.clientHeight
+    const natural = content.scrollHeight
+    if (natural > available) content.style.zoom = String(available / natural)
   }, [opsData, lbData, view])
 
   return (
@@ -90,7 +92,7 @@ export default function TVPage() {
       </header>
 
       <main ref={mainRef} className="flex-1 overflow-hidden p-8">
-        <div style={{ zoom }}>
+        <div ref={contentRef}>
           {view === 'schedule'
             ? <ScheduleView data={opsData} error={opsError} />
             : <LeaderboardView data={lbData} />
