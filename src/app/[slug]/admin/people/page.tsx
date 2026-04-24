@@ -150,6 +150,7 @@ function AthletesTab({
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editState, setEditState] = useState({ name: '', bib: '', divisionId: '' })
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [search, setSearch] = useState('')
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -222,8 +223,10 @@ function AthletesTab({
     setSelected((prev) => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
 
-  const allSelected = athletes.length > 0 && selected.size === athletes.length
-  const someSelected = selected.size > 0 && !allSelected
+  const searchTerm = search.trim().toLowerCase()
+  const visibleAthletes = searchTerm ? athletes.filter((a) => a.name.toLowerCase().includes(searchTerm)) : athletes
+  const allSelected = visibleAthletes.length > 0 && visibleAthletes.every((a) => selected.has(a.id))
+  const someSelected = visibleAthletes.some((a) => selected.has(a.id)) && !allSelected
 
   return (
     <div className="space-y-6">
@@ -263,13 +266,14 @@ function AthletesTab({
 
       {athletes.length > 0 && (
         <div className="bg-gray-900 rounded-xl overflow-hidden overflow-x-auto">
-          <div className="bg-gray-800 px-5 py-3 flex items-center justify-between">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={() => setSelected(allSelected ? new Set() : new Set(athletes.map((a) => a.id)))} className="w-4 h-4 accent-orange-500" />
+          <div className="bg-gray-800 px-5 py-3 flex items-center gap-4">
+            <label className="flex items-center gap-3 cursor-pointer select-none shrink-0">
+              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={() => setSelected(allSelected ? new Set() : new Set(visibleAthletes.map((a) => a.id)))} className="w-4 h-4 accent-orange-500" />
               <span className="text-sm text-gray-400">{selected.size > 0 ? `${selected.size} selected` : 'Select all'}</span>
             </label>
+            <input type="search" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-500" />
             {selected.size > 0 && (
-              <button onClick={deleteSelected} disabled={loading} className="bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
+              <button onClick={deleteSelected} disabled={loading} className="shrink-0 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
                 Delete {selected.size} selected
               </button>
             )}
@@ -285,7 +289,7 @@ function AthletesTab({
               </tr>
             </thead>
             <tbody>
-              {athletes.map((a) =>
+              {visibleAthletes.map((a) =>
                 editingId === a.id ? (
                   <tr key={a.id} className="border-t border-gray-800 bg-gray-800/40">
                     <td className="px-4 py-2"><input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleSelect(a.id)} className="w-4 h-4 accent-orange-500" /></td>
@@ -346,6 +350,7 @@ function VolunteersTab({
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editState, setEditState] = useState({ name: '', roleId: '' })
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [search, setSearch] = useState('')
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -402,8 +407,10 @@ function VolunteersTab({
     setSelected((prev) => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
 
-  const allSelected = volunteers.length > 0 && selected.size === volunteers.length
-  const someSelected = selected.size > 0 && !allSelected
+  const searchTerm = search.trim().toLowerCase()
+  const visibleVolunteers = searchTerm ? volunteers.filter((v) => v.name.toLowerCase().includes(searchTerm)) : volunteers
+  const allSelected = visibleVolunteers.length > 0 && visibleVolunteers.every((v) => selected.has(v.id))
+  const someSelected = visibleVolunteers.some((v) => selected.has(v.id)) && !allSelected
 
   return (
     <div className="space-y-6">
@@ -442,13 +449,14 @@ function VolunteersTab({
 
       {volunteers.length > 0 && (
         <div className="bg-gray-900 rounded-xl overflow-hidden overflow-x-auto">
-          <div className="bg-gray-800 px-5 py-3 flex items-center justify-between">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={() => setSelected(allSelected ? new Set() : new Set(volunteers.map((v) => v.id)))} className="w-4 h-4 accent-orange-500" />
+          <div className="bg-gray-800 px-5 py-3 flex items-center gap-4">
+            <label className="flex items-center gap-3 cursor-pointer select-none shrink-0">
+              <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }} onChange={() => setSelected(allSelected ? new Set() : new Set(visibleVolunteers.map((v) => v.id)))} className="w-4 h-4 accent-orange-500" />
               <span className="text-sm text-gray-400">{selected.size > 0 ? `${selected.size} selected` : 'Select all'}</span>
             </label>
+            <input type="search" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-500" />
             {selected.size > 0 && (
-              <button onClick={deleteSelected} disabled={loading} className="bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
+              <button onClick={deleteSelected} disabled={loading} className="shrink-0 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
                 Delete {selected.size} selected
               </button>
             )}
@@ -463,7 +471,7 @@ function VolunteersTab({
               </tr>
             </thead>
             <tbody>
-              {volunteers.map((v) =>
+              {visibleVolunteers.map((v) =>
                 editingId === v.id ? (
                   <tr key={v.id} className="border-t border-gray-800 bg-gray-800/40">
                     <td className="px-4 py-2"><input type="checkbox" checked={selected.has(v.id)} onChange={() => toggleSelect(v.id)} className="w-4 h-4 accent-orange-500" /></td>
