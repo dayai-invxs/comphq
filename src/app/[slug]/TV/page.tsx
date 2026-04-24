@@ -153,7 +153,7 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
         return (
           <div key={`${workout.id}-${heat.heatNumber}`} className="bg-gray-800 rounded-xl overflow-hidden">
             <div className="bg-gray-700 px-6 py-4">
-              <p className="text-gray-400 text-base font-medium mb-1">
+              <p className="text-gray-300 text-2xl font-bold mb-1">
                 Workout {workout.number}: {workout.name}
                 {workout.locationName && <span className="ml-2">· {workout.locationName}</span>}
               </p>
