@@ -79,7 +79,7 @@ export default function TVPage() {
     <div className="w-screen h-screen bg-gray-900 text-white overflow-hidden flex flex-col">
       <header className="flex items-center justify-between px-10 py-5 bg-gray-800 border-b-2 border-gray-700 flex-shrink-0">
         <h1 className="text-4xl font-bold text-orange-400">
-          {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard — Top 3'}
+          {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard'}
         </h1>
         <div className="flex gap-3 items-center">
           <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} />
@@ -211,7 +211,7 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
     return <div className="text-gray-500 text-3xl text-center mt-20">Loading leaderboard...</div>
   }
 
-  const { entries, workouts } = data
+  const { entries, workouts, tvLeaderboardPercentages = {} } = data
 
   if (workouts.length === 0 || entries.length === 0) {
     return <div className="text-gray-500 text-3xl text-center mt-20">No scores yet.</div>
@@ -226,8 +226,11 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '20px' }}>
       {divisions.map(division => {
-        const top3 = entries.filter(e => e.divisionName === division).slice(0, 3)
-        if (top3.length === 0) return null
+        const divisionEntries = entries.filter(e => e.divisionName === division)
+        const pct = division != null ? (tvLeaderboardPercentages[division] ?? 100) : 100
+        const showCount = Math.max(1, Math.ceil(divisionEntries.length * pct / 100))
+        const topEntries = divisionEntries.slice(0, showCount)
+        if (topEntries.length === 0) return null
 
         return (
           <div key={division ?? 'none'} className="bg-gray-800 rounded-xl overflow-hidden">
@@ -235,13 +238,13 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
               <h2 className="text-xl font-bold text-orange-400">{division ?? 'No Division'}</h2>
             </div>
             <div className="px-5 py-3" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {top3.map((entry, i) => (
+              {topEntries.map((entry, i) => (
                 <div key={entry.athleteId} className="flex items-center gap-4">
-                  <span className={`text-3xl font-black w-12 text-center ${RANK_COLORS[i]}`}>
+                  <span className={`text-3xl font-black w-12 text-center ${RANK_COLORS[Math.min(i, RANK_COLORS.length - 1)]}`}>
                     #{i + 1}
                   </span>
                   <div>
-                    <div className={`text-xl font-bold ${RANK_COLORS[i]}`}>{entry.athleteName}</div>
+                    <div className={`text-xl font-bold ${RANK_COLORS[Math.min(i, RANK_COLORS.length - 1)]}`}>{entry.athleteName}</div>
                     <div className="text-gray-400 text-base">
                       {Number.isInteger(entry.totalPoints)
                         ? entry.totalPoints

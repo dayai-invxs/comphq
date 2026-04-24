@@ -16,6 +16,8 @@ export default function CompetitionDashboard() {
   const [logoLoading, setLogoLoading] = useState(false)
   const [showBib, setShowBib] = useState(true)
   const [leaderboardVisibility, setLeaderboardVisibility] = useState<'per_heat' | 'per_workout'>('per_workout')
+  const [divisions, setDivisions] = useState<{ id: number; name: string }[]>([])
+  const [tvPercentages, setTvPercentages] = useState<Record<string, number>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -25,6 +27,10 @@ export default function CompetitionDashboard() {
     fetch(`/api/settings?slug=${slug}`).then((r) => r.json()).then((d) => {
       setShowBib(d.showBib)
       setLeaderboardVisibility(d.leaderboardVisibility ?? 'per_workout')
+      setTvPercentages(d.tvLeaderboardPercentages ?? {})
+    })
+    fetch(`/api/divisions?slug=${slug}`).then((r) => r.json()).then((d) => {
+      if (Array.isArray(d)) setDivisions(d.map((div: { id: number; name: string }) => ({ id: div.id, name: div.name })))
     })
   }, [slug])
 
@@ -45,6 +51,15 @@ export default function CompetitionDashboard() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, leaderboardVisibility: next }),
+    })
+  }
+
+  async function saveTvPercentages(next: Record<string, number>) {
+    setTvPercentages(next)
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, tvLeaderboardPercentages: next }),
     })
   }
 
@@ -168,6 +183,35 @@ export default function CompetitionDashboard() {
           </div>
         </label>
       </div>
+
+      {divisions.length > 0 && (
+        <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
+          <h2 className="text-lg font-semibold text-white mb-1">TV Leaderboard</h2>
+          <p className="text-xs text-gray-500 mb-4">% of top-ranked athletes shown per division</p>
+          <div className="space-y-3">
+            {divisions.map((div) => (
+              <div key={div.id} className="flex items-center justify-between gap-4">
+                <span className="text-sm text-white truncate">{div.name}</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={tvPercentages[div.name] ?? 100}
+                    onChange={(e) => setTvPercentages((prev) => ({ ...prev, [div.name]: Number(e.target.value) }))}
+                    onBlur={(e) => {
+                      const val = Math.min(100, Math.max(0, Number(e.target.value)))
+                      saveTvPercentages({ ...tvPercentages, [div.name]: val })
+                    }}
+                    className="w-16 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1 text-right focus:outline-none focus:border-orange-500"
+                  />
+                  <span className="text-gray-400 text-sm">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
         <h2 className="text-lg font-semibold text-white mb-4">Competition Logo</h2>

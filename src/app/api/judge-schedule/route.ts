@@ -90,9 +90,13 @@ export async function GET(req: Request) {
         const heatMs = calcHeatStartMs(
           heatNumber, wk.startTime, wk.heatIntervalSecs, wk.heatStartOverrides, wk.timeBetweenHeatsSecs,
         )
+        const walkoutTimeMs = heatMs != null && wk.walkoutTimeSecs != null
+          ? heatMs - wk.walkoutTimeSecs * 1000
+          : heatMs
         return {
           heatNumber,
           heatTimeMs: heatMs,
+          walkoutTimeMs,
           assignments: wkAssignments
             .filter(a => a.heatNumber === heatNumber)
             .sort((a, b) => a.lane - b.lane)

@@ -129,10 +129,10 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
           </div>
 
           <div className="hidden lg:flex items-center gap-4 ml-auto">
-            <Link href={`/${slug}`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Competition Schedule</Link>
-            <Link href={`/${slug}/athlete-overview`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Athlete Overview</Link>
-            <Link href={`/${slug}/judges`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Judges</Link>
-            <Link href={`/${slug}/control`} target="_blank" className="text-xs text-gray-500 hover:text-gray-300">Control</Link>
+            <Link href={`/${slug}`} className="text-xs text-gray-500 hover:text-gray-300">Competition Schedule</Link>
+            <Link href={`/${slug}/athlete-overview`} className="text-xs text-gray-500 hover:text-gray-300">Athlete Overview</Link>
+            <Link href={`/${slug}/judges`} className="text-xs text-gray-500 hover:text-gray-300">Judges</Link>
+            <Link href={`/${slug}/control`} className="text-xs text-gray-500 hover:text-gray-300">Control</Link>
             <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-white transition-colors">
               Sign out
             </button>
@@ -169,10 +169,10 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
               </Link>
             ))}
             <div className="border-t border-gray-800 mt-2 pt-2 flex flex-col gap-1">
-              <Link href={`/${slug}`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Competition Schedule</Link>
-              <Link href={`/${slug}/athlete-overview`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Overview</Link>
-              <Link href={`/${slug}/judges`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Judges</Link>
-              <Link href={`/${slug}/control`} target="_blank" className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Control</Link>
+              <Link href={`/${slug}`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Competition Schedule</Link>
+              <Link href={`/${slug}/athlete-overview`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Overview</Link>
+              <Link href={`/${slug}/judges`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Judges</Link>
+              <Link href={`/${slug}/control`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Control</Link>
               <button
                 onClick={() => signOut()}
                 className="px-2 py-2 text-left text-sm text-gray-400 hover:text-white transition-colors"

@@ -31,15 +31,19 @@ export async function GET(req: Request) {
   const competition = await resolveCompetition(slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  const [showBib, tiebreakWorkoutId, leaderboardVisibility] = await Promise.all([
+  const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw] = await Promise.all([
     getSetting(competition.id, 'showBib', 'true'),
     getSetting(competition.id, 'tiebreakWorkoutId', ''),
     getSetting(competition.id, 'leaderboardVisibility', 'per_workout'),
+    getSetting(competition.id, 'tvLeaderboardPercentages', '{}'),
   ])
+  let tvLeaderboardPercentages: Record<string, number> = {}
+  try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw) } catch { /* ignore */ }
   return Response.json({
     showBib: showBib !== 'false',
     tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
     leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
+    tvLeaderboardPercentages,
   })
 }
 
@@ -65,17 +69,24 @@ export async function PATCH(req: Request) {
     if (d.leaderboardVisibility !== undefined) {
       upserts.push(upsertSetting(competition.id, 'leaderboardVisibility', d.leaderboardVisibility))
     }
+    if (d.tvLeaderboardPercentages !== undefined) {
+      upserts.push(upsertSetting(competition.id, 'tvLeaderboardPercentages', JSON.stringify(d.tvLeaderboardPercentages)))
+    }
     await Promise.all(upserts)
 
-    const [showBib, tiebreakWorkoutId, leaderboardVisibility] = await Promise.all([
+    const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw] = await Promise.all([
       getSetting(competition.id, 'showBib', 'true'),
       getSetting(competition.id, 'tiebreakWorkoutId', ''),
       getSetting(competition.id, 'leaderboardVisibility', 'per_workout'),
+      getSetting(competition.id, 'tvLeaderboardPercentages', '{}'),
     ])
+    let tvLeaderboardPercentages: Record<string, number> = {}
+    try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw) } catch { /* ignore */ }
     return Response.json({
       showBib: showBib !== 'false',
       tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
       leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
+      tvLeaderboardPercentages,
     })
   } catch (e) {
     return authErrorResponse(e)

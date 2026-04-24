@@ -70,7 +70,7 @@ export default function AdminHome() {
                 <p className="text-gray-500 text-xs mt-0.5">/{c.slug}</p>
               </div>
               <div className="flex items-center gap-3">
-                <Link href={`/${c.slug}`} target="_blank" className="text-xs text-gray-400 hover:text-white transition-colors">Competition Schedule</Link>
+                <Link href={`/${c.slug}`} className="text-xs text-gray-400 hover:text-white transition-colors">Competition Schedule</Link>
                 <Link
                   href={`/${c.slug}/admin`}
                   className="text-sm bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg px-4 py-2 transition-colors"

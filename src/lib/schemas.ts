@@ -206,6 +206,7 @@ export const SettingsPatch = z.object({
   showBib: z.boolean().optional(),
   tiebreakWorkoutId: Id.nullable().optional(),
   leaderboardVisibility: z.enum(['per_heat', 'per_workout']).optional(),
+  tvLeaderboardPercentages: z.record(z.string(), z.number().int().min(0).max(100)).optional(),
 })
 
 export const CsvImport = z.object({

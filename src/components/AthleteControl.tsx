@@ -156,6 +156,12 @@ export default function AthleteControl({ slug }: { slug: string }) {
         const prevLatestMs = prevWorkout
           ? Math.max(...prevWorkout.heats.map((h) => getHeatMs(prevWorkout, h.heatNumber) ?? -Infinity).filter((n) => n !== -Infinity))
           : -Infinity
+        const prevLatestWalkoutMs = prevWorkout
+          ? Math.max(...prevWorkout.heats.map((h) => {
+              const ms = getHeatMs(prevWorkout, h.heatNumber)
+              return ms != null ? ms - prevWorkout.walkoutTimeSecs * 1000 : -Infinity
+            }).filter((n) => n !== -Infinity))
+          : -Infinity
 
         return (
           <section key={workout.id} className="mb-10">
@@ -183,10 +189,10 @@ export default function AthleteControl({ slug }: { slug: string }) {
 
                     const c = getChecks(workout.id, heat.heatNumber)
                     const dimmed = c.corral && c.walkout
-                    const conflict = heatMs != null && (
+                    const conflict = (heatMs != null && (
                       (isFinite(nextEarliestMs) && heatMs >= nextEarliestMs) ||
                       (prevLatestMs !== -Infinity && heatMs <= prevLatestMs)
-                    )
+                    )) || (corralMs != null && prevLatestWalkoutMs !== -Infinity && corralMs <= prevLatestWalkoutMs + 2 * 60 * 1000)
                     const isEditing = editingHeat?.workoutId === workout.id && editingHeat?.heatNumber === heat.heatNumber
                     const expanded = isExpanded(workout.id, heat.heatNumber)
                     const sortedEntries = [...heat.entries].sort((a, b) => a.lane - b.lane)
