@@ -12,21 +12,25 @@ export async function GET(req: Request) {
     const competition = await resolveCompetition(slug)
     if (!competition) return new Response('Competition not found', { status: 404 })
 
-    // Judges for this competition
-    const judgeRows = await db
+    // All volunteers for name lookup in assignments
+    const allVolunteerRows = await db
+      .select({ id: volunteer.id, name: volunteer.name })
+      .from(volunteer)
+      .where(eq(volunteer.competitionId, competition.id))
+
+    // Judge-role volunteers for the header count
+    const judgeRoleRows = await db
       .select({ id: volunteer.id, name: volunteer.name, roleName: volunteerRole.name })
       .from(volunteer)
       .innerJoin(volunteerRole, eq(volunteerRole.id, volunteer.roleId))
       .where(eq(volunteer.competitionId, competition.id))
 
-    const judges = judgeRows
+    const judges = judgeRoleRows
       .filter(r => r.roleName.toLowerCase() === 'judge')
       .map(r => ({ id: r.id, name: r.name }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    const judgeIds = judges.map(j => j.id)
-
-    if (judgeIds.length === 0) return Response.json({ judges: [], workouts: [] })
+    if (allVolunteerRows.length === 0) return Response.json({ judges: [], workouts: [] })
 
     // Workouts for this competition
     const workouts = await db
@@ -61,9 +65,9 @@ export async function GET(req: Request) {
       .from(judgeAssignment)
       .where(inArray(judgeAssignment.workoutId, workoutIds))
 
-    // Distinct heat numbers per workout (from athlete assignments)
+    // Distinct heat numbers + occupied lanes per workout (from athlete assignments)
     const [heatRows, completedRows] = await Promise.all([
-      db.select({ workoutId: heatAssignment.workoutId, heatNumber: heatAssignment.heatNumber })
+      db.select({ workoutId: heatAssignment.workoutId, heatNumber: heatAssignment.heatNumber, lane: heatAssignment.lane })
         .from(heatAssignment)
         .where(inArray(heatAssignment.workoutId, workoutIds)),
       db.select({ workoutId: heatCompletion.workoutId, heatNumber: heatCompletion.heatNumber })
@@ -74,13 +78,18 @@ export async function GET(req: Request) {
     const completedSet = new Set(completedRows.map(r => `${r.workoutId}-${r.heatNumber}`))
 
     const heatsByWorkout = new Map<number, Set<number>>()
+    // occupiedLanes: key = "workoutId-heatNumber", value = set of lane numbers with athletes
+    const occupiedLanes = new Map<string, Set<number>>()
     for (const r of heatRows) {
       if (completedSet.has(`${r.workoutId}-${r.heatNumber}`)) continue
       if (!heatsByWorkout.has(r.workoutId)) heatsByWorkout.set(r.workoutId, new Set())
       heatsByWorkout.get(r.workoutId)!.add(r.heatNumber)
+      const key = `${r.workoutId}-${r.heatNumber}`
+      if (!occupiedLanes.has(key)) occupiedLanes.set(key, new Set())
+      occupiedLanes.get(key)!.add(r.lane)
     }
 
-    const judgeMap = new Map(judges.map(j => [j.id, j.name]))
+    const judgeMap = new Map(allVolunteerRows.map(v => [v.id, v.name]))
 
     const result = workouts.map(wk => {
       const heatNums = [...(heatsByWorkout.get(wk.id) ?? [])].sort((a, b) => a - b)
@@ -98,7 +107,7 @@ export async function GET(req: Request) {
           heatTimeMs: heatMs,
           walkoutTimeMs,
           assignments: wkAssignments
-            .filter(a => a.heatNumber === heatNumber)
+            .filter(a => a.heatNumber === heatNumber && (occupiedLanes.get(`${wk.id}-${heatNumber}`)?.has(a.lane) ?? false))
             .sort((a, b) => a.lane - b.lane)
             .map(a => ({ judgeId: a.volunteerId, judgeName: judgeMap.get(a.volunteerId) ?? '?', lane: a.lane })),
         }
