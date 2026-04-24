@@ -81,11 +81,10 @@ export default function SetupPage() {
     await load()
   }
 
-  async function moveDivision(index: number, direction: 'up' | 'down') {
-    const other = direction === 'up' ? index - 1 : index + 1
-    if (other < 0 || other >= divisions.length) return
-    const a = divisions[index]
-    const b = divisions[other]
+  async function moveDivision(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= divisions.length) return
+    const a = divisions[fromIndex]
+    const b = divisions[toIndex]
     await run('Reorder division', () => Promise.all([
       putJson(`/api/divisions/${a.id}?slug=${slug}`, { order: b.order }),
       putJson(`/api/divisions/${b.id}?slug=${slug}`, { order: a.order }),
@@ -181,7 +180,7 @@ export default function SetupPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-800">
                 <tr>
-                  <th className="w-16 px-3 py-3" />
+                  <th className="text-left px-5 py-3 text-gray-400 font-medium w-24">Order</th>
                   <th className="text-left px-5 py-3 text-gray-400 font-medium">Name</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -209,11 +208,16 @@ export default function SetupPage() {
                     </tr>
                   ) : (
                     <tr key={d.id} className="border-t border-gray-800">
-                      <td className="px-3 py-2 w-16">
-                        <div className="flex flex-col gap-0.5">
-                          <button onClick={() => moveDivision(divisions.indexOf(d), 'up')} disabled={divisions.indexOf(d) === 0} className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors leading-none">▲</button>
-                          <button onClick={() => moveDivision(divisions.indexOf(d), 'down')} disabled={divisions.indexOf(d) === divisions.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors leading-none">▼</button>
-                        </div>
+                      <td className="px-3 py-2">
+                        <select
+                          value={divisions.indexOf(d) + 1}
+                          onChange={(e) => moveDivision(divisions.indexOf(d), Number(e.target.value) - 1)}
+                          className="bg-gray-800 text-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          {divisions.map((_, i) => (
+                            <option key={i} value={i + 1}>{i + 1}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-5 py-3 text-white font-medium">{d.name}</td>
                       <td className="px-5 py-3 text-right">
