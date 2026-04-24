@@ -36,7 +36,11 @@ export default function LeaderboardPage() {
     )
   }
 
-  const divisions = [...new Set(entries.map((e) => e.divisionName))].sort((a, b) => {
+  const divisions = [...new Set(
+    entries
+      .filter((e) => Object.values(e.workoutScores).some((s) => s !== null))
+      .map((e) => e.divisionName)
+  )].sort((a, b) => {
     if (a === null) return 1
     if (b === null) return -1
     return a.localeCompare(b)
