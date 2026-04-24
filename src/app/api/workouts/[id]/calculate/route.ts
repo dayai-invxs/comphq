@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { score, workout } from '@/db/schema'
+import { athlete, score, workout } from '@/db/schema'
 import { rankAndPersist } from '@/lib/scoring'
 import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
@@ -29,8 +29,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         rawScore: score.rawScore,
         tiebreakRawScore: score.tiebreakRawScore,
         partBRawScore: score.partBRawScore,
+        divisionId: athlete.divisionId,
       })
       .from(score)
+      .innerJoin(athlete, eq(athlete.id, score.athleteId))
       .where(eq(score.workoutId, workoutId))
 
     const result = await rankAndPersist(workoutId, wk, scores)

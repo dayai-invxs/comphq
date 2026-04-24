@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { heatAssignment, heatCompletion, score, workout } from '@/db/schema'
+import { athlete, heatAssignment, heatCompletion, score, workout } from '@/db/schema'
 import { rankAndPersist } from '@/lib/scoring'
 import { getCompletedHeats } from '@/lib/heatCompletion'
 import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
@@ -40,8 +40,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           rawScore: score.rawScore,
           tiebreakRawScore: score.tiebreakRawScore,
           partBRawScore: score.partBRawScore,
+          divisionId: athlete.divisionId,
         })
         .from(score)
+        .innerJoin(athlete, eq(athlete.id, score.athleteId))
         .where(eq(score.workoutId, workoutId)),
       db
         .select({ heatNumber: heatAssignment.heatNumber })
