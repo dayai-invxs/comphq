@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     return rows[0]?.value ?? null
   }
 
-  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw] = await Promise.all([
+  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, leaderboardVisibilityValue, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw] = await Promise.all([
     db.select().from(workout).where(eq(workout.competitionId, competition.id)).orderBy(asc(workout.number)),
     db
       .select({
@@ -38,12 +38,18 @@ export async function GET(req: Request) {
       .orderBy(asc(athlete.name)),
     db.select({ name: division.name, order: division.order }).from(division).where(eq(division.competitionId, competition.id)).orderBy(asc(division.order)),
     readSetting('tiebreakWorkoutId'),
+    readSetting('leaderboardVisibility'),
     readSetting('tvLeaderboardPercentages'),
     readSetting('tvLeaderboardOrder'),
   ])
 
   const athletes: AthleteRow[] = athletesRaw
-  const visibleWorkouts = workouts.filter((w) => w.status === 'active' || w.status === 'completed')
+  // Default to per_heat (live) so scores show as heats complete; per_workout hides until entire workout is done
+  const liveLeaderboard = (leaderboardVisibilityValue ?? 'per_heat') !== 'per_workout'
+  const visibleWorkouts = workouts.filter((w) => liveLeaderboard
+    ? w.status === 'active' || w.status === 'completed'
+    : w.status === 'completed'
+  )
 
   const tiebreakWorkoutId = tiebreakSettingValue ? Number(tiebreakSettingValue) : null
 

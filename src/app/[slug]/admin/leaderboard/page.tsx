@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
-type WorkoutScore = { points: number; display: string } | null
+type WorkoutScore = { points: number; display: string; tiebreakDisplay: string | null } | null
 type Entry = { athleteId: number; athleteName: string; divisionName: string | null; totalPoints: number; workoutScores: Record<number, WorkoutScore> }
 
 export default function LeaderboardPage() {
@@ -90,8 +90,13 @@ export default function LeaderboardPage() {
                         <td key={w.id} className="px-4 py-3">
                           {ws ? (
                             <div>
-                              <span className={`font-bold ${ws.points === 1 ? 'text-yellow-400' : ws.points <= 3 ? 'text-orange-400' : 'text-white'}`}>#{ws.points}</span>
-                              <span className="text-gray-500 text-xs ml-1">{ws.display}</span>
+                              <div>
+                                <span className={`font-bold ${ws.points === 1 ? 'text-yellow-400' : ws.points <= 3 ? 'text-orange-400' : 'text-white'}`}>#{ws.points}</span>
+                                <span className="text-gray-500 text-xs ml-1">{ws.display}</span>
+                              </div>
+                              {ws.tiebreakDisplay && (
+                                <div className="text-blue-400 text-xs mt-0.5">TB {ws.tiebreakDisplay}</div>
+                              )}
                             </div>
                           ) : <span className="text-gray-600">DNS</span>}
                         </td>

@@ -143,7 +143,19 @@ export function calculateRankings(
       ? a.tiebreakRawScore - b.tiebreakRawScore
       : b.tiebreakRawScore - a.tiebreakRawScore
   })
-  return sorted.map((s, i) => ({ ...s, points: i + 1 }))
+  // Standard competition ranking: tied athletes share the same rank and positions
+  // are skipped (e.g. two 7th places → next is 9th, not 8th).
+  const result: Array<{ athleteId: number; rawScore: number; points: number }> = []
+  for (let i = 0; i < sorted.length; i++) {
+    const s = sorted[i]
+    if (i === 0) { result.push({ ...s, points: 1 }); continue }
+    const prev = sorted[i - 1]
+    const primaryTied = prev.rawScore === s.rawScore
+    const tiebreakTied = !tiebreakEnabled ||
+      (prev.tiebreakRawScore ?? null) === (s.tiebreakRawScore ?? null)
+    result.push({ ...s, points: primaryTied && tiebreakTied ? result[i - 1].points : i + 1 })
+  }
+  return result
 }
 
 type ScoreRow = {
@@ -152,6 +164,7 @@ type ScoreRow = {
   rawScore: number
   tiebreakRawScore: number | null
   partBRawScore: number | null
+  divisionId: number | null
 }
 
 type RankableWorkout = {
@@ -175,35 +188,46 @@ export async function rankAndPersist(
   workout: RankableWorkout,
   scores: ScoreRow[],
 ): Promise<{ count: number; error: string | null }> {
-  const rankedA = calculateRankings(
-    scores.map((s) => ({
-      athleteId: s.athleteId,
-      rawScore: s.rawScore,
-      tiebreakRawScore: s.tiebreakRawScore,
-    })),
-    workout.scoreType,
-    workout.tiebreakEnabled,
-    workout.tiebreakScoreType,
-  )
+  if (scores.length === 0) return { count: 0, error: null }
 
-  const partBScores = scores.filter((s) => s.partBRawScore != null)
-  const rankedB = workout.partBEnabled && partBScores.length > 0
-    ? calculateRankings(
-        partBScores.map((s) => ({
-          athleteId: s.athleteId,
-          rawScore: s.partBRawScore as number,
-        })),
+  // Group by division and rank within each division independently.
+  const divisionGroups = new Map<number | null, ScoreRow[]>()
+  for (const s of scores) {
+    const key = s.divisionId
+    if (!divisionGroups.has(key)) divisionGroups.set(key, [])
+    divisionGroups.get(key)!.push(s)
+  }
+
+  const allRankedA: Array<{ athleteId: number; points: number }> = []
+  const partBPointsMap = new Map<number, number>()
+
+  for (const group of divisionGroups.values()) {
+    const rankedA = calculateRankings(
+      group.map((s) => ({
+        athleteId: s.athleteId,
+        rawScore: s.rawScore,
+        tiebreakRawScore: s.tiebreakRawScore,
+      })),
+      workout.scoreType,
+      workout.tiebreakEnabled,
+      workout.tiebreakScoreType,
+    )
+    allRankedA.push(...rankedA)
+
+    const partBScores = group.filter((s) => s.partBRawScore != null)
+    if (workout.partBEnabled && partBScores.length > 0) {
+      const rankedB = calculateRankings(
+        partBScores.map((s) => ({ athleteId: s.athleteId, rawScore: s.partBRawScore as number })),
         workout.partBScoreType,
       )
-    : []
-  const partBPointsMap = new Map(rankedB.map(({ athleteId, points }) => [athleteId, points]))
-
-  if (rankedA.length === 0) return { count: 0, error: null }
+      for (const { athleteId, points } of rankedB) partBPointsMap.set(athleteId, points)
+    }
+  }
 
   // Upsert preserves existing row shape; we only mutate the two point columns.
   // Build full rows from the input `scores` so rawScore/tiebreak aren't wiped.
   const scoreByAthlete = new Map(scores.map((s) => [s.athleteId, s]))
-  const rows = rankedA.map(({ athleteId, points }) => {
+  const rows = allRankedA.map(({ athleteId, points }) => {
     const existing = scoreByAthlete.get(athleteId)!
     return {
       athleteId,
@@ -232,7 +256,7 @@ export async function rankAndPersist(
           partBPoints: sql`excluded."partBPoints"`,
         },
       })
-    return { count: rankedA.length, error: null }
+    return { count: allRankedA.length, error: null }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
     return { count: rankedA.length, error: msg }

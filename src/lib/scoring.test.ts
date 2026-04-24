@@ -42,6 +42,23 @@ describe('calculateRankings', () => {
     expect(ranked[0].athleteId).toBe(2)
   })
 
+  it('gives tied athletes the same points and skips positions after a tie', () => {
+    const ranked = calculateRankings(
+      [
+        { athleteId: 1, rawScore: 70 },
+        { athleteId: 2, rawScore: 80 },
+        { athleteId: 3, rawScore: 80 },
+        { athleteId: 4, rawScore: 90 },
+      ],
+      'time',
+    )
+    const byId = Object.fromEntries(ranked.map(r => [r.athleteId, r.points]))
+    expect(byId[1]).toBe(1)   // 1st
+    expect(byId[2]).toBe(2)   // tied 2nd
+    expect(byId[3]).toBe(2)   // tied 2nd
+    expect(byId[4]).toBe(4)   // 4th (skips 3rd)
+  })
+
   it('treats null tiebreak as worst', () => {
     const ranked = calculateRankings(
       [
@@ -125,9 +142,9 @@ describe('rankAndPersist', () => {
     mock.queueResult(undefined)
 
     const result = await rankAndPersist(7, workout, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null },
-      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null },
-      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: null },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
+      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
+      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
     ])
 
     expect(result.count).toBe(3)
@@ -142,7 +159,7 @@ describe('rankAndPersist', () => {
   it('preserves rawScore/tiebreak/partBRawScore on the upserted rows', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, { ...workout, partBEnabled: true }, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50, divisionId: 1 },
     ])
     const row = (lastValues() as Array<Record<string, unknown>>)[0]
     expect(row).toMatchObject({ rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50 })
@@ -151,8 +168,8 @@ describe('rankAndPersist', () => {
   it('computes partB points when enabled, leaves them null otherwise', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, { ...workout, partBEnabled: true }, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30 },
-      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: 20 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1 },
+      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: 20, divisionId: 1 },
     ])
     const rows = lastValues() as Array<{ athleteId: number; partBPoints: number | null }>
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.partBPoints]))
@@ -163,10 +180,28 @@ describe('rankAndPersist', () => {
   it('leaves partBPoints null when partBEnabled is false', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, workout, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1 },
     ])
     const row = (lastValues() as Array<Record<string, unknown>>)[0]
     expect(row.partBPoints).toBeNull()
+  })
+
+  it('ranks each division independently so points restart at 1 per division', async () => {
+    mock.queueResult(undefined)
+    await rankAndPersist(7, workout, [
+      { athleteId: 1, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
+      { athleteId: 2, workoutId: 7, rawScore: 90, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
+      { athleteId: 3, workoutId: 7, rawScore: 70, tiebreakRawScore: null, partBRawScore: null, divisionId: 2 },
+      { athleteId: 4, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null, divisionId: 2 },
+    ])
+    const rows = lastValues() as Array<{ athleteId: number; points: number }>
+    const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.points]))
+    // Div 1: athlete 1 (80s) = 1st, athlete 2 (90s) = 2nd
+    expect(byId[1]).toBe(1)
+    expect(byId[2]).toBe(2)
+    // Div 2: athlete 3 (70s) = 1st, athlete 4 (100s) = 2nd — NOT 3rd/4th
+    expect(byId[3]).toBe(1)
+    expect(byId[4]).toBe(2)
   })
 
   it('returns count=0 and skips DB when no scores to rank', async () => {
