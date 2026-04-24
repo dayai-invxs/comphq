@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { judgeAssignment, volunteer, volunteerRole, workout } from '@/db/schema'
 import { requireCompetitionAdmin } from '@/lib/auth-competition'
@@ -82,9 +82,22 @@ export async function POST(req: Request) {
     }
 
     if (toInsert.length > 0) {
-      await db.insert(judgeAssignment).values(toInsert).onConflictDoUpdate({
-        target: [judgeAssignment.workoutId, judgeAssignment.heatNumber, judgeAssignment.lane],
-        set: { volunteerId: sql`excluded."volunteerId"` },
+      await db.transaction(async (tx) => {
+        // Delete any rows that would violate either unique constraint:
+        // (workoutId, heatNumber, lane) OR (workoutId, heatNumber, volunteerId)
+        for (const row of toInsert) {
+          await tx.delete(judgeAssignment).where(
+            and(
+              eq(judgeAssignment.workoutId, row.workoutId),
+              eq(judgeAssignment.heatNumber, row.heatNumber),
+              or(
+                eq(judgeAssignment.lane, row.lane),
+                eq(judgeAssignment.volunteerId, row.volunteerId),
+              ),
+            ),
+          )
+        }
+        await tx.insert(judgeAssignment).values(toInsert)
       })
     }
 
