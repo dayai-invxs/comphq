@@ -48,10 +48,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         status: workout.status,
       })
       .from(workout)
-      .where(and(
-        eq(workout.competitionId, competition.id),
-        inArray(workout.status, ['active', 'completed']),
-      ))
+      .where(eq(workout.competitionId, competition.id))
 
     if (workouts.length === 0) return Response.json({ withdrawn: true })
 
