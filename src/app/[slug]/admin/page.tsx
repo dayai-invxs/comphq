@@ -18,6 +18,7 @@ export default function CompetitionDashboard() {
   const [leaderboardVisibility, setLeaderboardVisibility] = useState<'per_heat' | 'per_workout'>('per_workout')
   const [divisions, setDivisions] = useState<{ id: number; name: string }[]>([])
   const [tvPercentages, setTvPercentages] = useState<Record<string, number>>({})
+  const [tvOrder, setTvOrder] = useState<Record<string, number>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function CompetitionDashboard() {
       setShowBib(d.showBib)
       setLeaderboardVisibility(d.leaderboardVisibility ?? 'per_workout')
       setTvPercentages(d.tvLeaderboardPercentages ?? {})
+      setTvOrder(d.tvLeaderboardOrder ?? {})
     })
     fetch(`/api/divisions?slug=${slug}`).then((r) => r.json()).then((d) => {
       if (Array.isArray(d)) setDivisions(d.map((div: { id: number; name: string }) => ({ id: div.id, name: div.name })))
@@ -60,6 +62,15 @@ export default function CompetitionDashboard() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, tvLeaderboardPercentages: next }),
+    })
+  }
+
+  async function saveTvOrder(next: Record<string, number>) {
+    setTvOrder(next)
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, tvLeaderboardOrder: next }),
     })
   }
 
@@ -187,12 +198,29 @@ export default function CompetitionDashboard() {
       {divisions.length > 0 && (
         <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
           <h2 className="text-lg font-semibold text-white mb-1">TV Leaderboard</h2>
-          <p className="text-xs text-gray-500 mb-4">% of top-ranked athletes shown per division</p>
-          <div className="space-y-3">
+          <p className="text-xs text-gray-500 mb-4">Set display order and % of top athletes shown per division</p>
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-3">
+            <span className="text-xs text-gray-500">Division</span>
+            <span className="text-xs text-gray-500 text-center">Position</span>
+            <span className="text-xs text-gray-500 text-center">Show</span>
             {divisions.map((div) => (
-              <div key={div.id} className="flex items-center justify-between gap-4">
-                <span className="text-sm text-white truncate">{div.name}</span>
-                <div className="flex items-center gap-1.5 shrink-0">
+              <>
+                <span key={`${div.id}-name`} className="text-sm text-white truncate">{div.name}</span>
+                <select
+                  key={`${div.id}-order`}
+                  value={tvOrder[div.name] ?? ''}
+                  onChange={(e) => {
+                    const next = e.target.value ? { ...tvOrder, [div.name]: Number(e.target.value) } : Object.fromEntries(Object.entries(tvOrder).filter(([k]) => k !== div.name))
+                    saveTvOrder(next)
+                  }}
+                  className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500"
+                >
+                  <option value="">—</option>
+                  {divisions.map((_, i) => (
+                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                  ))}
+                </select>
+                <div key={`${div.id}-pct`} className="flex items-center gap-1 justify-end">
                   <input
                     type="number"
                     min={0}
@@ -203,11 +231,11 @@ export default function CompetitionDashboard() {
                       const val = Math.min(100, Math.max(0, Number(e.target.value)))
                       saveTvPercentages({ ...tvPercentages, [div.name]: val })
                     }}
-                    className="w-16 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1 text-right focus:outline-none focus:border-orange-500"
+                    className="w-14 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1 text-right focus:outline-none focus:border-orange-500"
                   />
                   <span className="text-gray-400 text-sm">%</span>
                 </div>
-              </div>
+              </>
             ))}
           </div>
         </div>

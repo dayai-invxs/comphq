@@ -32,6 +32,7 @@ export type LeaderboardData = {
   halfWeightIds: number[]
   tiebreakWorkoutId?: number | null
   tvLeaderboardPercentages?: Record<string, number>
+  tvLeaderboardOrder?: Record<string, number>
   divisions?: { name: string; order: number }[]
 }
 

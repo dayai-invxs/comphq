@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     return rows[0]?.value ?? null
   }
 
-  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, visibilitySettingValue, tvLeaderboardPercentagesRaw] = await Promise.all([
+  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, visibilitySettingValue, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw] = await Promise.all([
     db.select().from(workout).where(eq(workout.competitionId, competition.id)).orderBy(asc(workout.number)),
     db
       .select({
@@ -40,6 +40,7 @@ export async function GET(req: Request) {
     readSetting('tiebreakWorkoutId'),
     readSetting('leaderboardVisibility'),
     readSetting('tvLeaderboardPercentages'),
+    readSetting('tvLeaderboardOrder'),
   ])
 
   const athletes: AthleteRow[] = athletesRaw
@@ -130,6 +131,8 @@ export async function GET(req: Request) {
 
   let tvLeaderboardPercentages: Record<string, number> = {}
   try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw ?? '{}') } catch { /* ignore */ }
+  let tvLeaderboardOrder: Record<string, number> = {}
+  try { tvLeaderboardOrder = JSON.parse(tvLeaderboardOrderRaw ?? '{}') } catch { /* ignore */ }
 
   return Response.json(
     {
@@ -138,6 +141,7 @@ export async function GET(req: Request) {
       tiebreakWorkoutId,
       halfWeightIds: visibleWorkouts.filter((w) => w.halfWeight).map((w) => w.id),
       tvLeaderboardPercentages,
+      tvLeaderboardOrder,
       divisions: divisionsRaw,
     },
     { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },
