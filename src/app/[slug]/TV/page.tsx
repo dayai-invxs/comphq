@@ -83,10 +83,7 @@ export default function TVPage() {
           {view === 'schedule' ? 'Competition Schedule' : 'Leaderboard'}
         </h1>
         <div className="flex items-center gap-6">
-          <div className="flex flex-col items-center gap-1">
-            <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
-            <span className="text-xs text-gray-400">Athlete Overview</span>
-          </div>
+          <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
           <div className="flex gap-3">
             <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} />
             <div className={`w-4 h-4 rounded-full transition-colors ${view === 'leaderboard' ? 'bg-orange-400' : 'bg-gray-600'}`} />
