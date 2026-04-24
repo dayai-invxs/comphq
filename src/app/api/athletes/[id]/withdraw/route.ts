@@ -85,8 +85,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             rawScore: score.rawScore,
             tiebreakRawScore: score.tiebreakRawScore,
             partBRawScore: score.partBRawScore,
+            divisionId: athlete.divisionId,
           })
           .from(score)
+          .innerJoin(athlete, eq(athlete.id, score.athleteId))
           .where(eq(score.workoutId, wk.id))
         if (allScores.length > 0) {
           await rankAndPersist(wk.id, wk, allScores)

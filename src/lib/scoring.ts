@@ -259,6 +259,6 @@ export async function rankAndPersist(
     return { count: allRankedA.length, error: null }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
-    return { count: rankedA.length, error: msg }
+    return { count: allRankedA.length, error: msg }
   }
 }
