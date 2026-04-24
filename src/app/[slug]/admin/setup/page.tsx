@@ -81,6 +81,18 @@ export default function SetupPage() {
     await load()
   }
 
+  async function moveDivision(index: number, direction: 'up' | 'down') {
+    const other = direction === 'up' ? index - 1 : index + 1
+    if (other < 0 || other >= divisions.length) return
+    const a = divisions[index]
+    const b = divisions[other]
+    await run('Reorder division', () => Promise.all([
+      putJson(`/api/divisions/${a.id}?slug=${slug}`, { order: b.order }),
+      putJson(`/api/divisions/${b.id}?slug=${slug}`, { order: a.order }),
+    ]))
+    await load()
+  }
+
   async function removeDivision(id: number, name: string) {
     if (!confirm(`Delete division "${name}"? Athletes in this division will be unassigned.`)) return
     const ok = await run('Delete division', () => delJson(`/api/divisions/${id}?slug=${slug}`))
@@ -169,7 +181,7 @@ export default function SetupPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-800">
                 <tr>
-                  <th className="text-left px-5 py-3 text-gray-400 font-medium w-16">Order</th>
+                  <th className="w-16 px-3 py-3" />
                   <th className="text-left px-5 py-3 text-gray-400 font-medium">Name</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -197,7 +209,12 @@ export default function SetupPage() {
                     </tr>
                   ) : (
                     <tr key={d.id} className="border-t border-gray-800">
-                      <td className="px-5 py-3 text-orange-400 font-bold">{d.order}</td>
+                      <td className="px-3 py-2 w-16">
+                        <div className="flex flex-col gap-0.5">
+                          <button onClick={() => moveDivision(divisions.indexOf(d), 'up')} disabled={divisions.indexOf(d) === 0} className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors leading-none">▲</button>
+                          <button onClick={() => moveDivision(divisions.indexOf(d), 'down')} disabled={divisions.indexOf(d) === divisions.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors leading-none">▼</button>
+                        </div>
+                      </td>
                       <td className="px-5 py-3 text-white font-medium">{d.name}</td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex justify-end gap-4">

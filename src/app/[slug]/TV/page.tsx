@@ -215,16 +215,19 @@ function LeaderboardView({ data }: { data: LeaderboardData | undefined }) {
     return <div className="text-gray-500 text-3xl text-center mt-20">Loading leaderboard...</div>
   }
 
-  const { entries, workouts, tvLeaderboardPercentages = {} } = data
+  const { entries, workouts, tvLeaderboardPercentages = {}, divisions: divisionOrder = [] } = data
 
   if (workouts.length === 0 || entries.length === 0) {
     return <div className="text-gray-500 text-3xl text-center mt-20">No scores yet.</div>
   }
 
+  const orderMap = new Map(divisionOrder.map(d => [d.name, d.order]))
   const divisions = [...new Set(entries.map(e => e.divisionName))].sort((a, b) => {
     if (a === null) return 1
     if (b === null) return -1
-    return a.localeCompare(b)
+    const orderA = orderMap.get(a) ?? Infinity
+    const orderB = orderMap.get(b) ?? Infinity
+    return orderA !== orderB ? orderA - orderB : a.localeCompare(b)
   })
 
   return (

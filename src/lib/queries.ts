@@ -32,6 +32,7 @@ export type LeaderboardData = {
   halfWeightIds: number[]
   tiebreakWorkoutId?: number | null
   tvLeaderboardPercentages?: Record<string, number>
+  divisions?: { name: string; order: number }[]
 }
 
 export function useLeaderboard(slug: string) {

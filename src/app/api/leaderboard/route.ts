@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     return rows[0]?.value ?? null
   }
 
-  const [workouts, athletesRaw, tiebreakSettingValue, visibilitySettingValue, tvLeaderboardPercentagesRaw] = await Promise.all([
+  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, visibilitySettingValue, tvLeaderboardPercentagesRaw] = await Promise.all([
     db.select().from(workout).where(eq(workout.competitionId, competition.id)).orderBy(asc(workout.number)),
     db
       .select({
@@ -36,6 +36,7 @@ export async function GET(req: Request) {
       .leftJoin(division, eq(division.id, athlete.divisionId))
       .where(eq(athlete.competitionId, competition.id))
       .orderBy(asc(athlete.name)),
+    db.select({ name: division.name, order: division.order }).from(division).where(eq(division.competitionId, competition.id)).orderBy(asc(division.order)),
     readSetting('tiebreakWorkoutId'),
     readSetting('leaderboardVisibility'),
     readSetting('tvLeaderboardPercentages'),
@@ -137,6 +138,7 @@ export async function GET(req: Request) {
       tiebreakWorkoutId,
       halfWeightIds: visibleWorkouts.filter((w) => w.halfWeight).map((w) => w.id),
       tvLeaderboardPercentages,
+      divisions: divisionsRaw,
     },
     { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },
   )
