@@ -48,6 +48,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
   const [tab, setTab] = useState<Tab>('athletes')
   const [checks, setChecks] = useState<Record<string, RowChecks>>({})
+  const [equipChecks, setEquipChecks] = useState<Record<string, boolean>>({})
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
   const [heatTimeInput, setHeatTimeInput] = useState('')
@@ -140,7 +141,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
         ))}
       </div>
 
-      {tab === 'equipment' && <EquipmentControl workouts={workouts} slug={slug} />}
+      {tab === 'equipment' && <EquipmentControl workouts={workouts} slug={slug} checks={equipChecks} setChecks={setEquipChecks} />}
 
       {tab === 'athletes' && workouts.length === 0 && (
         <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>
@@ -222,13 +223,13 @@ export default function AthleteControl({ slug }: { slug: string }) {
                           </td>
                           <td className="px-3 py-2.5 text-yellow-400 font-mono">
                             <span className="flex items-center gap-2">
-                              {fmtMs(corralMs)}
+                              <span className={c.corral ? 'line-through opacity-50' : ''}>{fmtMs(corralMs)}</span>
                               <input type="checkbox" checked={c.corral} onChange={() => toggle(workout.id, heat.heatNumber, 'corral')} className="accent-yellow-400 w-3.5 h-3.5" />
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-blue-400 font-mono">
                             <span className="flex items-center gap-2">
-                              {fmtMs(walkoutMs)}
+                              <span className={c.walkout ? 'line-through opacity-50' : ''}>{fmtMs(walkoutMs)}</span>
                               <input type="checkbox" checked={c.walkout} onChange={() => toggle(workout.id, heat.heatNumber, 'walkout')} className="accent-blue-400 w-3.5 h-3.5" />
                             </span>
                           </td>

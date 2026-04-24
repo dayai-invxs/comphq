@@ -1,16 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 
 type HeatEntry = { athleteId: number; lane: number; divisionName: string | null }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
 type WorkoutData = { id: number; number: number; name: string; status: string; heats: Heat[] }
 type EquipmentItem = { id: number; item: string; divisionId: number | null; division: { id: number; name: string } | null }
 
-type Props = { workouts: WorkoutData[]; slug: string }
+type Props = { workouts: WorkoutData[]; slug: string; checks: Record<string, boolean>; setChecks: Dispatch<SetStateAction<Record<string, boolean>>> }
 
-export default function EquipmentControl({ workouts, slug }: Props) {
-  const [checks, setChecks] = useState<Record<string, boolean>>({})
+export default function EquipmentControl({ workouts, slug, checks, setChecks }: Props) {
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [equipmentByWorkout, setEquipmentByWorkout] = useState<Record<number, EquipmentItem[]>>({})
 
