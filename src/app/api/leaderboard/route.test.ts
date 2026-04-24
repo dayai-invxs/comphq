@@ -47,10 +47,10 @@ describe('GET /api/leaderboard', () => {
     // Shift order: readSetting helpers inside Promise.all run synchronously
     // at array-evaluation time (the async fn body executes to its first await),
     // so they shift results BEFORE Promise.all iterates the outer items.
-    //   1-2. readSetting('tiebreakWorkoutId'), readSetting('leaderboardVisibility')
-    //   3-4. workouts + athletes (Promise.all iteration calls .then)
-    //   5. scores (post-Promise.all)
-    mock.queueResults([], [], workouts, athletes, scores)
+    //   1-3. readSetting('tiebreakWorkoutId'), readSetting('leaderboardVisibility'), readSetting('tvLeaderboardPercentages')
+    //   4-5. workouts + athletes (Promise.all iteration calls .then)
+    //   6. scores (post-Promise.all)
+    mock.queueResults([], [], [], workouts, athletes, scores)
 
     const res = await GET(getReq())
     const body = await res.json()
