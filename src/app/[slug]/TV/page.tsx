@@ -91,7 +91,7 @@ export default function TVPage() {
         </h1>
         <div className="flex items-center">
           <div className="flex items-center" style={{ marginRight: 24 }}>
-            <span className="text-gray-400 text-lg font-medium" style={{ marginRight: 12 }}>Scan for Comp Info →</span>
+            <span className="text-gray-400 font-bold text-5xl" style={{ marginRight: 24 }}>Scan for Comp Info →</span>
             <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
           </div>
           <div className="flex">
