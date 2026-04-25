@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { athlete as athleteTable, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
-import { ScoreUpsert } from '@/lib/schemas'
+import { ScoreUpsert, ScorePointsOverride } from '@/lib/schemas'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -108,6 +108,27 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       .where(and(eq(workout.id, workoutId), eq(workout.status, 'completed')))
 
     return Response.json({ deleted: deleted.length })
+  } catch (e) {
+    return authErrorResponse(e)
+  }
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const parsed = await parseJson(req, ScorePointsOverride)
+  if (!parsed.ok) return parsed.response
+
+  try {
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
+    const { id } = await params
+    const workoutId = Number(id)
+    await requireWorkoutInCompetition(workoutId, competition.id)
+
+    await db
+      .update(score)
+      .set({ points: parsed.data.points })
+      .where(and(eq(score.athleteId, parsed.data.athleteId), eq(score.workoutId, workoutId)))
+
+    return new Response(null, { status: 204 })
   } catch (e) {
     return authErrorResponse(e)
   }

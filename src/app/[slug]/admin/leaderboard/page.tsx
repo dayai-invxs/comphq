@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
 type WorkoutScore = { points: number; display: string; tiebreakDisplay: string | null } | null
 type Entry = { athleteId: number; athleteName: string; divisionName: string | null; totalPoints: number; workoutScores: Record<number, WorkoutScore> }
+
+type CellKey = { athleteId: number; workoutId: number }
 
 export default function LeaderboardPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -13,9 +15,13 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [halfWeightIds, setHalfWeightIds] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
+  const [confirming, setConfirming] = useState<CellKey | null>(null)
+  const [editing, setEditing] = useState<CellKey & { value: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const editInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    fetch(`/api/leaderboard?slug=${slug}`)
+  function load() {
+    return fetch(`/api/leaderboard?slug=${slug}`)
       .then((r) => r.json())
       .then(({ workouts: ws, entries: es, halfWeightIds: hwIds }) => {
         setWorkouts(ws)
@@ -23,7 +29,28 @@ export default function LeaderboardPage() {
         setHalfWeightIds(hwIds ?? [])
         setLoading(false)
       })
-  }, [slug])
+  }
+
+  useEffect(() => { void load() }, [slug])
+
+  useEffect(() => {
+    if (editing) editInputRef.current?.focus()
+  }, [editing])
+
+  async function savePoints() {
+    if (!editing || saving) return
+    const pts = parseInt(editing.value, 10)
+    if (isNaN(pts) || pts < 1) return
+    setSaving(true)
+    await fetch(`/api/workouts/${editing.workoutId}/scores?slug=${slug}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, athleteId: editing.athleteId, points: pts }),
+    })
+    setEditing(null)
+    setSaving(false)
+    await load()
+  }
 
   if (loading) return <div className="text-gray-400">Loading...</div>
 
@@ -90,12 +117,44 @@ export default function LeaderboardPage() {
                     <td className="px-5 py-3 text-white font-medium">{entry.athleteName}</td>
                     {workouts.map((w) => {
                       const ws = entry.workoutScores[w.id]
+                      const isConfirming = confirming?.athleteId === entry.athleteId && confirming?.workoutId === w.id
+                      const isEditing = editing?.athleteId === entry.athleteId && editing?.workoutId === w.id
                       return (
                         <td key={w.id} className="px-4 py-3">
-                          {ws ? (
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-400 text-sm">#</span>
+                              <input
+                                ref={editInputRef}
+                                type="number"
+                                min={1}
+                                value={editing.value}
+                                onChange={(e) => setEditing((prev) => prev ? { ...prev, value: e.target.value } : null)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') void savePoints(); if (e.key === 'Escape') setEditing(null) }}
+                                className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              />
+                              <button onClick={() => void savePoints()} disabled={saving} className="text-xs text-green-400 hover:text-green-300 font-medium disabled:opacity-50">Save</button>
+                              <button onClick={() => setEditing(null)} className="text-xs text-gray-400 hover:text-white">✕</button>
+                            </div>
+                          ) : isConfirming ? (
+                            <div className="space-y-1">
+                              <p className="text-xs text-yellow-300 font-medium">Change points?</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setConfirming(null); setEditing({ athleteId: entry.athleteId, workoutId: w.id, value: String(ws?.points ?? '') }) }}
+                                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white rounded px-2 py-0.5 font-medium"
+                                >Yes</button>
+                                <button onClick={() => setConfirming(null)} className="text-xs text-gray-400 hover:text-white">No</button>
+                              </div>
+                            </div>
+                          ) : ws ? (
                             <div>
                               <div>
-                                <span className={`font-bold ${ws.points === 1 ? 'text-yellow-400' : ws.points <= 3 ? 'text-orange-400' : 'text-white'}`}>#{ws.points}</span>
+                                <button
+                                  onClick={() => setConfirming({ athleteId: entry.athleteId, workoutId: w.id })}
+                                  className={`font-bold hover:underline cursor-pointer ${ws.points === 1 ? 'text-yellow-400' : ws.points <= 3 ? 'text-orange-400' : 'text-white'}`}
+                                  title="Click to edit points"
+                                >#{ws.points}</button>
                                 <span className="text-gray-500 text-xs ml-1">{ws.display}</span>
                               </div>
                               {ws.tiebreakDisplay && (

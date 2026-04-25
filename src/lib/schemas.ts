@@ -158,6 +158,12 @@ export const ScoreUpsert = z.object({
   partBRawScore: z.number().nullable().optional(),
 })
 
+export const ScorePointsOverride = z.object({
+  slug: Slug,
+  athleteId: Id,
+  points: z.number().int().positive(),
+})
+
 export const AssignmentRegen = z.object({
   useCumulative: z.boolean().optional(),
 }).optional().default({})
