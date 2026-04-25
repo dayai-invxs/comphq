@@ -6,6 +6,57 @@ import { keyNav } from '@/lib/keyNav'
 
 const NAV = keyNav('workout-scores')
 
+// Normalizes digit-only time strings to MM:SS or MM:SS.CC on blur.
+// Strings already containing ':' pass through unchanged.
+function normalizeTimeInput(raw: string): string {
+  const s = raw.trim()
+  if (!s || s.includes(':')) return s
+  const digits = s.replace(/\D/g, '')
+  if (!digits) return s
+
+  let mins = 0, secs = 0, cs = 0
+  if (digits.length <= 2) {
+    secs = parseInt(digits)
+  } else if (digits.length <= 4) {
+    secs = parseInt(digits.slice(-2))
+    mins = parseInt(digits.slice(0, -2))
+  } else if (digits.length <= 6) {
+    cs   = parseInt(digits.slice(-2))
+    secs = parseInt(digits.slice(-4, -2))
+    mins = parseInt(digits.slice(0, -4))
+  } else {
+    return s
+  }
+
+  if (secs >= 60) { mins += Math.floor(secs / 60); secs = secs % 60 }
+  const ss = String(secs).padStart(2, '0')
+  return cs > 0 ? `${mins}:${ss}.${String(cs).padStart(2, '0')}` : `${mins}:${ss}`
+}
+
+function TimeInput({
+  value, onChange, onKeyDown, placeholder, className, dataGroup,
+}: {
+  value: string
+  onChange: (val: string) => void
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
+  placeholder?: string
+  className?: string
+  dataGroup?: string
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={() => { const n = normalizeTimeInput(value); if (n !== value) onChange(n) }}
+      onKeyDown={onKeyDown}
+      placeholder={placeholder ?? 'm:ss'}
+      data-keynav-group={dataGroup}
+      className={className}
+    />
+  )
+}
+
 type CommonProps = {
   athleteId: number
   scoreType: string
@@ -29,13 +80,11 @@ export function PartAInputCell({
   return (
     <>
       {scoreType === 'time' && (
-        <input
-          type="text"
+        <TimeInput
           value={time[athleteId] ?? ''}
-          onChange={(e) => setTime((p) => ({ ...p, [athleteId]: e.target.value }))}
-          placeholder="0:00.00"
-          data-keynav-group="workout-scores"
+          onChange={(v) => setTime((p) => ({ ...p, [athleteId]: v }))}
           onKeyDown={NAV}
+          dataGroup="workout-scores"
           className="w-28 bg-gray-800 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-orange-500"
         />
       )}
@@ -78,13 +127,11 @@ export function PartAInputCell({
         <div className="flex items-center gap-1 mt-1">
           <span className="text-gray-500 text-xs w-12">TB:</span>
           {tiebreakScoreType === 'time' ? (
-            <input
-              type="text"
+            <TimeInput
               value={tiebreak[athleteId] ?? ''}
-              onChange={(e) => setTiebreak((p) => ({ ...p, [athleteId]: e.target.value }))}
-              placeholder="0:00.00"
-              data-keynav-group="workout-scores"
+              onChange={(v) => setTiebreak((p) => ({ ...p, [athleteId]: v }))}
               onKeyDown={NAV}
+              dataGroup="workout-scores"
               className="w-24 bg-gray-800 text-white rounded px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-orange-500"
             />
           ) : (
@@ -108,13 +155,11 @@ export function PartBInputCell({ athleteId, scoreType, time, setTime, rr, setRr,
   return (
     <>
       {scoreType === 'time' && (
-        <input
-          type="text"
+        <TimeInput
           value={time[athleteId] ?? ''}
-          onChange={(e) => setTime((p) => ({ ...p, [athleteId]: e.target.value }))}
-          placeholder="0:00.00"
-          data-keynav-group="workout-scores"
+          onChange={(v) => setTime((p) => ({ ...p, [athleteId]: v }))}
           onKeyDown={NAV}
+          dataGroup="workout-scores"
           className="w-28 bg-gray-800 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-orange-500"
         />
       )}
