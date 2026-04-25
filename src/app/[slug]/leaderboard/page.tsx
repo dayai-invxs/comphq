@@ -113,6 +113,9 @@ export default function PublicLeaderboardPage() {
                             <div>
                               <div>
                                 <span className={`font-bold ${ws.points === 1 ? 'text-yellow-400' : ws.points <= 3 ? 'text-orange-400' : 'text-white'}`}>#{ws.points}</span>
+                                {ws.partBPoints != null && (
+                                  <span className="text-gray-400 text-xs ml-1">/ B#{ws.partBPoints}</span>
+                                )}
                                 <span className="text-gray-500 text-xs ml-1">{ws.display}</span>
                               </div>
                               {ws.tiebreakDisplay && (
