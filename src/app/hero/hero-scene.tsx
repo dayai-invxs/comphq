@@ -196,20 +196,6 @@ export default function HeroScene() {
           },
         },
       }, 2.8)
-      .to(letters, {
-        scaleX: 1.08,
-        scaleY: 0.92,
-        duration: 0.1,
-        ease: 'power2.out',
-        stagger: 0.06,
-      }, '>-0.15')
-      .to(letters, {
-        scaleX: 1,
-        scaleY: 1,
-        duration: 0.15,
-        ease: 'power2.inOut',
-        stagger: 0.06,
-      }, '>-0.08')
 
     const glowTl = gsap.timeline({ repeat: -1, delay: 4, yoyo: true })
     glowTl
@@ -331,17 +317,17 @@ export default function HeroScene() {
           className={`${cinzel.className} pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 flex-col items-center gap-0.5 px-4 text-center sm:gap-1 [text-shadow:0_2px_20px_rgba(0,0,0,0.9),0_0_40px_rgba(0,0,0,0.7)]`}
         >
           <h1
-            className="text-3xl font-black uppercase tracking-[0.15em] text-[#fff5e6] sm:text-4xl md:text-5xl lg:text-6xl"
+            className="text-[clamp(1.875rem,4.5vw,3rem)] font-black uppercase tracking-[0.15em] text-[#fff5e6]"
           >
             <SplitText>Rugged Rumble</SplitText>
           </h1>
           <h2
-            className="text-xl font-bold uppercase tracking-[0.2em] text-[#fff5e6]/90 sm:text-2xl md:text-3xl lg:text-4xl"
+            className="text-[clamp(1.25rem,3.5vw,2.25rem)] font-bold uppercase tracking-[0.2em] text-[#fff5e6]/90"
           >
             <SplitText>Gladiator Games</SplitText>
           </h2>
           <p
-            className="text-base font-normal italic tracking-[0.1em] text-[#fff5e6]/85 sm:text-lg md:text-xl lg:text-2xl"
+            className="text-[clamp(1rem,2.5vw,1.5rem)] font-normal italic tracking-[0.1em] text-[#fff5e6]/85"
           >
             <SplitText>April 25, 2026</SplitText>
           </p>
