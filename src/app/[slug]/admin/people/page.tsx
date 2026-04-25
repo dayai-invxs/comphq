@@ -381,6 +381,7 @@ function VolunteersTab({
   const [search, setSearch] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
+  const [roleFilter, setRoleFilter] = useState('')
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -438,7 +439,9 @@ function VolunteersTab({
   }
 
   const searchTerm = search.trim().toLowerCase()
-  const visibleVolunteers = searchTerm ? volunteers.filter((v) => v.name.toLowerCase().includes(searchTerm)) : volunteers
+  const visibleVolunteers = volunteers
+    .filter((v) => !searchTerm || v.name.toLowerCase().includes(searchTerm))
+    .filter((v) => !roleFilter || (roleFilter === '__none__' ? v.roleId === null : String(v.roleId) === roleFilter))
   const allSelected = visibleVolunteers.length > 0 && visibleVolunteers.every((v) => selected.has(v.id))
   const someSelected = visibleVolunteers.some((v) => selected.has(v.id)) && !allSelected
 
@@ -485,6 +488,13 @@ function VolunteersTab({
               <span className="text-sm text-gray-400">{selected.size > 0 ? `${selected.size} selected` : 'Select all'}</span>
             </label>
             <input type="search" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-500" />
+            {roles.length > 0 && (
+              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="shrink-0 bg-gray-700 border border-gray-600 text-sm text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">All roles</option>
+                {roles.map((r) => <option key={r.id} value={String(r.id)}>{r.name}</option>)}
+                <option value="__none__">No role</option>
+              </select>
+            )}
             {selected.size > 0 && (
               confirmDeleteSelected ? (
                 <>
