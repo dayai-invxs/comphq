@@ -6,8 +6,6 @@ import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { useOps, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
-import EquipmentControl from '@/components/EquipmentControl'
-
 type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; divisionName: string | null; lane: number }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
 
@@ -40,27 +38,17 @@ type EditingHeatKey = { workoutId: number; heatNumber: number }
 
 type OpsData = { workouts: WorkoutData[]; showBib: boolean }
 
-type Tab = 'athletes' | 'equipment'
-
 export default function AthleteControl({ slug }: { slug: string }) {
   const { data, dataUpdatedAt } = useOps<OpsData>(slug)
   const workouts = data?.workouts ?? []
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
-  const [tab, setTab] = useState<Tab>('athletes')
   const [checks, setChecks] = useState<Record<string, RowChecks>>(() => {
     try { return JSON.parse(localStorage.getItem(`athlete-checks-${slug}`) ?? 'null') ?? {} } catch { return {} }
-  })
-  const [equipChecks, setEquipChecks] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(localStorage.getItem(`equip-checks-${slug}`) ?? 'null') ?? {} } catch { return {} }
   })
 
   useEffect(() => {
     localStorage.setItem(`athlete-checks-${slug}`, JSON.stringify(checks))
   }, [checks, slug])
-
-  useEffect(() => {
-    localStorage.setItem(`equip-checks-${slug}`, JSON.stringify(equipChecks))
-  }, [equipChecks, slug])
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
   const [heatTimeInput, setHeatTimeInput] = useState('')
@@ -139,27 +127,11 @@ export default function AthleteControl({ slug }: { slug: string }) {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-800 mb-8">
-        {(['athletes', 'equipment'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-5 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-              tab === t ? 'border-orange-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            {t === 'athletes' ? 'Athlete Control' : 'Equipment Control'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'equipment' && <EquipmentControl workouts={workouts} slug={slug} checks={equipChecks} setChecks={setEquipChecks} />}
-
-      {tab === 'athletes' && workouts.length === 0 && (
+      {workouts.length === 0 && (
         <div className="text-center text-gray-500 py-20 text-lg">Loading...</div>
       )}
 
-      {tab === 'athletes' && workouts.map((workout, wi) => {
+      {workouts.map((workout, wi) => {
         const nextWorkout = workouts[wi + 1]
         const nextEarliestMs = nextWorkout
           ? Math.min(...nextWorkout.heats.map((h) => getHeatMs(nextWorkout, h.heatNumber) ?? Infinity).filter(isFinite))

@@ -24,6 +24,7 @@ export function SlugNav({ slug }: { slug: string }) {
     { href: `/${slug}/leaderboard`, label: 'Leaderboard' },
     { href: `/${slug}/athlete-overview`, label: 'Athlete Overview' },
     { href: `/${slug}/judges`, label: 'Judges' },
+    { href: `/${slug}/equipment`, label: 'Equipment' },
     { href: `/${slug}/control`, label: 'Control' },
     { href: `/${slug}/admin`, label: 'Admin' },
   ]

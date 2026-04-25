@@ -132,6 +132,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
             <Link href={`/${slug}`} className="text-xs text-gray-500 hover:text-gray-300">Competition Schedule</Link>
             <Link href={`/${slug}/athlete-overview`} className="text-xs text-gray-500 hover:text-gray-300">Athlete Overview</Link>
             <Link href={`/${slug}/judges`} className="text-xs text-gray-500 hover:text-gray-300">Judges</Link>
+            <Link href={`/${slug}/equipment`} className="text-xs text-gray-500 hover:text-gray-300">Equipment</Link>
             <Link href={`/${slug}/control`} className="text-xs text-gray-500 hover:text-gray-300">Control</Link>
             <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-white transition-colors">
               Sign out
@@ -172,6 +173,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
               <Link href={`/${slug}`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Competition Schedule</Link>
               <Link href={`/${slug}/athlete-overview`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Athlete Overview</Link>
               <Link href={`/${slug}/judges`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Judges</Link>
+              <Link href={`/${slug}/equipment`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Equipment</Link>
               <Link href={`/${slug}/control`} className="px-2 py-2 text-sm text-gray-500 hover:text-gray-300">Control</Link>
               <button
                 onClick={() => signOut()}
