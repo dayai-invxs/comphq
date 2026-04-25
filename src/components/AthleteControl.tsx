@@ -70,7 +70,7 @@ export default function AthleteControl({ slug }: { slug: string }) {
     const key = `${workoutId}-${heatNumber}`
     const next: Record<string, RowChecks> = {
       ...checks,
-      [key]: { corral: false, walkout: false, ...checks[key], [field]: !checks[key]?.[field] },
+      [key]: { ...({ corral: false, walkout: false } as RowChecks), ...checks[key], [field]: !checks[key]?.[field] },
     }
     qc.setQueryData(qk.checks(slug), (old: ChecksData | undefined) => ({ ...old, athleteChecks: next, equipChecks: old?.equipChecks ?? {} }))
     void fetch('/api/checks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, type: 'athlete', checks: next }) })

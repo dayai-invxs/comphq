@@ -96,8 +96,8 @@ export default function EquipmentControlView({ slug }: { slug: string }) {
   const realtimeKeys = useMemo(() => [qk.ops(slug)], [slug])
   useRealtimeInvalidation(realtimeKeys)
 
-  function setEquipChecks(updater: ((prev: Record<string, boolean>) => Record<string, boolean>)) {
-    const next = updater(equipChecks)
+  function setEquipChecks(updater: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) {
+    const next = typeof updater === 'function' ? updater(equipChecks) : updater
     qc.setQueryData(qk.checks(slug), (old: ChecksData | undefined) => ({ ...old, equipChecks: next, athleteChecks: old?.athleteChecks ?? {} }))
     void fetch('/api/checks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, type: 'equipment', checks: next }) })
   }
