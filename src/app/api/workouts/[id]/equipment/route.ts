@@ -1,30 +1,27 @@
 import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { resolveCompetition } from '@/lib/competition'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutEquipmentCreate } from '@/lib/schemas'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
-  try {
-    const { competition } = await requireCompetitionAdmin(slug)
-    const { id } = await params
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
 
-    // Verify workout belongs to this competition
-    const { data: workout } = await supabase
-      .from('Workout').select('id').eq('id', Number(id)).eq('competitionId', competition.id).maybeSingle()
-    if (!workout) return new Response('Not found', { status: 404 })
+  const { id } = await params
+  const { data: workout } = await supabase
+    .from('Workout').select('id').eq('id', Number(id)).eq('competitionId', competition.id).maybeSingle()
+  if (!workout) return new Response('Not found', { status: 404 })
 
-    const { data, error } = await supabase
-      .from('WorkoutEquipment')
-      .select('id, item, divisionId, division:Division(id, name)')
-      .eq('workoutId', Number(id))
-      .order('divisionId', { nullsFirst: true })
-      .order('item')
-    if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data ?? [])
-  } catch (e) {
-    return authErrorResponse(e)
-  }
+  const { data, error } = await supabase
+    .from('WorkoutEquipment')
+    .select('id, item, divisionId, division:Division(id, name)')
+    .eq('workoutId', Number(id))
+    .order('divisionId', { nullsFirst: true })
+    .order('item')
+  if (error) return new Response(error.message, { status: 500 })
+  return Response.json(data ?? [])
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
