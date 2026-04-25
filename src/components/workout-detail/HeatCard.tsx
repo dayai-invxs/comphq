@@ -230,7 +230,7 @@ export default function HeatCard({
             {isSaving && (
               Array.from({ length: Math.max(1, sorted.length) }).map((_, i) => (
                 <tr key={`skel-${i}`} className="border-t border-gray-800">
-                  <td colSpan={(isTouch ? 8 : 7) + (showJudges ? 1 : 0)} className="px-5 py-3">
+                  <td colSpan={(isTouch ? 8 : 7) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0)} className="px-5 py-3">
                     <div className="skeleton-shimmer h-5 rounded" />
                   </td>
                 </tr>
@@ -238,7 +238,7 @@ export default function HeatCard({
             )}
             {!isSaving && sorted.length === 0 && (
               <tr>
-                <td colSpan={(isTouch ? 8 : 7) + (showJudges ? 1 : 0)} className="p-0">
+                <td colSpan={(isTouch ? 8 : 7) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0)} className="p-0">
                   <div
                     ref={emptyRef}
                     className="border-2 border-dashed border-gray-700 text-gray-500 text-sm text-center py-6 mx-3 my-2 rounded-lg"
