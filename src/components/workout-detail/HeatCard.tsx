@@ -31,6 +31,7 @@ type Props = {
   judges?: { id: number; name: string }[]
   judgesByLane?: Map<number, JudgeInfo>
   onJudgeChange?: (heatNumber: number, lane: number, volunteerId: number | null) => void
+  onPointsOverride?: (athleteId: number, points: number) => Promise<void>
 }
 
 function useIsTouch(): boolean {
@@ -49,11 +50,19 @@ function useIsTouch(): boolean {
 export default function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
   onSaveHeat, onCompleteHeat, onUndoHeat, onReorder, onSaveHeatTime, isSaving,
-  judges, judgesByLane, onJudgeChange,
+  judges, judgesByLane, onJudgeChange, onPointsOverride,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
   const [editingHeatTime, setEditingHeatTime] = useState(false)
   const [heatTimeInput, setHeatTimeInput] = useState('')
+  const [confirmPoints, setConfirmPoints] = useState<number | null>(null)
+  const [editPoints, setEditPoints] = useState<{ athleteId: number; value: string } | null>(null)
+  const [savingPoints, setSavingPoints] = useState(false)
+  const pointsInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editPoints) pointsInputRef.current?.focus()
+  }, [editPoints])
 
   const dnd = useHeatDnd()
   const isTouch = useIsTouch()
@@ -136,6 +145,16 @@ export default function HeatCard({
     const d = new Date(heatMs)
     setHeatTimeInput(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
     setEditingHeatTime(true)
+  }
+
+  async function savePointsOverride() {
+    if (!editPoints || savingPoints || !onPointsOverride) return
+    const pts = parseInt(editPoints.value, 10)
+    if (isNaN(pts) || pts < 1) return
+    setSavingPoints(true)
+    await onPointsOverride(editPoints.athleteId, pts)
+    setEditPoints(null)
+    setSavingPoints(false)
   }
 
   async function commitHeatTime() {
@@ -312,14 +331,50 @@ export default function HeatCard({
                   <td className="px-5 py-3 text-gray-300">
                     {score ? (
                       <div>
-                        <div className={`font-bold text-sm ${score.points === 1 ? 'text-yellow-400' : score.points !== null && score.points <= 3 ? 'text-orange-400' : 'text-white'}`}>
-                          {score.points != null ? `#${score.points}` : '—'}
-                          {workout.partBEnabled && score.partBPoints != null && (
-                            <span className="text-gray-500 font-normal text-xs ml-1">/ B#{score.partBPoints}</span>
-                          )}
-                        </div>
-                        {score.rawScore > 0 && <div className="text-xs text-gray-500">{formatScore(score.rawScore, workout.scoreType)}</div>}
-                        {score.tiebreakRawScore != null && <div className="text-xs text-blue-400">TB {workout.tiebreakScoreType === 'time' ? formatTiebreak(score.tiebreakRawScore) : formatScore(score.tiebreakRawScore, workout.tiebreakScoreType)}</div>}
+                        {editPoints?.athleteId === a.athlete.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-sm">#</span>
+                            <input
+                              ref={pointsInputRef}
+                              type="number"
+                              min={1}
+                              value={editPoints.value}
+                              onChange={(e) => setEditPoints((prev) => prev ? { ...prev, value: e.target.value } : null)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') void savePointsOverride(); if (e.key === 'Escape') setEditPoints(null) }}
+                              className="w-14 bg-gray-700 text-white rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            <button onClick={() => void savePointsOverride()} disabled={savingPoints} className="text-xs text-green-400 hover:text-green-300 font-medium disabled:opacity-50">Save</button>
+                            <button onClick={() => setEditPoints(null)} className="text-xs text-gray-400 hover:text-white">✕</button>
+                          </div>
+                        ) : confirmPoints === a.athlete.id ? (
+                          <div className="space-y-1">
+                            <p className="text-xs text-yellow-300 font-medium">Change points?</p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => { setConfirmPoints(null); setEditPoints({ athleteId: a.athlete.id, value: String(score.points ?? '') }) }}
+                                className="text-xs bg-orange-500 hover:bg-orange-600 text-white rounded px-2 py-0.5 font-medium"
+                              >Yes</button>
+                              <button onClick={() => setConfirmPoints(null)} className="text-xs text-gray-400 hover:text-white">No</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className={`font-bold text-sm ${score.points === 1 ? 'text-yellow-400' : score.points !== null && score.points <= 3 ? 'text-orange-400' : 'text-white'}`}>
+                              {score.points != null ? (
+                                <button
+                                  onClick={() => onPointsOverride && setConfirmPoints(a.athlete.id)}
+                                  className="hover:underline cursor-pointer"
+                                  title={onPointsOverride ? 'Click to edit points' : undefined}
+                                >{`#${score.points}`}</button>
+                              ) : '—'}
+                              {workout.partBEnabled && score.partBPoints != null && (
+                                <span className="text-gray-500 font-normal text-xs ml-1">/ B#{score.partBPoints}</span>
+                              )}
+                            </div>
+                            {score.rawScore > 0 && <div className="text-xs text-gray-500">{formatScore(score.rawScore, workout.scoreType)}</div>}
+                            {score.tiebreakRawScore != null && <div className="text-xs text-blue-400">TB {workout.tiebreakScoreType === 'time' ? formatTiebreak(score.tiebreakRawScore) : formatScore(score.tiebreakRawScore, workout.tiebreakScoreType)}</div>}
+                          </div>
+                        )}
                       </div>
                     ) : '—'}
                   </td>

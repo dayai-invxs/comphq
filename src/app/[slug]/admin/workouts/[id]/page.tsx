@@ -159,6 +159,15 @@ export default function WorkoutDetailPage() {
     await detail.clearScores()
   }
 
+  async function handlePointsOverride(workoutId: string, athleteId: number, points: number) {
+    await fetch(`/api/workouts/${workoutId}/scores?slug=${slug}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, athleteId, points }),
+    })
+    await detail.load()
+  }
+
   async function handleDelete() {
     if (!confirm('Delete this workout?')) return
     await detail.deleteWorkout()
@@ -310,6 +319,7 @@ export default function WorkoutDetailPage() {
                     .map(a => [a.lane, { volunteerId: a.volunteerId, assignmentId: a.id, judgeName: a.judgeName }])
                 )}
                 onJudgeChange={handleJudgeChange}
+                onPointsOverride={(athleteId, points) => handlePointsOverride(id, athleteId, points)}
               />
             ))}
           </HeatDndProvider>
