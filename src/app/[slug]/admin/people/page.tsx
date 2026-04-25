@@ -151,6 +151,9 @@ function AthletesTab({
   const [editState, setEditState] = useState({ name: '', bib: '', divisionId: '' })
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [search, setSearch] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
+  const [confirmActionId, setConfirmActionId] = useState<{ id: number; type: 'withdraw' | 'unwithdraw' } | null>(null)
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -184,24 +187,24 @@ function AthletesTab({
     await reload()
   }
 
-  async function withdraw(a: Athlete) {
-    if (!confirm(`Withdraw ${a.name}?\n\nThey will receive a 0 score for all active and completed workouts they haven't yet scored, and will be factored into rankings accordingly.\n\nNote: scores inserted during withdrawal are not automatically removed if you un-withdraw later.`)) return
+  async function withdraw(id: number) {
+    setConfirmActionId(null)
     setLoading(true)
-    await run('Withdraw athlete', () => fetch(`/api/athletes/${a.id}/withdraw?slug=${slug}`, { method: 'POST' }))
+    await run('Withdraw athlete', () => fetch(`/api/athletes/${id}/withdraw?slug=${slug}`, { method: 'POST' }))
     await reload()
     setLoading(false)
   }
 
-  async function unwithdraw(a: Athlete) {
-    if (!confirm(`Un-withdraw ${a.name}? The withdrawn flag will be cleared. Any 0 scores inserted during withdrawal will remain and must be removed manually if needed.`)) return
+  async function unwithdraw(id: number) {
+    setConfirmActionId(null)
     setLoading(true)
-    await run('Un-withdraw athlete', () => fetch(`/api/athletes/${a.id}/withdraw?slug=${slug}`, { method: 'DELETE' }))
+    await run('Un-withdraw athlete', () => fetch(`/api/athletes/${id}/withdraw?slug=${slug}`, { method: 'DELETE' }))
     await reload()
     setLoading(false)
   }
 
   async function remove(id: number) {
-    if (!confirm('Remove this athlete?\n\nAll of their scores and heat assignments will also be permanently deleted.')) return
+    setConfirmDeleteId(null)
     const ok = await run('Remove athlete', () => delJson(`/api/athletes/${id}?slug=${slug}`))
     if (ok !== undefined) {
       setAthletes((prev) => prev.filter((a) => a.id !== id))
@@ -211,7 +214,7 @@ function AthletesTab({
 
   async function deleteSelected() {
     if (selected.size === 0) return
-    if (!confirm(`Remove ${selected.size} athlete${selected.size > 1 ? 's' : ''}?\n\nAll of their scores and heat assignments will also be permanently deleted.`)) return
+    setConfirmDeleteSelected(false)
     setLoading(true)
     await run('Delete selected', () => delJson('/api/athletes', { ids: [...selected] }))
     setSelected(new Set())
@@ -273,9 +276,20 @@ function AthletesTab({
             </label>
             <input type="search" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-500" />
             {selected.size > 0 && (
-              <button onClick={deleteSelected} disabled={loading} className="shrink-0 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
-                Delete {selected.size} selected
-              </button>
+              confirmDeleteSelected ? (
+                <>
+                  <button onClick={deleteSelected} disabled={loading} className="shrink-0 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">
+                    Sure, delete {selected.size}?
+                  </button>
+                  <button onClick={() => setConfirmDeleteSelected(false)} className="shrink-0 text-gray-400 hover:text-white text-xs">
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDeleteSelected(true)} disabled={loading} className="shrink-0 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
+                  Delete {selected.size} selected
+                </button>
+              )
             )}
           </div>
           <table className="w-full text-sm">
@@ -309,12 +323,26 @@ function AthletesTab({
                     {divisions.length > 0 && <td className="px-5 py-3 text-gray-400">{a.division?.name ?? '—'}</td>}
                     <td className="px-5 py-3 text-right">
                       <div className="flex justify-end gap-4">
-                        <button onClick={() => { setEditingId(a.id); setEditState({ name: a.name, bib: a.bibNumber ?? '', divisionId: a.divisionId ? String(a.divisionId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                        {a.withdrawn
-                          ? <button onClick={() => unwithdraw(a)} disabled={loading} className="text-xs text-yellow-400 hover:text-yellow-300 disabled:opacity-50">Un-withdraw</button>
-                          : <button onClick={() => withdraw(a)} disabled={loading} className="text-xs text-orange-400 hover:text-orange-300 disabled:opacity-50">Withdraw</button>
-                        }
-                        <button onClick={() => remove(a.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                        {confirmDeleteId === a.id ? (
+                          <>
+                            <button onClick={() => remove(a.id)} className="text-xs text-red-400 hover:text-red-300 font-semibold">Sure?</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                          </>
+                        ) : confirmActionId?.id === a.id ? (
+                          <>
+                            <button onClick={() => confirmActionId.type === 'withdraw' ? withdraw(a.id) : unwithdraw(a.id)} className="text-xs text-orange-400 hover:text-orange-300 font-semibold">Sure?</button>
+                            <button onClick={() => setConfirmActionId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => { setEditingId(a.id); setEditState({ name: a.name, bib: a.bibNumber ?? '', divisionId: a.divisionId ? String(a.divisionId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            {a.withdrawn
+                              ? <button onClick={() => setConfirmActionId({ id: a.id, type: 'unwithdraw' })} disabled={loading} className="text-xs text-yellow-400 hover:text-yellow-300 disabled:opacity-50">Un-withdraw</button>
+                              : <button onClick={() => setConfirmActionId({ id: a.id, type: 'withdraw' })} disabled={loading} className="text-xs text-orange-400 hover:text-orange-300 disabled:opacity-50">Withdraw</button>
+                            }
+                            <button onClick={() => setConfirmDeleteId(a.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -351,6 +379,8 @@ function VolunteersTab({
   const [editState, setEditState] = useState({ name: '', roleId: '' })
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [search, setSearch] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -385,7 +415,7 @@ function VolunteersTab({
   }
 
   async function remove(id: number) {
-    if (!confirm('Remove this volunteer?')) return
+    setConfirmDeleteId(null)
     const ok = await run('Remove volunteer', () => delJson(`/api/volunteers/${id}?slug=${slug}`))
     if (ok !== undefined) {
       setVolunteers((prev) => prev.filter((v) => v.id !== id))
@@ -395,7 +425,7 @@ function VolunteersTab({
 
   async function deleteSelected() {
     if (selected.size === 0) return
-    if (!confirm(`Remove ${selected.size} volunteer${selected.size > 1 ? 's' : ''}?`)) return
+    setConfirmDeleteSelected(false)
     setLoading(true)
     await run('Delete selected', () => delJson('/api/volunteers', { ids: [...selected] }))
     setSelected(new Set())
@@ -456,9 +486,20 @@ function VolunteersTab({
             </label>
             <input type="search" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-500" />
             {selected.size > 0 && (
-              <button onClick={deleteSelected} disabled={loading} className="shrink-0 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
-                Delete {selected.size} selected
-              </button>
+              confirmDeleteSelected ? (
+                <>
+                  <button onClick={deleteSelected} disabled={loading} className="shrink-0 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">
+                    Sure, delete {selected.size}?
+                  </button>
+                  <button onClick={() => setConfirmDeleteSelected(false)} className="shrink-0 text-gray-400 hover:text-white text-xs">
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDeleteSelected(true)} disabled={loading} className="shrink-0 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors">
+                  Delete {selected.size} selected
+                </button>
+              )
             )}
           </div>
           <table className="w-full text-sm">
@@ -486,8 +527,17 @@ function VolunteersTab({
                     {roles.length > 0 && <td className="px-5 py-3 text-gray-400">{v.role?.name ?? '—'}</td>}
                     <td className="px-5 py-3 text-right">
                       <div className="flex justify-end gap-4">
-                        <button onClick={() => { setEditingId(v.id); setEditState({ name: v.name, roleId: v.roleId ? String(v.roleId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                        <button onClick={() => remove(v.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                        {confirmDeleteId === v.id ? (
+                          <>
+                            <button onClick={() => remove(v.id)} className="text-xs text-red-400 hover:text-red-300 font-semibold">Sure?</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => { setEditingId(v.id); setEditState({ name: v.name, roleId: v.roleId ? String(v.roleId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            <button onClick={() => setConfirmDeleteId(v.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
