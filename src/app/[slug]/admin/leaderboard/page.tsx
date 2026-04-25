@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 type WorkoutSummary = { id: number; number: number; name: string; scoreType: string; status: string }
-type WorkoutScore = { points: number; display: string; tiebreakDisplay: string | null } | null
+type WorkoutScore = { points: number; display: string; tiebreakDisplay: string | null; partBPoints?: number | null } | null
 type Entry = { athleteId: number; athleteName: string; divisionName: string | null; totalPoints: number; workoutScores: Record<number, WorkoutScore> }
 
 type CellKey = { athleteId: number; workoutId: number }
@@ -155,6 +155,9 @@ export default function LeaderboardPage() {
                                   className={`font-bold hover:underline cursor-pointer ${ws.points === 1 ? 'text-yellow-400' : ws.points <= 3 ? 'text-orange-400' : 'text-white'}`}
                                   title="Click to edit points"
                                 >#{ws.points}</button>
+                                {ws.partBPoints != null && (
+                                  <span className="text-gray-500 text-xs ml-1">/ B#{ws.partBPoints}</span>
+                                )}
                                 <span className="text-gray-500 text-xs ml-1">{ws.display}</span>
                               </div>
                               {ws.tiebreakDisplay && (

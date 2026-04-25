@@ -206,19 +206,27 @@ export async function rankAndPersist(
       group.map((s) => ({
         athleteId: s.athleteId,
         rawScore: s.rawScore,
-        tiebreakRawScore: s.tiebreakRawScore,
+        // When partBEnabled, Part B score breaks ties in Part A ranking
+        tiebreakRawScore: workout.partBEnabled ? (s.partBRawScore ?? null) : (s.tiebreakRawScore ?? null),
       })),
       workout.scoreType,
-      workout.tiebreakEnabled,
-      workout.tiebreakScoreType,
+      workout.partBEnabled ? true : workout.tiebreakEnabled,
+      workout.partBEnabled ? workout.partBScoreType : workout.tiebreakScoreType,
     )
     allRankedA.push(...rankedA)
 
     const partBScores = group.filter((s) => s.partBRawScore != null)
     if (workout.partBEnabled && partBScores.length > 0) {
+      // Part B is ranked independently; Part A score breaks ties in Part B ranking
       const rankedB = calculateRankings(
-        partBScores.map((s) => ({ athleteId: s.athleteId, rawScore: s.partBRawScore as number })),
+        partBScores.map((s) => ({
+          athleteId: s.athleteId,
+          rawScore: s.partBRawScore as number,
+          tiebreakRawScore: s.rawScore,
+        })),
         workout.partBScoreType,
+        true,
+        workout.scoreType,
       )
       for (const { athleteId, points } of rankedB) partBPointsMap.set(athleteId, points)
     }

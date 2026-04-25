@@ -62,12 +62,13 @@ export async function GET(req: Request) {
           points: score.points,
           rawScore: score.rawScore,
           tiebreakRawScore: score.tiebreakRawScore,
+          partBPoints: score.partBPoints,
         })
         .from(score)
         .where(inArray(score.workoutId, workoutIds))
     : []
 
-  const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string }>()
+  const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null }>()
   for (const s of scores) {
     if (s.points != null) {
       const wo = visibleWorkouts.find((w) => w.id === s.workoutId)
@@ -78,21 +79,26 @@ export async function GET(req: Request) {
         tiebreakRawScore: s.tiebreakRawScore ?? null,
         tiebreakEnabled: wo?.tiebreakEnabled ?? false,
         tiebreakScoreType: wo?.tiebreakScoreType ?? 'time',
+        partBPoints: s.partBPoints ?? null,
       })
     }
   }
 
   const entries = athletes.map((a) => {
     let totalPoints = 0
-    const workoutScores: Record<number, { points: number; rawScore: number; display: string; tiebreakDisplay: string | null } | null> = {}
+    const workoutScores: Record<number, { points: number; rawScore: number; display: string; tiebreakDisplay: string | null; partBPoints: number | null } | null> = {}
     for (const wo of visibleWorkouts) {
       const entry = scoreMap.get(`${a.id}-${wo.id}`)
       if (entry) {
-        totalPoints += wo.halfWeight ? entry.points * 0.5 : entry.points
-        const tiebreakDisplay = entry.tiebreakEnabled && entry.tiebreakRawScore != null
+        // When partBEnabled, both Part A and Part B points count toward total
+        const pts = wo.partBEnabled && entry.partBPoints != null
+          ? entry.points + entry.partBPoints
+          : entry.points
+        totalPoints += wo.halfWeight ? pts * 0.5 : pts
+        const tiebreakDisplay = !wo.partBEnabled && entry.tiebreakEnabled && entry.tiebreakRawScore != null
           ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
           : null
-        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType), tiebreakDisplay }
+        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType), tiebreakDisplay, partBPoints: entry.partBPoints }
       } else {
         workoutScores[wo.id] = null
       }

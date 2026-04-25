@@ -177,6 +177,36 @@ describe('rankAndPersist', () => {
     expect(byId[1]).toBe(2)
   })
 
+  it('when partBEnabled, Part B score breaks ties in Part A ranking', async () => {
+    mock.queueResult(undefined)
+    // Athletes 1 and 2 tie on Part A (same rawScore); athlete 2 has better Part B → wins the tie
+    await rankAndPersist(7, { ...workout, partBEnabled: true, partBScoreType: 'time' }, [
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 50, divisionId: 1 },
+      { athleteId: 2, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1 },
+      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: 40, divisionId: 1 },
+    ])
+    const rows = lastValues() as Array<{ athleteId: number; points: number }>
+    const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.points]))
+    expect(byId[2]).toBe(1) // tied Part A, better Part B → 1st
+    expect(byId[1]).toBe(2) // tied Part A, worse Part B → 2nd
+    expect(byId[3]).toBe(3)
+  })
+
+  it('when partBEnabled, Part A score breaks ties in Part B ranking', async () => {
+    mock.queueResult(undefined)
+    // Athletes 1 and 2 tie on Part B; athlete 2 has better Part A → wins the Part B tie
+    await rankAndPersist(7, { ...workout, partBEnabled: true, partBScoreType: 'time' }, [
+      { athleteId: 1, workoutId: 7, rawScore: 110, tiebreakRawScore: null, partBRawScore: 40, divisionId: 1 },
+      { athleteId: 2, workoutId: 7, rawScore: 90,  tiebreakRawScore: null, partBRawScore: 40, divisionId: 1 },
+      { athleteId: 3, workoutId: 7, rawScore: 80,  tiebreakRawScore: null, partBRawScore: 60, divisionId: 1 },
+    ])
+    const rows = lastValues() as Array<{ athleteId: number; partBPoints: number | null }>
+    const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.partBPoints]))
+    expect(byId[2]).toBe(1) // tied Part B (40s), better Part A (90s) → 1st
+    expect(byId[1]).toBe(2) // tied Part B (40s), worse Part A (110s) → 2nd
+    expect(byId[3]).toBe(3) // slowest Part B (60s) → 3rd
+  })
+
   it('leaves partBPoints null when partBEnabled is false', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, workout, [
