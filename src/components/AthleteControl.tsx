@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
-import { useOps, qk } from '@/lib/queries'
+import { useOps, useChecks, qk, type ChecksData } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 type HeatEntry = { athleteId: number; athleteName: string; bibNumber: string | null; divisionName: string | null; lane: number }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
@@ -42,13 +42,8 @@ export default function AthleteControl({ slug }: { slug: string }) {
   const { data, dataUpdatedAt } = useOps<OpsData>(slug)
   const workouts = data?.workouts ?? []
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
-  const [checks, setChecks] = useState<Record<string, RowChecks>>(() => {
-    try { return JSON.parse(localStorage.getItem(`athlete-checks-${slug}`) ?? 'null') ?? {} } catch { return {} }
-  })
-
-  useEffect(() => {
-    localStorage.setItem(`athlete-checks-${slug}`, JSON.stringify(checks))
-  }, [checks, slug])
+  const { data: checksData } = useChecks(slug)
+  const checks = checksData?.athleteChecks ?? {}
   const [expandedHeats, setExpandedHeats] = useState<Set<string>>(new Set())
   const [editingHeat, setEditingHeat] = useState<EditingHeatKey | null>(null)
   const [heatTimeInput, setHeatTimeInput] = useState('')
@@ -73,10 +68,12 @@ export default function AthleteControl({ slug }: { slug: string }) {
 
   function toggle(workoutId: number, heatNumber: number, field: keyof RowChecks) {
     const key = `${workoutId}-${heatNumber}`
-    setChecks((prev) => ({
-      ...prev,
-      [key]: { ...({ corral: false, walkout: false }), ...prev[key], [field]: !prev[key]?.[field] },
-    }))
+    const next: Record<string, RowChecks> = {
+      ...checks,
+      [key]: { corral: false, walkout: false, ...checks[key], [field]: !checks[key]?.[field] },
+    }
+    qc.setQueryData(qk.checks(slug), (old: ChecksData | undefined) => ({ ...old, athleteChecks: next, equipChecks: old?.equipChecks ?? {} }))
+    void fetch('/api/checks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, type: 'athlete', checks: next }) })
   }
 
   function getChecks(workoutId: number, heatNumber: number): RowChecks {

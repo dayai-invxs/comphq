@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { SlugNav } from '@/components/SlugNav'
 import { getJson } from '@/lib/http'
 import { getSupabaseClient } from '@/lib/supabase-client'
-import { useOps, qk } from '@/lib/queries'
+import { useOps, useChecks, qk, type ChecksData } from '@/lib/queries'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import EquipmentControl from '@/components/EquipmentControl'
 
@@ -62,9 +63,9 @@ function PasswordGate({ password, onUnlock }: { password: string; onUnlock: () =
 export default function EquipmentControlView({ slug }: { slug: string }) {
   const [gateState, setGateState] = useState<'checking' | 'gated' | 'unlocked'>('checking')
   const [judgePassword, setJudgePassword] = useState(DEFAULT_PASSWORD)
-  const [equipChecks, setEquipChecks] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(localStorage.getItem(`equip-checks-${slug}`) ?? 'null') ?? {} } catch { return {} }
-  })
+  const qc = useQueryClient()
+  const { data: checksData } = useChecks(slug)
+  const equipChecks = checksData?.equipChecks ?? {}
 
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY) === '1') {
@@ -95,9 +96,11 @@ export default function EquipmentControlView({ slug }: { slug: string }) {
   const realtimeKeys = useMemo(() => [qk.ops(slug)], [slug])
   useRealtimeInvalidation(realtimeKeys)
 
-  useEffect(() => {
-    localStorage.setItem(`equip-checks-${slug}`, JSON.stringify(equipChecks))
-  }, [equipChecks, slug])
+  function setEquipChecks(updater: ((prev: Record<string, boolean>) => Record<string, boolean>)) {
+    const next = updater(equipChecks)
+    qc.setQueryData(qk.checks(slug), (old: ChecksData | undefined) => ({ ...old, equipChecks: next, athleteChecks: old?.athleteChecks ?? {} }))
+    void fetch('/api/checks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, type: 'equipment', checks: next }) })
+  }
 
   if (gateState === 'checking') return null
   if (gateState === 'gated') return <PasswordGate password={judgePassword} onUnlock={() => setGateState('unlocked')} />

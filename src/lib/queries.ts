@@ -7,6 +7,7 @@ export const qk = {
   leaderboard: (slug: string) => ['leaderboard', slug] as const,
   ops: (slug: string) => ['ops', slug] as const,
   schedule: (slug: string) => ['schedule', slug] as const,
+  checks: (slug: string) => ['checks', slug] as const,
   logo: () => ['logo'] as const,
 }
 
@@ -62,6 +63,22 @@ export function useSchedule<T>(slug: string) {
     queryFn: () => fetchJson<T>(`/api/schedule?slug=${slug}`),
     enabled: !!slug,
     refetchInterval: 10_000,
+  })
+}
+
+// ─── Check state (corral/walkout + equipment) ───────────────────────────
+export type ChecksData = {
+  athleteChecks: Record<string, { corral: boolean; walkout: boolean }>
+  equipChecks: Record<string, boolean>
+}
+
+export function useChecks(slug: string) {
+  return useQuery<ChecksData>({
+    queryKey: qk.checks(slug),
+    queryFn: () => fetchJson<ChecksData>(`/api/checks?slug=${slug}`),
+    enabled: !!slug,
+    refetchInterval: 3_000,
+    staleTime: 0,
   })
 }
 
