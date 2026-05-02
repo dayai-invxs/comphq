@@ -50,6 +50,16 @@ export default function CompetitionUsersPage() {
     setSaving(false)
   }
 
+  async function handleChangeRole(userId: string, currentRole: string) {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin'
+    const r = await fetch(`/api/comp-users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, role: newRole }),
+    })
+    if (r.ok) await load()
+  }
+
   async function handleRemove(userId: string, userEmail: string | null) {
     if (!confirm(`Remove ${userEmail ?? userId} from this competition?`)) return
     const r = await fetch(`/api/comp-users/${userId}?slug=${slug}`, { method: 'DELETE' })
@@ -151,12 +161,20 @@ export default function CompetitionUsersPage() {
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => handleRemove(u.userId, u.email)}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors"
-              >
-                Remove
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleChangeRole(u.userId, u.role)}
+                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                >
+                  {u.role === 'admin' ? 'Downgrade to User' : 'Upgrade to Admin'}
+                </button>
+                <button
+                  onClick={() => handleRemove(u.userId, u.email)}
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           ))}
         </div>
