@@ -4,23 +4,23 @@ import { competition, competitionAdmin } from '@/db/schema'
 import { authErrorResponse, requireSession } from '@/lib/auth-competition'
 
 /**
- * "Competitions I can admin." Super admins see all; regular admins see
- * only the ones they have a CompetitionAdmin row for. Used by the /admin
- * layouts to decide where to route the user (the public list lives at
- * GET /api/competitions).
+ * "Competitions I'm a member of." Super admins see all (role='admin');
+ * competition members see only the ones they have a CompetitionAdmin row for.
+ * Returns role so callers can distinguish admin vs user access.
  */
 export async function GET() {
   try {
     const user = await requireSession()
     if (user.isSuper) {
-      const rows = await db.select().from(competition).orderBy(competition.id)
-      return Response.json(rows)
+      const rows = await db.select({ id: competition.id, name: competition.name, slug: competition.slug }).from(competition).orderBy(competition.id)
+      return Response.json(rows.map(r => ({ ...r, role: 'admin' })))
     }
     const rows = await db
       .select({
         id: competition.id,
         name: competition.name,
         slug: competition.slug,
+        role: competitionAdmin.role,
       })
       .from(competition)
       .innerJoin(competitionAdmin, eq(competitionAdmin.competitionId, competition.id))

@@ -8,6 +8,7 @@ vi.unmock('@/lib/auth-competition')
 const {
   AuthError,
   authErrorResponse,
+  requireCompetitionAccess,
   requireCompetitionAdmin,
   requireSession,
   requireSiteAdmin,
@@ -41,6 +42,51 @@ describe('requireSession', () => {
   })
 })
 
+describe('requireCompetitionAccess', () => {
+  it('throws 401 when no Supabase session', async () => {
+    setAuthUser(null)
+    await expect(requireCompetitionAccess('default')).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('throws 404 when the slug resolves to no competition', async () => {
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult([{ isSuper: true }])
+    await expect(requireCompetitionAccess('')).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('super admin bypasses the membership row check', async () => {
+    setAuthUser({ id: 'super-1', email: 'super@test.local' })
+    mock.queueResult([{ isSuper: true }])
+    const ctx = await requireCompetitionAccess('default')
+    expect(ctx.user.isSuper).toBe(true)
+    expect(ctx.membership.role).toBe('admin')
+    expect(ctx.competition.slug).toBe('default')
+  })
+
+  it('accepts a competition admin (role=admin)', async () => {
+    setAuthUser({ id: 'user-1', email: 'admin@test.local' })
+    mock.queueResult([{ isSuper: false }])
+    mock.queueResult([{ userId: 'user-1', competitionId: 1, role: 'admin' }])
+    const ctx = await requireCompetitionAccess('default')
+    expect(ctx.membership.role).toBe('admin')
+  })
+
+  it('accepts a competition user (role=user)', async () => {
+    setAuthUser({ id: 'user-2', email: 'user@test.local' })
+    mock.queueResult([{ isSuper: false }])
+    mock.queueResult([{ userId: 'user-2', competitionId: 1, role: 'user' }])
+    const ctx = await requireCompetitionAccess('default')
+    expect(ctx.membership.role).toBe('user')
+  })
+
+  it('rejects a user with no membership row (403)', async () => {
+    setAuthUser({ id: 'stranger', email: 'stranger@test.local' })
+    mock.queueResult([{ isSuper: false }])
+    mock.queueResult([])
+    await expect(requireCompetitionAccess('default')).rejects.toMatchObject({ status: 403 })
+  })
+})
+
 describe('requireCompetitionAdmin', () => {
   it('throws 401 when no Supabase session', async () => {
     setAuthUser(null)
@@ -61,16 +107,22 @@ describe('requireCompetitionAdmin', () => {
     expect(ctx.competition.slug).toBe('default')
   })
 
-  it('non-super admin with CompetitionAdmin row is accepted', async () => {
+  it('competition admin (role=admin) is accepted', async () => {
     setAuthUser({ id: 'user-1', email: 'admin@test.local' })
     mock.queueResult([{ isSuper: false }])
-    mock.queueResult([{ userId: 'user-1', competitionId: 1 }])
+    mock.queueResult([{ userId: 'user-1', competitionId: 1, role: 'admin' }])
     const ctx = await requireCompetitionAdmin('default')
-    expect(ctx.user.isSuper).toBe(false)
-    expect(ctx.competition.slug).toBe('default')
+    expect(ctx.membership.role).toBe('admin')
   })
 
-  it('non-super, non-admin is rejected with 403', async () => {
+  it('competition user (role=user) is rejected with 403', async () => {
+    setAuthUser({ id: 'user-2', email: 'user@test.local' })
+    mock.queueResult([{ isSuper: false }])
+    mock.queueResult([{ userId: 'user-2', competitionId: 1, role: 'user' }])
+    await expect(requireCompetitionAdmin('default')).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('non-member is rejected with 403', async () => {
     setAuthUser({ id: 'stranger', email: 'stranger@test.local' })
     mock.queueResult([{ isSuper: false }])
     mock.queueResult([])

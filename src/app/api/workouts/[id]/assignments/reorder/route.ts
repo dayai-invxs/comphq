@@ -1,7 +1,7 @@
 import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, division, heatAssignment } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentReorder } from '@/lib/schemas'
 import {
@@ -16,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)

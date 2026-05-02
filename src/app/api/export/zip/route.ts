@@ -2,7 +2,7 @@ import { asc, eq, inArray } from 'drizzle-orm'
 import { zipSync, strToU8 } from 'fflate'
 import { db } from '@/lib/db'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
 
 // CSV helpers kept local — duplicating 6 lines here is cheaper than an
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   let competition: { id: number; name: string; slug: string }
   try {
-    ({ competition } = await requireCompetitionAdmin(slug))
+    ({ competition } = await requireCompetitionAccess(slug))
   } catch (e) {
     return authErrorResponse(e)
   }

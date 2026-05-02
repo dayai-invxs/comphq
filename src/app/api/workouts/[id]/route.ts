@@ -1,7 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutUpdate } from '@/lib/schemas'
@@ -10,7 +10,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     const wk = await requireWorkoutInCompetition(workoutId, competition.id)
@@ -105,7 +105,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const d = parsed.data
     const patch: Partial<typeof workout.$inferInsert> = {}
@@ -154,7 +154,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     await db
       .delete(workout)

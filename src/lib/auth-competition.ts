@@ -6,7 +6,8 @@ import { resolveCompetition } from '@/lib/competition'
 
 export type AuthedUser = { id: string; email: string | null; isSuper: boolean }
 export type Competition = { id: number; name: string; slug: string }
-export type CompAdminMembership = { userId: string; competitionId: number }
+export type CompetitionRole = 'admin' | 'user'
+export type CompAdminMembership = { userId: string; competitionId: number; role: CompetitionRole }
 export type AuthContext = { user: AuthedUser; membership: CompAdminMembership; competition: Competition }
 
 export class AuthError extends Error {
@@ -42,29 +43,31 @@ export async function requireSession(): Promise<AuthedUser> {
 
 /**
  * Gates a route on (a) session present, (b) competition exists, (c) caller
- * is either a super-admin OR an admin of this specific competition.
+ * is either a super-admin OR any member (admin or user role) of this competition.
  *
- * Super admins bypass the CompetitionAdmin row check — they can manage
- * any comp on the site.
+ * Use this for all competition-scoped operations. Use requireCompetitionAdmin
+ * for operations that only competition admins (not users) may perform.
  */
-export async function requireCompetitionAdmin(slug: string): Promise<AuthContext> {
+export async function requireCompetitionAccess(slug: string): Promise<AuthContext> {
   const user = await requireSession()
 
   const competition = await resolveCompetition(slug)
   if (!competition) throw new AuthError(404, 'Competition not found')
 
-  // Super admin → skip the row check. Synthesize a membership record for
-  // callers that want to log the action.
   if (user.isSuper) {
     return {
       user,
-      membership: { userId: user.id, competitionId: competition.id },
+      membership: { userId: user.id, competitionId: competition.id, role: 'admin' },
       competition,
     }
   }
 
   const rows = await db
-    .select({ userId: competitionAdmin.userId, competitionId: competitionAdmin.competitionId })
+    .select({
+      userId: competitionAdmin.userId,
+      competitionId: competitionAdmin.competitionId,
+      role: competitionAdmin.role,
+    })
     .from(competitionAdmin)
     .where(and(
       eq(competitionAdmin.userId, user.id),
@@ -72,9 +75,32 @@ export async function requireCompetitionAdmin(slug: string): Promise<AuthContext
     ))
     .limit(1)
 
-  if (rows.length === 0) throw new AuthError(403, 'Not an admin of this competition')
+  if (rows.length === 0) throw new AuthError(403, 'Not a member of this competition')
 
-  return { user, membership: rows[0], competition }
+  return {
+    user,
+    membership: {
+      userId: rows[0].userId,
+      competitionId: rows[0].competitionId,
+      role: (rows[0].role as CompetitionRole) ?? 'user',
+    },
+    competition,
+  }
+}
+
+/**
+ * Gates a route on (a) session present, (b) competition exists, (c) caller
+ * is either a super-admin OR a competition admin (role='admin').
+ *
+ * Use this for operations that competition users may NOT perform, such as
+ * managing competition members.
+ */
+export async function requireCompetitionAdmin(slug: string): Promise<AuthContext> {
+  const ctx = await requireCompetitionAccess(slug)
+  if (!ctx.user.isSuper && ctx.membership.role !== 'admin') {
+    throw new AuthError(403, 'Competition admin access required')
+  }
+  return ctx
 }
 
 /**
@@ -90,7 +116,7 @@ export async function requireSiteAdmin(): Promise<AuthedUser> {
 /**
  * Verifies a Workout belongs to the given competition. Cheap cross-tenant
  * defense for nested /api/workouts/[id]/* routes. Combined with
- * requireCompetitionAdmin this prevents admin-of-comp-A from editing
+ * requireCompetitionAccess this prevents a member of comp-A from editing
  * workouts of comp-B.
  *
  * Returns the full workout row. Previous PostgREST version accepted a

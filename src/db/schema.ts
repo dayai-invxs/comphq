@@ -48,6 +48,7 @@ export const userProfile = pgTable('UserProfile', {
 export const competitionAdmin = pgTable('CompetitionAdmin', {
   userId: uuid('userId').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
   competitionId: integer('competitionId').notNull().references(() => competition.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('admin'),
   createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => [
   primaryKey({ columns: [t.userId, t.competitionId] }),

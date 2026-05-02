@@ -20,6 +20,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
   const [status, setStatus] = useState<
     'loading' | 'authorized' | 'forbidden' | 'unauthenticated'
   >('loading')
+  const [isCompAdmin, setIsCompAdmin] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -30,20 +31,23 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
       if (!u) { setStatus('unauthenticated'); return }
       setUser(u)
 
-      // Check super OR admin-of-this-slug. /api/competitions returns only
-      // comps the caller can admin; if `slug` is in that list, they're in.
-      const [meRes, compsRes] = await Promise.all([
+      const [meRes, mineRes] = await Promise.all([
         fetch('/api/me', { cache: 'no-store' }),
-        fetch('/api/competitions', { cache: 'no-store' }),
+        fetch('/api/competitions/mine', { cache: 'no-store' }),
       ])
       if (cancelled) return
       if (meRes.ok) {
         const me = await meRes.json() as { isSuper: boolean }
-        if (me.isSuper) { setStatus('authorized'); return }
+        if (me.isSuper) { setStatus('authorized'); setIsCompAdmin(true); return }
       }
-      if (compsRes.ok) {
-        const comps = await compsRes.json() as { slug: string }[]
-        if (comps.some((c) => c.slug === slug)) { setStatus('authorized'); return }
+      if (mineRes.ok) {
+        const comps = await mineRes.json() as { slug: string; role: string }[]
+        const match = comps.find((c) => c.slug === slug)
+        if (match) {
+          setStatus('authorized')
+          setIsCompAdmin(match.role === 'admin')
+          return
+        }
       }
       setStatus('forbidden')
     })()
@@ -80,8 +84,8 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-6">
         <h1 className="text-2xl font-bold text-white">No access to this competition</h1>
         <p className="text-gray-400 max-w-md">
-          Your account isn&apos;t an admin of <span className="text-white">{slug}</span>.
-          Ask a super-admin to grant you access.
+          Your account doesn&apos;t have access to <span className="text-white">{slug}</span>.
+          Ask a competition admin or super-admin to grant you access.
         </p>
         <button onClick={signOut} className="text-sm text-orange-400 hover:text-orange-300">Sign out</button>
       </div>
@@ -97,6 +101,7 @@ export default function CompetitionAdminLayout({ children }: { children: React.R
     { href: `${base}/people`, label: 'People' },
     { href: `${base}/workouts`, label: 'Workouts' },
     { href: `${base}/setup`, label: 'Setup' },
+    ...(isCompAdmin ? [{ href: `${base}/users`, label: 'Users' }] : []),
   ]
 
   const logo = logoUrl ? (

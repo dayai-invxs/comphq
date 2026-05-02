@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 
 interface CsvRow {
   workoutNumber: number; heatNumber: number; laneNumber: number; athleteName: string; lineIndex: number
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       slug = body.slug ?? ''
     }
 
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     return await runImport(csvText, competition.id)
   } catch (e) {
     return authErrorResponse(e)
@@ -90,10 +90,7 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
       result.errors.push({ line: lineIndex, message: `Non-numeric value in workout/heat/lane columns: "${wRaw}", "${hRaw}", "${lRaw}"` })
       continue
     }
-    if (!athleteName) {
-      result.errors.push({ line: lineIndex, message: 'Athlete name is empty' })
-      continue
-    }
+    if (!athleteName) continue
     parsed.push({ workoutNumber, heatNumber, laneNumber, athleteName, lineIndex })
   }
 

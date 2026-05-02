@@ -1,7 +1,7 @@
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { judgeAssignment, volunteer, workout } from '@/db/schema'
-import { requireCompetitionAdmin } from '@/lib/auth-competition'
+import { requireCompetitionAccess } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CsvImport } from '@/lib/schemas'
 
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!parsed.ok) return Response.json({ imported: 0, workoutsAffected: [], errors: [{ line: 0, message: await parsed.response.text() }] } satisfies ImportResult, { status: 400 })
 
   try {
-    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
+    const { competition } = await requireCompetitionAccess(parsed.data.slug)
 
     // Load all workouts for this competition
     const workouts = await db
@@ -64,6 +64,8 @@ export async function POST(req: Request) {
         errors.push({ line: lineNum, message: `Workout #${workoutNumber} not found` })
         continue
       }
+
+      if (!judgeName) continue
 
       const judgeId = judgeByName.get(judgeName.toLowerCase())
       if (!judgeId) {

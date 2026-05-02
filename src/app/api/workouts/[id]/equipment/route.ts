@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { resolveCompetition } from '@/lib/competition'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutEquipmentCreate } from '@/lib/schemas'
@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = await parseJson(req, WorkoutEquipmentCreate)
   if (!parsed.ok) return parsed.response
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
 
     const { data: workout } = await supabase

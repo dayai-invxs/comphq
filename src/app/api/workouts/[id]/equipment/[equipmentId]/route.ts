@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string; equipmentId: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id, equipmentId } = await params
 
     // Join through Workout to enforce competition ownership

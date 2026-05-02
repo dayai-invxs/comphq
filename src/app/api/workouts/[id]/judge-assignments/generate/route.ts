@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { heatAssignment, judgeAssignment, volunteer, volunteerRole, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { JudgeAssignmentGenerate } from '@/lib/schemas'
 
@@ -49,7 +49,7 @@ function scheduleJudges(
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const workoutId = Number((await params).id)
     const wk = await requireWorkoutInCompetition<{ id: number; lanes: number }>(workoutId, competition.id)
 

@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { setting } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { SettingsPatch } from '@/lib/schemas'
 
@@ -58,7 +58,7 @@ export async function PATCH(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
+    const { competition } = await requireCompetitionAccess(parsed.data.slug)
     const d = parsed.data
 
     const upserts: Promise<void>[] = []

@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, division, heatAssignment, workout, workoutEquipment } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 
 export type EquipmentSummaryItem = {
   item: string
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
 
     const workouts = await db
       .select({ id: workout.id, number: workout.number, name: workout.name })

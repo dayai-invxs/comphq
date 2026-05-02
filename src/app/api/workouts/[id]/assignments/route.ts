@@ -4,7 +4,7 @@ import { athlete, division, heatAssignment, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
 import { score as scoreTable } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentRegen } from '@/lib/schemas'
 
@@ -53,7 +53,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)
@@ -69,7 +69,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     const wk = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(

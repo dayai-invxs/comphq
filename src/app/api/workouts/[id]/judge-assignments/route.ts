@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { judgeAssignment, volunteer, volunteerRole } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { JudgeAssignmentCreate, JudgeAssignmentBulkDelete, JudgeAssignmentImport } from '@/lib/schemas'
 
@@ -25,7 +25,7 @@ async function fetchAssignments(workoutId: number) {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const workoutId = Number((await params).id)
     await requireWorkoutInCompetition(workoutId, competition.id)
     return Response.json(await fetchAssignments(workoutId))
@@ -40,7 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const action = url.searchParams.get('action')
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const workoutId = Number((await params).id)
     await requireWorkoutInCompetition(workoutId, competition.id)
 
@@ -97,7 +97,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const workoutId = Number((await params).id)
     await requireWorkoutInCompetition(workoutId, competition.id)
 

@@ -54,12 +54,21 @@ vi.mock('@/lib/auth-competition', async (importOriginal) => {
       if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
       return { id: authUser.id, email: authUser.email, isSuper: authIsSuper }
     }),
+    requireCompetitionAccess: vi.fn(async (slug: string) => {
+      if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
+      if (!slug) throw new actual.AuthError(404, 'Competition not found')
+      return {
+        user: { id: authUser.id, email: authUser.email, isSuper: authIsSuper },
+        membership: { userId: authUser.id, competitionId: 1, role: 'admin' as const },
+        competition: { id: 1, name: 'Default', slug },
+      }
+    }),
     requireCompetitionAdmin: vi.fn(async (slug: string) => {
       if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
       if (!slug) throw new actual.AuthError(404, 'Competition not found')
       return {
         user: { id: authUser.id, email: authUser.email, isSuper: authIsSuper },
-        membership: { userId: authUser.id, competitionId: 1 },
+        membership: { userId: authUser.id, competitionId: 1, role: 'admin' as const },
         competition: { id: 1, name: 'Default', slug },
       }
     }),

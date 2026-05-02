@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, workout, score } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { rankAndPersist } from '@/lib/scoring'
 
 type WorkoutRow = {
@@ -15,7 +15,7 @@ type WorkoutRow = {
 }
 
 async function getCompetitionAndAthlete(slug: string, id: number) {
-  const { competition } = await requireCompetitionAdmin(slug)
+  const { competition } = await requireCompetitionAccess(slug)
   const [row] = await db
     .select({ id: athlete.id, withdrawn: athlete.withdrawn })
     .from(athlete)

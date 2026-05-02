@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { DivisionCreate } from '@/lib/schemas'
 
@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
 
     const { data, error } = await supabase
       .from('Division')
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
+    const { competition } = await requireCompetitionAccess(parsed.data.slug)
 
     const { data, error } = await supabase
       .from('Division')

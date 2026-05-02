@@ -9,16 +9,19 @@ describe('GET /api/competitions/mine', () => {
     expect(res.status).toBe(401)
   })
 
-  it('super admin sees all comps', async () => {
-    const rows = [
+  it('super admin sees all comps with role=admin', async () => {
+    mock.queueResult([
       { id: 1, name: 'A', slug: 'a' },
       { id: 2, name: 'B', slug: 'b' },
-    ]
-    mock.queueResult(rows)
+    ])
 
     const res = await GET()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual(rows)
+    const body = await res.json()
+    expect(body).toEqual([
+      { id: 1, name: 'A', slug: 'a', role: 'admin' },
+      { id: 2, name: 'B', slug: 'b', role: 'admin' },
+    ])
   })
 
   it('non-super only sees comps where they are CompetitionAdmin', async () => {

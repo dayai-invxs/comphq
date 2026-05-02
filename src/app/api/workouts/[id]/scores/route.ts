@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete as athleteTable, score, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { ScoreUpsert, ScorePointsOverride } from '@/lib/schemas'
 
@@ -9,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)
@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)
@@ -92,7 +92,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAdmin(slug)
+    const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)
@@ -118,7 +118,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
+    const { competition } = await requireCompetitionAccess(parsed.data.slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)
