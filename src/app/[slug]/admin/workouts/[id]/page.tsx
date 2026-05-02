@@ -40,15 +40,17 @@ export default function WorkoutDetailPage() {
 
   const loadJudges = useCallback(async () => {
     try {
-      const [assignments, roles, vols] = await Promise.all([
+      const [assignments, roles, vols, settings] = await Promise.all([
         getJson<JudgeAssignment[]>(`/api/workouts/${id}/judge-assignments?slug=${slug}`),
         getJson<{ id: number; name: string }[]>(`/api/volunteer-roles?slug=${slug}`),
         getJson<{ id: number; name: string; roleId: number | null }[]>(`/api/volunteers?slug=${slug}`),
+        getJson<{ judgeMaxConsecutive?: number }>(`/api/settings?slug=${slug}`),
       ])
       const judgeRoleIds = new Set(roles.filter(r => r.name.toLowerCase() === 'judge').map(r => r.id))
       setJudges(vols.filter(v => v.roleId != null && judgeRoleIds.has(v.roleId)))
       setAllVolunteers(vols)
       setJudgeAssignments(assignments)
+      if (settings.judgeMaxConsecutive != null) setMaxConsecutive(settings.judgeMaxConsecutive)
     } catch { /* non-critical */ }
   }, [id, slug])
 
@@ -267,6 +269,10 @@ export default function WorkoutDetailPage() {
                 <input
                   type="number" min={1} max={20} value={maxConsecutive}
                   onChange={e => setMaxConsecutive(Number(e.target.value))}
+                  onBlur={e => {
+                    const v = Number(e.target.value)
+                    if (v >= 1 && v <= 20) fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, judgeMaxConsecutive: v }) })
+                  }}
                   className="w-16 bg-gray-800 text-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>

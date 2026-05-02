@@ -36,7 +36,6 @@ export default function SetupPage() {
   const [showBib, setShowBib] = useState(true)
   const [leaderboardVisibility, setLeaderboardVisibility] = useState<'per_heat' | 'per_workout'>('per_workout')
   const [judgePassword, setJudgePassword] = useState('rug702')
-  const [judgeMaxConsecutive, setJudgeMaxConsecutive] = useState(3)
 
   // ─── TV Leaderboard ───────────────────────────────────────────────────
   const [tvPercentages, setTvPercentages] = useState<Record<string, number>>({})
@@ -72,7 +71,6 @@ export default function SetupPage() {
           tvLeaderboardPercentages?: Record<string, number>
           tvLeaderboardOrder?: Record<string, number>
           judgePassword?: string
-          judgeMaxConsecutive?: number
         }>(`/api/settings?slug=${slug}`),
         getJson<{ url: string | null }>('/api/logo'),
       ])
@@ -84,7 +82,6 @@ export default function SetupPage() {
       setTvPercentages(settings.tvLeaderboardPercentages ?? {})
       setTvOrder(settings.tvLeaderboardOrder ?? {})
       if (settings.judgePassword) setJudgePassword(settings.judgePassword)
-      if (settings.judgeMaxConsecutive != null) setJudgeMaxConsecutive(settings.judgeMaxConsecutive)
       setLogoUrl(logo.url)
     })
   }, [slug])
@@ -217,15 +214,6 @@ export default function SetupPage() {
     })
   }
 
-  async function saveJudgeMaxConsecutive(value: number) {
-    if (value < 1 || value > 20) return
-    await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, judgeMaxConsecutive: value }),
-    })
-  }
-
   // ─── TV Leaderboard handlers ──────────────────────────────────────────────
 
   async function saveTvPercentages(next: Record<string, number>) {
@@ -326,20 +314,6 @@ export default function SetupPage() {
               onBlur={e => saveJudgePassword(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
               className="w-full rounded-lg bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 focus:outline-none focus:border-orange-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-white font-medium mb-1">Max Consecutive Heats (Judges)</label>
-            <p className="text-xs text-gray-500 mb-2">Assignments exceeding this limit are highlighted in the judge schedule view.</p>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={judgeMaxConsecutive}
-              onChange={e => setJudgeMaxConsecutive(Number(e.target.value))}
-              onBlur={e => saveJudgeMaxConsecutive(Number(e.target.value))}
-              onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-              className="w-24 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 focus:outline-none focus:border-orange-500"
             />
           </div>
         </div>
