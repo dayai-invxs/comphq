@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { SlugNav } from '@/components/SlugNav'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
-import { useOps, qk } from '@/lib/queries'
+import { useOps, useChecks, qk } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 
 type HeatEntry = {
@@ -53,8 +53,10 @@ function getHeatMs(workout: WorkoutData, heatNumber: number): number | null {
 export default function PublicSchedule({ slug }: { slug: string }) {
   const { data, dataUpdatedAt } = useOps<OpsData>(slug)
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null
+  const { data: checksData } = useChecks(slug)
+  const athleteChecks = checksData?.athleteChecks ?? {}
 
-  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug)], [slug])
+  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug), qk.checks(slug)], [slug])
   useRealtimeInvalidation(realtimeKeys)
 
   const activeWorkouts = (data?.workouts ?? []).filter((w) => w.status === 'active')
@@ -85,7 +87,7 @@ export default function PublicSchedule({ slug }: { slug: string }) {
       )}
 
       {data && activeWorkouts.map((workout) => {
-        const pendingHeats = workout.heats.filter((h) => !h.isComplete)
+        const pendingHeats = workout.heats.filter((h) => !athleteChecks[`${workout.id}-${h.heatNumber}`]?.walkout)
         if (pendingHeats.length === 0) return null
         return (
           <div key={workout.id} className="mb-10">

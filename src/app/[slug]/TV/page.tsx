@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
-import { useLeaderboard, useOps, qk, type LeaderboardData } from '@/lib/queries'
+import { useLeaderboard, useOps, useChecks, qk, type LeaderboardData } from '@/lib/queries'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { calcHeatStartMs, fmtHeatTime as fmtMs } from '@/lib/heatTime'
 
@@ -52,8 +52,10 @@ export default function TVPage() {
 
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData } = useLeaderboard(slug)
+  const { data: checksData } = useChecks(slug)
+  const athleteChecks = checksData?.athleteChecks ?? {}
 
-  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug)], [slug])
+  const realtimeKeys = useMemo(() => [qk.ops(slug), qk.leaderboard(slug), qk.checks(slug)], [slug])
   useRealtimeInvalidation(realtimeKeys)
 
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function TVPage() {
       <main ref={mainRef} className="flex-1 overflow-hidden p-8">
         <div ref={contentRef}>
           {view === 'schedule'
-            ? <ScheduleView data={opsData} error={opsError} />
+            ? <ScheduleView data={opsData} error={opsError} checks={athleteChecks} />
             : <LeaderboardView data={lbData} />
           }
         </div>
@@ -113,7 +115,7 @@ export default function TVPage() {
   )
 }
 
-function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error | null }) {
+function ScheduleView({ data, error, checks }: { data: OpsData | undefined; error: Error | null; checks: Record<string, { corral: boolean; walkout: boolean }> }) {
   if (error) {
     return <div className="text-red-400 text-2xl text-center mt-20">Error: {error.message}</div>
   }
@@ -131,7 +133,7 @@ function ScheduleView({ data, error }: { data: OpsData | undefined; error: Error
   type FlatHeat = { workout: WorkoutData; heat: typeof activeWorkouts[0]['heats'][0]; heatMs: number | null }
   const allPending: FlatHeat[] = activeWorkouts.flatMap(workout =>
     workout.heats
-      .filter(h => !h.isComplete)
+      .filter(h => !checks[`${workout.id}-${h.heatNumber}`]?.walkout)
       .map(heat => ({
         workout,
         heat,
