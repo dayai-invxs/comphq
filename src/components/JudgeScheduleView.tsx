@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SlugNav } from '@/components/SlugNav'
 import { getJson } from '@/lib/http'
 import { getSupabaseClient } from '@/lib/supabase-client'
@@ -62,9 +62,38 @@ function PasswordGate({ password, onUnlock }: { password: string; onUnlock: () =
   )
 }
 
+function findViolations(workouts: WorkoutData[], maxConsecutive: number): Set<string> {
+  const violations = new Set<string>()
+  for (const wk of workouts) {
+    const judgeHeats = new Map<number, number[]>()
+    for (const heat of wk.heats) {
+      for (const a of heat.assignments) {
+        if (!judgeHeats.has(a.judgeId)) judgeHeats.set(a.judgeId, [])
+        judgeHeats.get(a.judgeId)!.push(heat.heatNumber)
+      }
+    }
+    for (const [judgeId, heats] of judgeHeats) {
+      heats.sort((a, b) => a - b)
+      let run = 1
+      for (let i = 0; i < heats.length; i++) {
+        if (i > 0 && heats[i] === heats[i - 1] + 1) {
+          run++
+        } else {
+          run = 1
+        }
+        if (run > maxConsecutive) {
+          violations.add(`${wk.id}-${judgeId}-${heats[i]}`)
+        }
+      }
+    }
+  }
+  return violations
+}
+
 export default function JudgeScheduleView({ slug }: { slug: string }) {
   const [gateState, setGateState] = useState<'checking' | 'gated' | 'unlocked'>('checking')
   const [judgePassword, setJudgePassword] = useState(DEFAULT_PASSWORD)
+  const [judgeMaxConsecutive, setJudgeMaxConsecutive] = useState(3)
   const [data, setData] = useState<ScheduleData | null>(null)
   const [filter, setFilter] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
@@ -84,8 +113,11 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
         return
       }
       try {
-        const d = await getJson<{ judgePassword?: string }>(`/api/settings?slug=${slug}`)
-        if (!cancelled) setJudgePassword(d.judgePassword ?? DEFAULT_PASSWORD)
+        const d = await getJson<{ judgePassword?: string; judgeMaxConsecutive?: number }>(`/api/settings?slug=${slug}`)
+        if (!cancelled) {
+          setJudgePassword(d.judgePassword ?? DEFAULT_PASSWORD)
+          if (d.judgeMaxConsecutive != null) setJudgeMaxConsecutive(d.judgeMaxConsecutive)
+        }
       } catch { /* use default */ }
       if (!cancelled) setGateState('gated')
     })()
@@ -107,6 +139,13 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
           .filter(h => h.assignments.length > 0),
       })).filter(wk => wk.heats.length > 0)
     : data?.workouts
+
+  // Violations computed from the full (unfiltered) dataset so consecutive runs
+  // aren't broken by the search filter.
+  const violations = useMemo(
+    () => data ? findViolations(data.workouts, judgeMaxConsecutive) : new Set<string>(),
+    [data, judgeMaxConsecutive],
+  )
 
   if (gateState === 'checking') return null
   if (gateState === 'gated') return <PasswordGate password={judgePassword} onUnlock={() => setGateState('unlocked')} />
@@ -174,12 +213,18 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {heat.assignments.map(a => (
-                            <tr key={a.lane} className="border-t border-gray-800">
-                              <td className="px-3 py-2 font-bold text-orange-400">{a.lane}</td>
-                              <td className="px-3 py-2 font-medium text-white">{a.judgeName}</td>
-                            </tr>
-                          ))}
+                          {heat.assignments.map(a => {
+                            const violation = violations.has(`${wk.id}-${a.judgeId}-${heat.heatNumber}`)
+                            return (
+                              <tr key={a.lane} className={`border-t border-gray-800 ${violation ? 'bg-red-950/50' : ''}`}>
+                                <td className={`px-3 py-2 font-bold ${violation ? 'text-red-400' : 'text-orange-400'}`}>{a.lane}</td>
+                                <td className={`px-3 py-2 font-medium ${violation ? 'text-red-300' : 'text-white'}`}>
+                                  {a.judgeName}
+                                  {violation && <span className="ml-1.5 text-xs text-red-400" title={`Exceeds max consecutive heats (${judgeMaxConsecutive})`}>⚠</span>}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
