@@ -80,6 +80,12 @@ export default function AthleteControl({ slug }: { slug: string }) {
     return checks[`${workoutId}-${heatNumber}`] ?? { corral: false, walkout: false }
   }
 
+  function resetChecks() {
+    if (!confirm('Reset all checkboxes?\n\nThis will clear all corral and walk-out checks. This cannot be undone.')) return
+    qc.setQueryData(qk.checks(slug), (old: ChecksData | undefined) => ({ ...old, athleteChecks: {}, equipChecks: old?.equipChecks ?? {} }))
+    void fetch('/api/checks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, type: 'athlete', checks: {} }) })
+  }
+
   function startEditHeatTime(workoutId: number, heatNumber: number) {
     const workout = workouts.find((w) => w.id === workoutId)
     if (!workout) return
@@ -115,12 +121,15 @@ export default function AthleteControl({ slug }: { slug: string }) {
       <main className="flex-1 p-6 max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-white">Control</h1>
+        <div className="flex items-center gap-4">
+        <button onClick={resetChecks} className="bg-orange-900 hover:bg-orange-800 text-orange-300 text-sm font-medium rounded-lg px-4 py-2 transition-colors">Reset</button>
         <div className="text-xs text-gray-500 text-right">
           <div className="flex items-center gap-2 justify-end">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             Live
           </div>
           {lastUpdated && <div className="mt-1">Updated {lastUpdated.toLocaleTimeString()}</div>}
+        </div>
         </div>
       </div>
 

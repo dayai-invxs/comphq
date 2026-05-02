@@ -102,6 +102,11 @@ export default function EquipmentControlView({ slug }: { slug: string }) {
     void fetch('/api/checks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, type: 'equipment', checks: next }) })
   }
 
+  function resetEquipChecks() {
+    if (!confirm('Reset all checkboxes?\n\nThis will clear all equipment checks. This cannot be undone.')) return
+    setEquipChecks({})
+  }
+
   if (gateState === 'checking') return null
   if (gateState === 'gated') return <PasswordGate password={judgePassword} onUnlock={() => setGateState('unlocked')} />
 
@@ -109,7 +114,10 @@ export default function EquipmentControlView({ slug }: { slug: string }) {
     <div className="min-h-screen flex flex-col">
       <SlugNav slug={slug} />
       <main className="flex-1 p-6 max-w-3xl mx-auto w-full">
-        <h1 className="text-3xl font-bold text-white mb-8">Equipment Control</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-white">Equipment Control</h1>
+          <button onClick={resetEquipChecks} className="bg-orange-900 hover:bg-orange-800 text-orange-300 text-sm font-medium rounded-lg px-4 py-2 transition-colors">Reset</button>
+        </div>
         <EquipmentControl workouts={workouts} slug={slug} checks={equipChecks} setChecks={setEquipChecks} />
       </main>
     </div>
