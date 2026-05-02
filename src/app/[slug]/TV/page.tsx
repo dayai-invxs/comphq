@@ -94,7 +94,7 @@ export default function TVPage() {
         <div className="flex items-center">
           <div className="flex items-center" style={{ marginRight: 24 }}>
             <span className="text-gray-400 font-bold text-5xl" style={{ marginRight: 24 }}>Scan for Comp Info →</span>
-            <QRCodeSVG value="https://competitioncorner.net/events/19948/schedule" size={72} bgColor="#1f2937" fgColor="#ffffff" />
+            <QRCodeSVG value="https://www.comphq.pro/ruggedrumble/athlete-overview" size={72} bgColor="#1f2937" fgColor="#ffffff" />
           </div>
           <div className="flex">
             <div className={`w-4 h-4 rounded-full transition-colors ${view === 'schedule' ? 'bg-orange-400' : 'bg-gray-600'}`} style={{ marginRight: 12 }} />
