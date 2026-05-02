@@ -99,6 +99,18 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+    getJson<{ judgePassword?: string; judgeMaxConsecutive?: number }>(`/api/settings?slug=${slug}`)
+      .then(d => {
+        if (cancelled) return
+        setJudgePassword(d.judgePassword ?? DEFAULT_PASSWORD)
+        if (d.judgeMaxConsecutive != null) setJudgeMaxConsecutive(d.judgeMaxConsecutive)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [slug])
+
+  useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY) === '1') {
       setGateState('unlocked')
       return
@@ -108,17 +120,7 @@ export default function JudgeScheduleView({ slug }: { slug: string }) {
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
-      if (user) {
-        setGateState('unlocked')
-        return
-      }
-      try {
-        const d = await getJson<{ judgePassword?: string; judgeMaxConsecutive?: number }>(`/api/settings?slug=${slug}`)
-        if (!cancelled) {
-          setJudgePassword(d.judgePassword ?? DEFAULT_PASSWORD)
-          if (d.judgeMaxConsecutive != null) setJudgeMaxConsecutive(d.judgeMaxConsecutive)
-        }
-      } catch { /* use default */ }
+      if (user) { setGateState('unlocked'); return }
       if (!cancelled) setGateState('gated')
     })()
     return () => { cancelled = true }
