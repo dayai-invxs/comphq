@@ -111,6 +111,7 @@ export const WorkoutCreate = z.object({
   slug: Slug,
   number: NumericInt.pipe(z.number().int().positive()),
   name: NonEmptyString.max(120),
+  description: z.string().max(5000).optional(),
   scoreType: ScoreType,
   lanes: NumericInt.pipe(z.number().int().min(1).max(20)),
   heatIntervalSecs: NumericInt.pipe(z.number().int().positive()),
@@ -129,6 +130,7 @@ export const WorkoutCreate = z.object({
 
 export const WorkoutUpdate = z.object({
   name: NonEmptyString.max(120).optional(),
+  description: z.string().max(5000).nullable().optional(),
   scoreType: ScoreType.optional(),
   lanes: NumericInt.pipe(z.number().int().min(1).max(20)).optional(),
   heatIntervalSecs: NumericInt.pipe(z.number().int().positive()).optional(),

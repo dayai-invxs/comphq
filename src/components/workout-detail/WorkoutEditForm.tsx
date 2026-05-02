@@ -63,6 +63,7 @@ type Props = {
 
 export default function WorkoutEditForm({ workout, loading, locations, onSave, onCancel }: Props) {
   const [name, setName] = useState(workout.name)
+  const [description, setDescription] = useState(workout.description ?? '')
   const [number, setNumber] = useState(String(workout.number))
   const [scoreType, setScoreType] = useState(workout.scoreType)
   const [lanes, setLanes] = useState(String(workout.lanes))
@@ -82,7 +83,7 @@ export default function WorkoutEditForm({ workout, loading, locations, onSave, o
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     const ok = await onSave({
-      name: name.trim(), number: Number(number), scoreType, lanes: Number(lanes),
+      name: name.trim(), description: description.trim() || null, number: Number(number), scoreType, lanes: Number(lanes),
       heatIntervalSecs: fieldToSecs(heatInterval), timeBetweenHeatsSecs: fieldToSecs(timeBetweenHeats),
       callTimeSecs: fieldToSecs(callTime), walkoutTimeSecs: fieldToSecs(walkoutTime),
       startTime: toIsoOrNull(startTime), mixedHeats, tiebreakEnabled, tiebreakScoreType,
@@ -101,6 +102,10 @@ export default function WorkoutEditForm({ workout, loading, locations, onSave, o
       <form onSubmit={submit} className="grid grid-cols-2 gap-4">
         <div><label className="block text-xs text-gray-400 mb-1">Workout #</label><input type="number" value={number} onChange={(e) => setNumber(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
         <div><label className="block text-xs text-gray-400 mb-1">Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
+        <div className="col-span-2">
+          <label className="block text-xs text-gray-400 mb-1">Description</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Describe the workout movements, rep scheme, time cap, etc." className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none" />
+        </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Score Type</label>
           <select value={scoreType} onChange={(e) => setScoreType(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">

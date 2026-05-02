@@ -107,6 +107,7 @@ export const workout = pgTable('Workout', {
   walkoutTimeSecs: integer('walkoutTimeSecs').notNull(),
   startTime: timestamp('startTime', { precision: 3, mode: 'string', withTimezone: true }),
   status: text('status').notNull().default('draft'),
+  description: text('description'),
   mixedHeats: boolean('mixedHeats').notNull().default(true),
   tiebreakEnabled: boolean('tiebreakEnabled').notNull().default(false),
   tiebreakScoreType: text('tiebreakScoreType').notNull().default('time'),

@@ -206,6 +206,13 @@ export default function WorkoutDetailPage() {
         </div>
       </div>
 
+      {!editing && workout.description && (
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-700/50">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</h3>
+          <p className="text-gray-200 text-sm whitespace-pre-wrap">{workout.description}</p>
+        </div>
+      )}
+
       {editing && (
         <WorkoutEditForm
           workout={workout}

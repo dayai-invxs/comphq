@@ -14,7 +14,7 @@ export type Score = {
   points: number | null; partBRawScore: number | null; partBPoints: number | null; athlete: Athlete
 }
 export type Workout = {
-  id: number; number: number; name: string; scoreType: string; lanes: number
+  id: number; number: number; name: string; description: string | null; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
   partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; locationId: number | null; heatStartOverrides: Record<string, string> | string
