@@ -55,6 +55,9 @@ export const AthleteBulkDelete = z.object({
   slug: Slug,
   ids: z.array(Id).min(1).max(500),
 })
+export const AthleteSwap = z.object({
+  newAthleteId: Id,
+})
 
 export const VolunteerCreate = z.object({
   slug: Slug,

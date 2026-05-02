@@ -154,6 +154,8 @@ function AthletesTab({
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
   const [confirmActionId, setConfirmActionId] = useState<{ id: number; type: 'withdraw' | 'unwithdraw' } | null>(null)
+  const [swapFromId, setSwapFromId] = useState<number | null>(null)
+  const [swapToId, setSwapToId] = useState('')
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -218,6 +220,27 @@ function AthletesTab({
     setLoading(true)
     await run('Delete selected', () => delJson('/api/athletes', { ids: [...selected] }))
     setSelected(new Set())
+    await reload()
+    setLoading(false)
+  }
+
+  async function swap() {
+    if (!swapFromId || !swapToId) return
+    setLoading(true)
+    await run('Swap athlete', async () => {
+      const res = await fetch(`/api/athletes/${swapFromId}/swap?slug=${slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newAthleteId: Number(swapToId) }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      return res.json()
+    })
+    setSwapFromId(null)
+    setSwapToId('')
     await reload()
     setLoading(false)
   }
@@ -333,6 +356,22 @@ function AthletesTab({
                             <button onClick={() => confirmActionId.type === 'withdraw' ? withdraw(a.id) : unwithdraw(a.id)} className="text-xs text-orange-400 hover:text-orange-300 font-semibold">Sure?</button>
                             <button onClick={() => setConfirmActionId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
                           </>
+                        ) : swapFromId === a.id ? (
+                          <>
+                            <select
+                              autoFocus
+                              value={swapToId}
+                              onChange={(e) => setSwapToId(e.target.value)}
+                              className="bg-gray-700 text-white text-xs rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            >
+                              <option value="">Replace with…</option>
+                              {athletes.filter((o) => o.id !== a.id).map((o) => (
+                                <option key={o.id} value={String(o.id)}>{o.name}{o.bibNumber ? ` (${o.bibNumber})` : ''}</option>
+                              ))}
+                            </select>
+                            <button onClick={swap} disabled={loading || !swapToId} className="text-xs text-green-400 hover:text-green-300 font-semibold disabled:opacity-50">Confirm</button>
+                            <button onClick={() => { setSwapFromId(null); setSwapToId('') }} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                          </>
                         ) : (
                           <>
                             <button onClick={() => { setEditingId(a.id); setEditState({ name: a.name, bib: a.bibNumber ?? '', divisionId: a.divisionId ? String(a.divisionId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
@@ -340,6 +379,7 @@ function AthletesTab({
                               ? <button onClick={() => setConfirmActionId({ id: a.id, type: 'unwithdraw' })} disabled={loading} className="text-xs text-yellow-400 hover:text-yellow-300 disabled:opacity-50">Un-withdraw</button>
                               : <button onClick={() => setConfirmActionId({ id: a.id, type: 'withdraw' })} disabled={loading} className="text-xs text-orange-400 hover:text-orange-300 disabled:opacity-50">Withdraw</button>
                             }
+                            <button onClick={() => { setSwapFromId(a.id); setSwapToId('') }} disabled={loading} className="text-xs text-purple-400 hover:text-purple-300 disabled:opacity-50">Swap</button>
                             <button onClick={() => setConfirmDeleteId(a.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
                           </>
                         )}
