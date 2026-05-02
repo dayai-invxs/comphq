@@ -422,6 +422,8 @@ function VolunteersTab({
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
   const [roleFilter, setRoleFilter] = useState('')
+  const [swapFromId, setSwapFromId] = useState<number | null>(null)
+  const [swapToId, setSwapToId] = useState('')
 
   async function addOne(e: React.FormEvent) {
     e.preventDefault()
@@ -462,6 +464,27 @@ function VolunteersTab({
       setVolunteers((prev) => prev.filter((v) => v.id !== id))
       setSelected((prev) => { const s = new Set(prev); s.delete(id); return s })
     }
+  }
+
+  async function swap() {
+    if (!swapFromId || !swapToId) return
+    setLoading(true)
+    await run('Swap volunteer', async () => {
+      const res = await fetch(`/api/volunteers/${swapFromId}/swap?slug=${slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newVolunteerId: Number(swapToId) }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      return res.json()
+    })
+    setSwapFromId(null)
+    setSwapToId('')
+    await reload()
+    setLoading(false)
   }
 
   async function deleteSelected() {
@@ -582,9 +605,26 @@ function VolunteersTab({
                             <button onClick={() => remove(v.id)} className="text-xs text-red-400 hover:text-red-300 font-semibold">Sure?</button>
                             <button onClick={() => setConfirmDeleteId(null)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
                           </>
+                        ) : swapFromId === v.id ? (
+                          <>
+                            <select
+                              autoFocus
+                              value={swapToId}
+                              onChange={(e) => setSwapToId(e.target.value)}
+                              className="bg-gray-700 text-white text-xs rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            >
+                              <option value="">Replace with…</option>
+                              {volunteers.filter((o) => o.id !== v.id).map((o) => (
+                                <option key={o.id} value={String(o.id)}>{o.name}{o.role ? ` (${o.role.name})` : ''}</option>
+                              ))}
+                            </select>
+                            <button onClick={swap} disabled={loading || !swapToId} className="text-xs text-green-400 hover:text-green-300 font-semibold disabled:opacity-50">Confirm</button>
+                            <button onClick={() => { setSwapFromId(null); setSwapToId('') }} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                          </>
                         ) : (
                           <>
                             <button onClick={() => { setEditingId(v.id); setEditState({ name: v.name, roleId: v.roleId ? String(v.roleId) : '' }) }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            <button onClick={() => { setSwapFromId(v.id); setSwapToId('') }} disabled={loading} className="text-xs text-purple-400 hover:text-purple-300 disabled:opacity-50">Swap</button>
                             <button onClick={() => setConfirmDeleteId(v.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
                           </>
                         )}
