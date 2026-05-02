@@ -271,18 +271,6 @@ export default function WorkoutDetailPage() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm font-medium text-gray-400">Judge Assignments:</span>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500">Max consecutive</label>
-                <input
-                  type="number" min={1} max={20} value={maxConsecutive}
-                  onChange={e => setMaxConsecutive(Number(e.target.value))}
-                  onBlur={e => {
-                    const v = Number(e.target.value)
-                    if (v >= 1 && v <= 20) fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, judgeMaxConsecutive: v }) })
-                  }}
-                  className="w-16 bg-gray-800 text-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
               <button
                 onClick={handleGenerateJudges}
                 disabled={judges.length === 0 || heatNums.length === 0}
