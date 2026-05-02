@@ -48,6 +48,11 @@ export default function WorkoutsPage() {
   const [error, setError] = useState<string | null>(null)
   const [tiebreakWorkoutId, setTiebreakWorkoutId] = useState<number | null>(null)
 
+  type EquipBreakdown = { workoutId: number; workoutNumber: number; workoutName: string; divisionNames: (string | null)[]; maxCount: number }
+  type EquipItem = { item: string; maxCount: number; breakdown: EquipBreakdown[] }
+  const [equipSummary, setEquipSummary] = useState<EquipItem[] | null>(null)
+  const [equipSummaryLoading, setEquipSummaryLoading] = useState(false)
+
   async function run<T>(label: string, op: () => Promise<T>): Promise<T | undefined> {
     setError(null)
     try {
@@ -88,6 +93,15 @@ export default function WorkoutsPage() {
     await run('Save tiebreaker', () =>
       patchJson('/api/settings', { slug, tiebreakWorkoutId: workoutId }),
     )
+  }
+
+  async function loadEquipSummary() {
+    setEquipSummaryLoading(true)
+    await run('Load equipment summary', async () => {
+      const data = await getJson<{ items: EquipItem[] }>(`/api/equipment-summary?slug=${slug}`)
+      setEquipSummary(data.items)
+    })
+    setEquipSummaryLoading(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -245,6 +259,61 @@ export default function WorkoutsPage() {
           ))}
         </div>
       )}
+
+      <div className="bg-gray-900 rounded-xl p-6 max-w-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Equipment Master List</h2>
+          <button
+            onClick={loadEquipSummary}
+            disabled={equipSummaryLoading}
+            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+          >
+            {equipSummaryLoading ? 'Loading…' : equipSummary ? 'Refresh' : 'Load'}
+          </button>
+        </div>
+
+        {equipSummary !== null && (
+          equipSummary.length === 0 ? (
+            <p className="text-gray-500 text-sm">No equipment listed on any workout.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left py-2 pr-4 text-gray-400 font-medium">Item</th>
+                  <th className="text-right py-2 pr-6 text-gray-400 font-medium w-20">Max&nbsp;needed</th>
+                  <th className="text-left py-2 text-gray-400 font-medium">Workouts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {equipSummary.map((entry) => (
+                  <tr key={entry.item} className="border-t border-gray-800">
+                    <td className="py-2.5 pr-4 text-white font-medium">{entry.item}</td>
+                    <td className="py-2.5 pr-6 text-right text-orange-400 font-bold text-base">{entry.maxCount}</td>
+                    <td className="py-2.5 text-gray-400 text-xs">
+                      {entry.breakdown
+                        .sort((a, b) => a.workoutNumber - b.workoutNumber)
+                        .map((bd) => {
+                          const scope = bd.divisionNames.every((d) => d === null)
+                            ? 'All divisions'
+                            : bd.divisionNames.filter(Boolean).join(', ')
+                          return (
+                            <span key={bd.workoutId} className="mr-3 whitespace-nowrap">
+                              <span className="text-gray-300">WOD {bd.workoutNumber}</span>
+                              <span className="text-gray-600 mx-1">·</span>
+                              <span>{scope}</span>
+                              <span className="text-gray-600 mx-1">·</span>
+                              <span className="text-orange-300">{bd.maxCount}</span>
+                            </span>
+                          )
+                        })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        )}
+      </div>
 
       <div className="bg-gray-900 rounded-xl p-6 max-w-sm">
         <h2 className="text-lg font-semibold text-white mb-1">Leaderboard Tiebreaker</h2>
