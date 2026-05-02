@@ -184,6 +184,19 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     }
   }, [api, load, onSuccess])
 
+  const resetWorkout = useCallback(async () => {
+    setLoading(true); setError('')
+    try {
+      await api.resetWorkout()
+      onSuccess('Workout reset. All scores cleared and heats reopened.')
+      await load()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [api, load, onSuccess])
+
   const calculateRankings = useCallback(async (payloads: ScorePayload[]) => {
     setLoading(true); setError('')
     try {
@@ -238,6 +251,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     completeHeat,
     undoHeat,
     clearScores,
+    resetWorkout,
     calculateRankings,
     deleteWorkout,
     updateSettings,

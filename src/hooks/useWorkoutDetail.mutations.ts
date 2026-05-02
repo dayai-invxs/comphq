@@ -71,6 +71,10 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
       return delJson(`${base}/scores${qs}`)
     },
 
+    async resetWorkout() {
+      return postJson(`${base}/reset${qs}`, {})
+    },
+
     async deleteWorkout() {
       return delJson(`${base}${qs}`)
     },

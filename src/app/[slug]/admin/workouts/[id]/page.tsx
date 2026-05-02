@@ -168,6 +168,12 @@ export default function WorkoutDetailPage() {
     await detail.load()
   }
 
+  async function handleReset() {
+    if (!confirm('Reset this workout?\n\nThis will permanently clear all scores, reopen all heats, and set the workout back to draft. This cannot be undone.')) return
+    inputs.clear()
+    await detail.resetWorkout()
+  }
+
   async function handleDelete() {
     if (!confirm('Delete this workout?')) return
     await detail.deleteWorkout()
@@ -193,6 +199,7 @@ export default function WorkoutDetailPage() {
           {workout.status === 'draft' && <button onClick={() => detail.setStatus('active')} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Activate</button>}
           {workout.status === 'active' && <button onClick={() => detail.setStatus('draft')} className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Deactivate</button>}
           {workout.status === 'completed' && <button onClick={() => detail.setStatus('active')} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Reactivate</button>}
+          {workout.status !== 'draft' && <button onClick={handleReset} className="bg-orange-900 hover:bg-orange-800 text-orange-300 text-sm font-medium rounded-lg px-4 py-2 transition-colors">Reset</button>}
           <button onClick={handleDelete} className="bg-red-900 hover:bg-red-800 text-red-300 text-sm font-medium rounded-lg px-4 py-2 transition-colors">Delete</button>
         </div>
       </div>
