@@ -52,6 +52,7 @@ export default function WorkoutsPage() {
   type EquipItem = { item: string; maxCount: number; breakdown: EquipBreakdown[] }
   const [equipSummary, setEquipSummary] = useState<EquipItem[] | null>(null)
   const [equipSummaryLoading, setEquipSummaryLoading] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
 
   async function run<T>(label: string, op: () => Promise<T>): Promise<T | undefined> {
     setError(null)
@@ -123,6 +124,7 @@ export default function WorkoutsPage() {
       setNumber(''); setName(''); setScoreType('time'); setLanes('5')
       setHeatInterval('10:00'); setTimeBetweenHeats('2:00'); setCallTime('10:00'); setWalkoutTime('2:00')
       setStartTime(''); setMixedHeats(true); setTiebreakEnabled(false); setTiebreakScoreType('time'); setPartBEnabled(false); setPartBScoreType('time'); setHalfWeight(false); setLocationId('')
+      setShowAddForm(false)
       await load()
     }
     setLoading(false)
@@ -192,8 +194,17 @@ export default function WorkoutsPage() {
         </div>
       )}
 
+      <div className="max-w-2xl">
+        <button
+          onClick={() => setShowAddForm((v) => !v)}
+          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg px-5 py-2.5 transition-colors"
+        >
+          <span>{showAddForm ? '−' : '+'}</span> Add Workout
+        </button>
+      </div>
+
+      {showAddForm && (
       <div className="bg-gray-900 rounded-xl p-6 max-w-2xl">
-        <h2 className="text-lg font-semibold text-white mb-4">Add Workout</h2>
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
           <div><label className="block text-xs text-gray-400 mb-1">Workout #</label><input type="number" value={number} onChange={(e) => setNumber(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
           <div><label className="block text-xs text-gray-400 mb-1">Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required /></div>
@@ -245,6 +256,7 @@ export default function WorkoutsPage() {
           <div className="col-span-2"><button type="submit" disabled={loading || !number || !name} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-lg px-6 py-2.5 text-sm transition-colors">{loading ? 'Creating...' : 'Create Workout'}</button></div>
         </form>
       </div>
+      )}
 
       {workouts.length > 0 && (
         <div className="space-y-2 max-w-2xl">
