@@ -13,6 +13,7 @@ export default function CompetitionUsersPage() {
   const { slug } = useParams<{ slug: string }>()
   const [users, setUsers] = useState<CompUser[]>([])
   const [loading, setLoading] = useState(true)
+  const [myUserId, setMyUserId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,7 +28,10 @@ export default function CompetitionUsersPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [slug])
+  useEffect(() => {
+    fetch('/api/me').then(r => r.json()).then((d: { id: string }) => setMyUserId(d.id))
+    load()
+  }, [slug])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -50,8 +54,13 @@ export default function CompetitionUsersPage() {
     setSaving(false)
   }
 
-  async function handleChangeRole(userId: string, currentRole: string) {
+  async function handleChangeRole(userId: string, userEmail: string | null, currentRole: string) {
     const newRole = currentRole === 'admin' ? 'user' : 'admin'
+    if (newRole === 'user' && userId === myUserId) {
+      if (!confirm('You are about to downgrade yourself to a competition user. You will lose the ability to manage users. Continue?')) return
+    } else if (newRole === 'admin') {
+      if (!confirm(`Upgrade ${userEmail ?? userId} to competition admin? They will be able to manage users.`)) return
+    }
     const r = await fetch(`/api/comp-users/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -163,7 +172,7 @@ export default function CompetitionUsersPage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => handleChangeRole(u.userId, u.role)}
+                  onClick={() => handleChangeRole(u.userId, u.email, u.role)}
                   className="text-xs text-gray-400 hover:text-white transition-colors"
                 >
                   {u.role === 'admin' ? 'Downgrade to User' : 'Upgrade to Admin'}
