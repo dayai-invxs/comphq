@@ -279,34 +279,35 @@ export default function WorkoutsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-700">
-                  <th className="text-left py-2 pr-4 text-gray-400 font-medium">Item</th>
-                  <th className="text-right py-2 pr-6 text-gray-400 font-medium w-20">Max&nbsp;needed</th>
-                  <th className="text-left py-2 text-gray-400 font-medium">Workouts</th>
+                  <th className="text-left py-2 text-gray-400 font-medium">Item</th>
+                  <th className="text-right py-2 pl-4 text-gray-400 font-medium w-24">Max&nbsp;needed</th>
                 </tr>
               </thead>
               <tbody>
                 {equipSummary.map((entry) => (
                   <tr key={entry.item} className="border-t border-gray-800">
-                    <td className="py-2.5 pr-4 text-white font-medium">{entry.item}</td>
-                    <td className="py-2.5 pr-6 text-right text-orange-400 font-bold text-base">{entry.maxCount}</td>
-                    <td className="py-2.5 text-gray-400 text-xs">
-                      {entry.breakdown
-                        .sort((a, b) => a.workoutNumber - b.workoutNumber)
-                        .map((bd) => {
-                          const scope = bd.divisionNames.every((d) => d === null)
-                            ? 'All divisions'
-                            : bd.divisionNames.filter(Boolean).join(', ')
-                          return (
-                            <span key={bd.workoutId} className="mr-3 whitespace-nowrap">
-                              <span className="text-gray-300">WOD {bd.workoutNumber}</span>
-                              <span className="text-gray-600 mx-1">·</span>
-                              <span>{scope}</span>
-                              <span className="text-gray-600 mx-1">·</span>
-                              <span className="text-orange-300">{bd.maxCount}</span>
-                            </span>
-                          )
-                        })}
+                    <td className="py-2.5 pr-4">
+                      <div className="text-white font-medium">{entry.item}</div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+                        {entry.breakdown
+                          .sort((a, b) => a.workoutNumber - b.workoutNumber)
+                          .map((bd) => {
+                            const scope = bd.divisionNames.every((d) => d === null)
+                              ? 'All divisions'
+                              : bd.divisionNames.filter(Boolean).join(', ')
+                            return (
+                              <span key={bd.workoutId} className="text-xs text-gray-500">
+                                <span className="text-gray-400">WOD {bd.workoutNumber}</span>
+                                <span className="mx-1 text-gray-700">·</span>
+                                <span>{scope}</span>
+                                <span className="mx-1 text-gray-700">·</span>
+                                <span className="text-orange-400">{bd.maxCount}</span>
+                              </span>
+                            )
+                          })}
+                      </div>
                     </td>
+                    <td className="py-2.5 pl-4 text-right text-orange-400 font-bold text-lg align-top">{entry.maxCount}</td>
                   </tr>
                 ))}
               </tbody>
