@@ -1,0 +1,67 @@
+{
+  "items": [
+    {
+      "breakdown": [
+        {
+          "divisionNames": [
+            null
+          ],
+          "maxCount": 3,
+          "workoutId": 2,
+          "workoutName": "Grace",
+          "workoutNumber": 2
+        },
+        {
+          "divisionNames": [
+            null
+          ],
+          "maxCount": 3,
+          "workoutId": 1,
+          "workoutName": "Fran",
+          "workoutNumber": 1
+        }
+      ],
+      "item": "Barbell",
+      "maxCount": 3
+    },
+    {
+      "breakdown": [
+        {
+          "divisionNames": [
+            "Scaled"
+          ],
+          "maxCount": 2,
+          "workoutId": 2,
+          "workoutName": "Grace",
+          "workoutNumber": 2
+        }
+      ],
+      "item": "Kettlebell :: 24kg",
+      "maxCount": 2
+    },
+    {
+      "breakdown": [
+        {
+          "divisionNames": [
+            "Rx"
+          ],
+          "maxCount": 3,
+          "workoutId": 3,
+          "workoutName": "Helen",
+          "workoutNumber": 3
+        },
+        {
+          "divisionNames": [
+            "Rx"
+          ],
+          "maxCount": 3,
+          "workoutId": 1,
+          "workoutName": "Fran",
+          "workoutNumber": 1
+        }
+      ],
+      "item": "Rower",
+      "maxCount": 3
+    }
+  ]
+}

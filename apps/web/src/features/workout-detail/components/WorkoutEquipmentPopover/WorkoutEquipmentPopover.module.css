@@ -1,0 +1,26 @@
+.count {
+  margin-left: var(--mds-space-2);
+}
+
+.panel {
+  width: var(--mds-popover-w);
+}
+
+.items {
+  display: grid;
+  gap: var(--mds-gap-hairline);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mds-gap-tight);
+}
+
+.division {
+  flex: 1;
+}

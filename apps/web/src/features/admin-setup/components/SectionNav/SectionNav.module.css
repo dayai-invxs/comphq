@@ -1,0 +1,54 @@
+/* Below the step where the shell swaps its bottom bar for a rail, the list runs
+   along the top of the page and scrolls sideways; above it, the list stands
+   beside the regions and stays put while they scroll. */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--mds-surface-page);
+  padding-block: var(--mds-pad-tight);
+}
+
+.list {
+  display: flex;
+  gap: var(--mds-gap-tight);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.link {
+  display: block;
+  padding: var(--mds-pad-tight);
+  border-radius: var(--mds-radius-control);
+  font: var(--mds-type-meta);
+  color: var(--mds-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link:hover {
+  color: var(--mds-text-primary);
+  background: var(--mds-surface-card);
+}
+
+.link:focus-visible {
+  outline: var(--mds-focus-width) solid var(--mds-focus-ring-color);
+  outline-offset: var(--mds-focus-offset);
+}
+
+@media (min-width: 1024px) {
+  .nav {
+    top: var(--mds-pad-card);
+    padding-block: 0;
+    background: none;
+  }
+
+  .list {
+    flex-direction: column;
+    gap: var(--mds-gap-hairline);
+    overflow-x: visible;
+  }
+}

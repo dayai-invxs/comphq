@@ -1,0 +1,46 @@
+.heat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap-tight);
+}
+
+.heat + .heat {
+  border-block-start: var(--mds-border-width) solid var(--mds-border-subtle);
+  padding-block-start: var(--mds-stack-group);
+}
+
+/* A heat whose rig is set is done with, but it is not gone: it recedes rather
+   than disappears, so the crew can see how far down the list they are. */
+.done {
+  opacity: 0.6;
+}
+
+.heatHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mds-gap);
+}
+
+.divisions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mds-gap);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-stack-group);
+  margin-block-start: var(--mds-stack-item);
+}
+
+.items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.laneNumber {
+  font-variant-numeric: tabular-nums;
+}

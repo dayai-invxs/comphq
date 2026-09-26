@@ -1,0 +1,23 @@
+/* The anchor is invisible chrome: the marks inside carry the identity. */
+.home {
+  display: inline-flex;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Horizontal lockup, 32px tall: ~172px wide, inside the 56px bar and the
+   240px sidebar. Brand minimum is 88px wide. An uploaded logo keeps its own
+   proportion inside 40px. */
+.lockup {
+  display: block;
+  height: var(--mds-space-8);
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: var(--mds-space-9);
+  max-width: var(--mds-sidebar-w);
+  object-fit: contain;
+}

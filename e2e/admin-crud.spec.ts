@@ -1,139 +1,122 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { adminToken, apiAs } from './api'
+import type { ApiAs } from './api'
+import { deleteCompetition, expectNoErrorBanner, login } from './fixtures'
+import type { Competition } from './fixtures'
 
 /**
- * UI-driven CRUD coverage for the admin pages that weren't exercised by
- * happy-path (which seeds via API). Catches regressions like "the edit
- * button on athletes/divisions drops the slug query param and gets a 404".
+ * The admin screens driven the way an organiser drives them, which is the half
+ * happy-path.spec.ts seeds past. This is where a write that lost its slug, or
+ * a form that clears itself whether or not the write landed, shows up.
+ *
+ * Ported from v1's e2e/admin-crud.spec.ts, and two of its three addresses have
+ * moved: v1 kept athletes and divisions on their own pages, and v3 serves them
+ * from /{slug}/admin/people and /{slug}/admin/setup — which is the route table
+ * v1 itself ended on, not a v3 invention.
+ *
+ * A row is no longer a form either. Both screens open a Sheet beside the list,
+ * so every step below names the dialog it is typing into.
  */
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@test.local'
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'crossfit123456'
-
-async function login(page: Page) {
-  await page.goto('/login')
-  await page.getByLabel('Email').fill(ADMIN_EMAIL)
-  await page.getByLabel('Password').fill(ADMIN_PASSWORD)
-  await page.getByRole('button', { name: 'Sign In' }).click()
-  await page.waitForURL('**/admin')
-}
-
-test.describe('admin CRUD via UI', () => {
+test.describe('admin CRUD through the screens', () => {
   const slug = `crud-${Date.now()}`
   let competitionId: number | null = null
+  let call: ApiAs
 
-  test.beforeAll(async ({ browser }) => {
-    const ctx = await browser.newContext()
-    const page = await ctx.newPage()
-    await login(page)
-    const cookies = await ctx.cookies()
-    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ')
-
-    const res = await page.request.fetch('/api/competitions', {
-      method: 'POST',
-      headers: { cookie: cookieHeader, 'Content-Type': 'application/json' },
-      data: JSON.stringify({ name: `CRUD ${slug}`, slug }),
-    })
-    expect(res.ok(), `Create comp: ${res.status()}`).toBeTruthy()
-    const comp = await res.json()
+  test.beforeAll(async () => {
+    call = apiAs(await adminToken())
+    const comp = await call('POST', '/api/competitions', { name: `CRUD ${slug}`, slug }) as Competition
     competitionId = comp.id
-    await ctx.close()
   })
 
-  test.afterAll(async ({ browser }) => {
-    if (competitionId == null) return
-    const ctx = await browser.newContext()
-    const page = await ctx.newPage()
+  test.afterAll(async () => {
+    if (competitionId != null) await deleteCompetition(call, competitionId)
+  })
+
+  test('athletes: add, rename and remove', async ({ page }) => {
     await login(page)
-    const cookies = await ctx.cookies()
-    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ')
-    await page.request.fetch(`/api/competitions/${competitionId}`, {
-      method: 'DELETE',
-      headers: { cookie: cookieHeader },
-    })
-    await ctx.close()
+    await page.goto(`/${slug}/admin/people`)
+
+    await page.getByRole('button', { name: 'Add athlete' }).click()
+    const adding = page.getByRole('dialog', { name: 'Add athlete' })
+    // Inputs are located by role, not label: MDS Field appends an aria-hidden
+    // "*" to a required label ("Name*"), and Sheet's close button carries an
+    // aria-label ("Close division") that getByLabel substring-matches too.
+    await adding.getByRole('textbox', { name: 'Name' }).fill('Bugsy Testuser')
+    await adding.getByRole('textbox', { name: 'Bib #' }).fill('777')
+    await adding.getByRole('button', { name: 'Add athlete' }).click()
+    // Exact, or the row checkbox's hidden "Select Bugsy Testuser" label also matches.
+    await expect(page.getByText('Bugsy Testuser', { exact: true })).toBeVisible({ timeout: 10_000 })
+
+    // The rename is the regression this spec exists for: v1's PUT dropped the
+    // slug and answered 404, and the row went back to its old name in silence.
+    const row = page.getByRole('row').filter({ hasText: 'Bugsy Testuser' })
+    await row.getByRole('button', { name: 'Edit' }).click()
+    const editing = page.getByRole('dialog', { name: 'Bugsy Testuser' })
+    await editing.getByRole('textbox', { name: 'Name' }).fill('Bugsy Renamed')
+    await editing.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Bugsy Renamed', { exact: true })).toBeVisible({ timeout: 10_000 })
+    await expectNoErrorBanner(page)
+
+    const renamed = page.getByRole('row').filter({ hasText: 'Bugsy Renamed' })
+    await renamed.getByRole('button', { name: 'Remove' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove athlete' }).click()
+    await expect(page.getByText('Bugsy Renamed')).toHaveCount(0, { timeout: 10_000 })
+    await expectNoErrorBanner(page)
   })
 
-  test('athletes: add → edit → delete via UI', async ({ page }) => {
+  test('divisions: add, rename and delete', async ({ page }) => {
     await login(page)
-    await page.goto(`/${slug}/admin/athletes`)
+    await page.goto(`/${slug}/admin/setup`)
 
-    // Add
-    await page.getByPlaceholder('Name').fill('Bugsy Testuser')
-    await page.getByPlaceholder('Bib #').first().fill('777')
-    await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect(page.getByText('Bugsy Testuser')).toBeVisible({ timeout: 10_000 })
+    // Locations and roles keep the same shape on this page, so every step is
+    // scoped to the divisions section rather than to the first Edit it finds.
+    const divisions = page.locator('#setup-divisions')
 
-    // Edit — rename via the edit button (regression: used to 404 because
-    // the PUT dropped the slug query param).
-    await page.getByRole('button', { name: 'Edit' }).click()
-    // The editing row is the only input[type="text"] inside <tbody>; the
-    // top "Add" form lives outside tbody.
-    const nameInput = page.locator('tbody input[type="text"]').first()
-    await expect(nameInput).toBeVisible()
-    await nameInput.fill('Bugsy Renamed')
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText('Bugsy Renamed')).toBeVisible({ timeout: 10_000 })
-    // No visible error banner
-    // Our page's own error banner (as opposed to Next.js dev overlay)
-    await expect(page.locator('[role="alert"].bg-red-950')).toHaveCount(0)
+    await divisions.getByRole('button', { name: 'Add division' }).click()
+    const adding = page.getByRole('dialog', { name: 'Add division' })
+    await adding.getByRole('textbox', { name: 'Division' }).fill('BugDivision')
+    await adding.getByRole('button', { name: 'Add division' }).click()
+    await expect(divisions.getByText('BugDivision')).toBeVisible({ timeout: 10_000 })
 
-    // Delete (confirm dialog)
-    page.once('dialog', (d) => d.accept())
-    await page.getByRole('button', { name: 'Remove' }).click()
-    await expect(page.getByText('Bugsy Renamed')).toHaveCount(0)
-    // Our page's own error banner (as opposed to Next.js dev overlay)
-    await expect(page.locator('[role="alert"].bg-red-950')).toHaveCount(0)
+    await divisions.getByRole('row').filter({ hasText: 'BugDivision' })
+      .getByRole('button', { name: 'Edit' }).click()
+    const editing = page.getByRole('dialog', { name: 'BugDivision' })
+    await editing.getByRole('textbox', { name: 'Division' }).fill('BugDivRenamed')
+    await editing.getByRole('button', { name: 'Save' }).click()
+    await expect(divisions.getByText('BugDivRenamed')).toBeVisible({ timeout: 10_000 })
+
+    await divisions.getByRole('row').filter({ hasText: 'BugDivRenamed' })
+      .getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete division' }).click()
+    await expect(divisions.getByText('BugDivRenamed')).toHaveCount(0, { timeout: 10_000 })
+    await expectNoErrorBanner(page)
   })
 
-  test('divisions: add → edit → delete via UI', async ({ page }) => {
-    await login(page)
-    await page.goto(`/${slug}/admin/divisions`)
-
-    // Add
-    await page.getByPlaceholder(/^1$|^2$|^RX/i).first().fill('9')
-    await page.getByPlaceholder('e.g. RX, Scaled, Masters').fill('BugDivision')
-    await page.getByRole('button', { name: 'Add' }).click()
-    await expect(page.getByText('BugDivision')).toBeVisible({ timeout: 10_000 })
-
-    // Edit
-    await page.getByRole('button', { name: 'Edit' }).click()
-    const nameBox = page.locator('tbody input[type="text"]').first()
-    await nameBox.fill('BugDivRenamed')
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText('BugDivRenamed')).toBeVisible({ timeout: 10_000 })
-
-    // Delete
-    page.once('dialog', (d) => d.accept())
-    await page.getByRole('button', { name: 'Delete' }).click()
-    await expect(page.getByText('BugDivRenamed')).toHaveCount(0)
-  })
-
-  test('workouts: duplicate number surfaces a friendly error (not a silent 500)', async ({ page }) => {
+  test('workouts: a duplicate number is reported, not swallowed', async ({ page }) => {
     await login(page)
     await page.goto(`/${slug}/admin/workouts`)
 
-    // The workouts form labels aren't wired via htmlFor; target by position
-    // within the form grid (Workout # is first number input, Name is first
-    // text input in the form).
-    const workoutNumber = page.locator('form input[type="number"]').first()
-    const workoutName = page.locator('form input[type="text"]').first()
-
-    // First workout with number 42 — should succeed.
-    await workoutNumber.fill('42')
-    await workoutName.fill('DupTest A')
-    await page.getByRole('button', { name: 'Create Workout' }).click()
+    await page.getByRole('button', { name: 'Add workout' }).click()
+    const form = page.getByRole('dialog', { name: 'Add workout' })
+    await form.getByRole('spinbutton', { name: 'Workout #' }).fill('42')
+    await form.getByRole('textbox', { name: 'Name', exact: true }).fill('DupTest A')
+    await form.getByRole('button', { name: 'Create Workout' }).click()
     await expect(page.getByRole('link', { name: /WOD 42: DupTest A/ })).toBeVisible({ timeout: 10_000 })
 
-    // Second workout with the same number — should surface the 409 message
-    // in the page's error banner instead of silently failing.
-    await workoutNumber.fill('42')
-    await workoutName.fill('DupTest B')
-    await page.getByRole('button', { name: 'Create Workout' }).click()
+    // The same number again: a 409 the screen has to read out, rather than a
+    // second workout or a form that appears to have done nothing.
+    await page.getByRole('button', { name: 'Add workout' }).click()
+    await form.getByRole('spinbutton', { name: 'Workout #' }).fill('42')
+    await form.getByRole('textbox', { name: 'Name', exact: true }).fill('DupTest B')
+    await form.getByRole('button', { name: 'Create Workout' }).click()
 
-    const banner = page.locator('[role="alert"].bg-red-950')
+    // Scoped to the form: the failure is reported twice on purpose — a global
+    // toast (also role=alert) fires for every unhandled mutation failure, and
+    // the dialog holds its own copy where the number being retyped is.
+    const banner = form.getByRole('alert')
     await expect(banner).toBeVisible({ timeout: 10_000 })
     await expect(banner).toContainText(/number 42 already exists/i)
-    // Second workout was NOT created.
     await expect(page.getByRole('link', { name: /DupTest B/ })).toHaveCount(0)
   })
 })

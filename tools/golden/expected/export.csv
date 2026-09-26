@@ -1,0 +1,81 @@
+Competition,Golden Master
+Exported,"3/2/2026, 8:00:00 AM"
+
+WORKOUTS
+
+WOD #,Name,Score Type,Status,Lanes,Half Weight
+1,Fran,time,completed,3,No
+2,Grace,reps,completed,3,Yes
+3,Helen,time,active,3,No
+4,Isabel,lower_is_better,completed,3,No
+5,Jackie,reps,pending,3,No
+
+HEAT ASSIGNMENTS — WOD 1: Fran
+
+Heat,Lane,Athlete,Division,Bib #
+1,1,Bob Brown,Rx,102
+1,2,Alice Adams,Rx,101
+1,3,Cara Cole,Rx,103
+2,1,Eve Evans,Scaled,105
+2,2,Dan Diaz,Scaled,104
+2,3,Finn Fox,—,106
+3,2,Gus Gray,Rx,107
+
+HEAT ASSIGNMENTS — WOD 2: Grace
+
+Heat,Lane,Athlete,Division,Bib #
+1,1,Alice Adams,Rx,101
+1,2,Cara Cole,Rx,103
+1,3,Bob Brown,Rx,102
+2,1,Dan Diaz,Scaled,104
+2,2,Eve Evans,Scaled,105
+2,3,Finn Fox,—,106
+3,2,Gus Gray,Rx,107
+
+HEAT ASSIGNMENTS — WOD 3: Helen
+
+Heat,Lane,Athlete,Division,Bib #
+1,1,Bob Brown,Rx,102
+1,2,Alice Adams,Rx,101
+1,3,Cara Cole,Rx,103
+2,1,Eve Evans,Scaled,105
+2,2,Dan Diaz,Scaled,104
+
+HEAT ASSIGNMENTS — WOD 4: Isabel
+
+Heat,Lane,Athlete,Division,Bib #
+1,1,Alice Adams,Rx,101
+1,2,Bob Brown,Rx,102
+1,3,Cara Cole,Rx,103
+2,1,Eve Evans,Scaled,105
+2,2,Dan Diaz,Scaled,104
+2,3,Finn Fox,—,106
+
+HEAT ASSIGNMENTS — WOD 5: Jackie
+
+Heat,Lane,Athlete,Division,Bib #
+
+ATHLETES & SCORES
+
+Name,Division,Bib #,WOD 1,WOD 2 (½),WOD 3,WOD 4,WOD 5,Total Points
+— Rx —
+Alice Adams,Rx,101,#1 (0:00.10),#2 (60),#1 (0:00.20),#2 (0:00.20),DNS,5
+Bob Brown,Rx,102,#2 (0:00.11),#1 (65),#2 (0:00.21),#1 (0:00.10),DNS,5.5
+Cara Cole,Rx,103,#3 (0:00.12),#3 (55),#3 (0:00.22),#3 (0:00.30),DNS,10.5
+Gus Gray,Rx,107,DNS,DNS,DNS,DNS,DNS,—
+— Scaled —
+Dan Diaz,Scaled,104,#4 (0:00.13),#4 (50),DNS,#4 (0:00.40),DNS,10
+Eve Evans,Scaled,105,#5 (0:00.14),#5 (45),DNS,#5 (0:00.50),DNS,12.5
+— No Division —
+Finn Fox,—,106,DNS,DNS,DNS,#6 (0:00.60),DNS,6
+
+OVERALL LEADERBOARD
+
+Rank,Name,Division,WOD 1,WOD 2 (½),WOD 3,WOD 4,WOD 5,Total Points
+1,Bob Brown,Rx,#2 (0:00.11),#1 (65),#1 (0:00.10),3.5
+2,Alice Adams,Rx,#1 (0:00.10),#2 (60),#2 (0:00.20),4
+3,Finn Fox,—,DNS,DNS,#6 (0:00.60),6
+4,Cara Cole,Rx,#3 (0:00.12),#3 (55),#3 (0:00.30),7.5
+5,Dan Diaz,Scaled,#4 (0:00.13),#4 (50),#4 (0:00.40),10
+6,Eve Evans,Scaled,#5 (0:00.14),#5 (45),#5 (0:00.50),12.5
+—,Gus Gray,Rx,DNS,DNS,DNS,—

@@ -1,0 +1,8 @@
+/* Sized by the slot it lands in — a tab bar and a nav rail scale their icons
+   differently and both set --mds-icon-* on the row. */
+.glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke-width: var(--mds-icon-stroke);
+}

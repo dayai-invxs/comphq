@@ -1,0 +1,22 @@
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* One set of destinations, two places to draw them. Below --mds-bp-lg the bar
+   is within thumb reach at the bottom; above it the rail is beside the
+   content, where a pointer already is. */
+.rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .rail {
+    display: flex;
+  }
+
+  .tabs {
+    display: none;
+  }
+}

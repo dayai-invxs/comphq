@@ -1,0 +1,34 @@
+{
+  "showBib": true,
+  "workouts": [
+    {
+      "id": 3,
+      "name": "Helen",
+      "number": 3,
+      "schedule": [
+        {
+          "athleteId": 5,
+          "athleteName": "Eve Evans",
+          "bibNumber": "105",
+          "corralTime": "2026-03-01T13:27:20.000Z",
+          "divisionName": "Scaled",
+          "heatNumber": 2,
+          "heatTime": "2026-03-01T13:30:00.000Z",
+          "lane": 1,
+          "walkoutTime": "2026-03-01T13:29:10.000Z"
+        },
+        {
+          "athleteId": 4,
+          "athleteName": "Dan Diaz",
+          "bibNumber": "104",
+          "corralTime": "2026-03-01T13:27:20.000Z",
+          "divisionName": "Scaled",
+          "heatNumber": 2,
+          "heatTime": "2026-03-01T13:30:00.000Z",
+          "lane": 2,
+          "walkoutTime": "2026-03-01T13:29:10.000Z"
+        }
+      ]
+    }
+  ]
+}

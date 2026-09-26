@@ -1,0 +1,44 @@
+/* Two panes where the design system keeps room for a second rail — the app's
+   own rail already has the first. Below that step they stack, index first. */
+
+.panes {
+  display: grid;
+  gap: var(--mds-stack-section);
+}
+
+.heats {
+  min-width: 0;
+}
+
+@media (min-width: 1280px) {
+  .panes {
+    grid-template-columns: minmax(0, var(--mds-sidebar-w)) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .rail {
+    position: sticky;
+    top: var(--mds-pad-card);
+  }
+}
+
+.description {
+  white-space: pre-wrap;
+}
+
+/* The workout-level controls. Beside the heats the rail is 240px and the
+   buttons run down it edge to edge; stacked above them on a narrow screen,
+   full-width bars would be most of the first viewport, so they sit in rows
+   at their own size instead. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mds-gap-tight);
+}
+
+@media (min-width: 1280px) {
+  .controls {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+}

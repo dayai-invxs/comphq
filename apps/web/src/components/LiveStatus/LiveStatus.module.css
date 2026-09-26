@@ -1,0 +1,22 @@
+.live {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--mds-gap-hairline);
+}
+
+/* One duration token, which is also what turns the pulse down when the reader
+   has asked for less motion. */
+.dot {
+  display: inline-block;
+  width: var(--mds-dot);
+  height: var(--mds-dot);
+  margin-inline-end: var(--mds-gap-tight);
+  border-radius: var(--mds-radius-pill);
+  background: var(--mds-status-success);
+  animation: pulse var(--mds-dur-pulse) var(--mds-ease-standard) infinite;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.4; }
+}

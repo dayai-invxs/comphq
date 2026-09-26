@@ -1,0 +1,26 @@
+/* The only global rule the app adds.
+ *
+ * @mond-design-system/tokens ships base.css: the reset, the page background,
+ * the type default, the focus ring. None of that is repeated here. What it
+ * cannot know is that this app puts a Screen at the root of every route, and
+ * Screen is `height: 100%` — which resolves against nothing unless the chain
+ * above it has a height. v1 said the same thing with `h-full` on <html> and
+ * `min-h-full` on <body>.
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* MDS centers its toast viewport on every width. On a phone that is the whole
+ * width anyway; on a desktop this app wants them out of the content's way in
+ * the corner. 1024px is --mds-bp-lg — the same line every layout here changes
+ * shape at — written literally because a var() cannot appear in @media. */
+@media (min-width: 1024px) {
+  .mds-Toast__viewport {
+    left: auto;
+    right: var(--mds-toast-inset);
+    transform: none;
+  }
+}

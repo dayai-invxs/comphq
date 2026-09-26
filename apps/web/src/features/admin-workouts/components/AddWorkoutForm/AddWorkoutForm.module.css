@@ -1,0 +1,19 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mds-gap);
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .full {
+    grid-column: 1 / -1;
+  }
+}
+
+.clock {
+  font-family: var(--mds-font-mono);
+}

@@ -1,0 +1,6 @@
+/* The search sits inside the panel's flush body, which drops the gutter for
+   the table under it — so the box puts its own back. */
+.search {
+  padding: var(--mds-pad-card);
+  padding-block-end: 0;
+}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <!--
+      data-theme is set statically: CompHQ ships dark. The brand file follows
+      the MDS convention — light table on :root, dark re-points under this
+      selector — so shipping light is a one-attribute change, but today there
+      is no switcher and the attribute never moves.
+    -->
+    <!--
+      The stylesheet is a separate render-blocking file, so the document paints
+      its own default before that file lands. On a gym projector that is a
+      white flash across the room. These rules are the only styling that exists
+      at that point; each value mirrors --mds-surface-page for its theme in
+      src/tokens/brand-comphq.css, and `pnpm check:tokens` fails if they
+      stop agreeing.
+    -->
+    <style>
+      html {
+        background: #f2f0ed;
+      }
+      html[data-theme="dark"] {
+        background: #0b0c0d;
+      }
+    </style>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>CompHQ</title>
+    <meta name="description" content="Competition management and athlete schedule" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

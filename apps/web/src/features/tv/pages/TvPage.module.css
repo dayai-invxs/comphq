@@ -1,0 +1,107 @@
+/* v1: src/app/[slug]/TV/page.tsx. The board owns the viewport — one screen,
+   no scrollbar, and nobody standing near it. */
+
+/* The whole screen's type scale, declared once here rather than rung by rung
+   in each view's sheet, because the projector step below re-points it and a
+   scale kept in three places is a scale that drifts. Both view stylesheets
+   read these. */
+.stage {
+  --tv-text-header: var(--mds-text-3xl);
+  --tv-text-scan: var(--mds-text-2xl);
+  --tv-text-notice: var(--mds-text-2xl);
+  --tv-text-title: var(--mds-text-xl);
+  --tv-text-meta: var(--mds-text-lg);
+  --tv-text-rank: var(--mds-text-2xl);
+  --tv-text-points: var(--mds-text-base);
+  --tv-dot: var(--mds-icon-sm);
+
+  /* v1's own 420px, which is also the measure the system gives a standalone
+     panel of content. It does not step: at the projector step the type grows
+     and the board shows fewer, larger panels, which is what that step is for. */
+  --tv-panel-min: var(--mds-modal-w);
+
+  display: flex;
+  flex-direction: column;
+  /* v1's `h-screen`. Deliberately not the system's --mds-vvh, which resolves
+     to `dvh`: that unit exists so an overlay clears a software keyboard, and
+     a screen bolted to a wall has neither a keyboard nor a browser new enough
+     to know the unit. An unsupported unit here drops the declaration and the
+     board grows past the screen it is meant to fit inside. */
+  height: 100vh;
+  overflow: hidden;
+  background: var(--mds-surface-page);
+}
+
+/* --mds-bp-2xl, whose own comment states the intent exactly: not more columns,
+   but bigger type read from across the room. */
+@media (min-width: 1920px) {
+  .stage {
+    --tv-text-header: var(--mds-text-4xl);
+    --tv-text-scan: var(--mds-text-3xl);
+    --tv-text-notice: var(--mds-text-3xl);
+    --tv-text-title: var(--mds-text-2xl);
+    --tv-text-meta: var(--mds-text-xl);
+    --tv-text-rank: var(--mds-text-3xl);
+    --tv-text-points: var(--mds-text-lg);
+    --tv-dot: var(--mds-icon-lg);
+  }
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mds-gap-loose);
+  flex-shrink: 0;
+  padding: var(--mds-pad-control) var(--mds-pad-page-x);
+  border-bottom: var(--mds-border-width) solid var(--mds-border-subtle);
+  background: var(--mds-surface-raised);
+}
+
+.title {
+  font-size: var(--tv-text-header);
+}
+
+.aside {
+  display: flex;
+  align-items: center;
+  gap: var(--mds-gap-loose);
+}
+
+.scan {
+  font-size: var(--tv-text-scan);
+  font-weight: var(--mds-weight-bold);
+  white-space: nowrap;
+}
+
+/* The code is drawn in the text colour rather than in a pair of literals, so
+   it cannot end up dark on a dark wall the way a hardcoded pair would. */
+.qr {
+  color: var(--mds-text-primary);
+}
+
+.dots {
+  display: flex;
+  gap: var(--mds-gap-tight);
+}
+
+.dot {
+  width: var(--tv-dot);
+  height: var(--tv-dot);
+  border-radius: var(--mds-radius-pill);
+  background: var(--mds-border-strong);
+}
+
+/* Which half of the board is up. Not a live signal and not a control, so it
+   is neutral: the amber on this screen belongs to the heat that is running. */
+.on {
+  background: var(--mds-text-primary);
+}
+
+/* Nothing here scrolls. What does not fit is scaled down by useScaleToFit,
+   which measures against this element's height. */
+.main {
+  flex: 1;
+  overflow: hidden;
+  padding: var(--mds-pad-page-x);
+}

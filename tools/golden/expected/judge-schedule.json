@@ -1,0 +1,63 @@
+{
+  "judges": [
+    {
+      "id": 1,
+      "name": "Jo Judge"
+    },
+    {
+      "id": 2,
+      "name": "Kim Keeper"
+    },
+    {
+      "id": 3,
+      "name": "Lee Lane"
+    }
+  ],
+  "workouts": [
+    {
+      "heats": [
+        {
+          "assignments": [
+            {
+              "judgeId": 3,
+              "judgeName": "Lee Lane",
+              "lane": 2
+            }
+          ],
+          "heatNumber": 3,
+          "heatTimeMs": 1772357040000,
+          "walkoutTimeMs": 1772356980000
+        }
+      ],
+      "id": 1,
+      "locationName": "Main Floor",
+      "name": "Fran",
+      "number": 1
+    },
+    {
+      "heats": [
+        {
+          "assignments": [
+            {
+              "judgeId": 2,
+              "judgeName": "Kim Keeper",
+              "lane": 1
+            },
+            {
+              "judgeId": 3,
+              "judgeName": "Lee Lane",
+              "lane": 2
+            }
+          ],
+          "heatNumber": 2,
+          "heatTimeMs": 1772371800000,
+          "walkoutTimeMs": 1772371750000
+        }
+      ],
+      "id": 3,
+      "locationName": "Back Rig",
+      "name": "Helen",
+      "number": 3
+    }
+  ]
+}

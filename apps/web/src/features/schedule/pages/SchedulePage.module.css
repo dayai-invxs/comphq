@@ -1,0 +1,68 @@
+/* The time gutter is the axis: every row starts at the same column, so the
+   list reads down the clock rather than across each heat. */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row + .row {
+  border-top: var(--mds-border-width) solid var(--mds-border-subtle);
+}
+
+/* The row is drawn inside a button, and a button's label does not wrap —
+   these lines are prose, not a label, so wrapping comes back on here and the
+   1fr track is pinned so a long division list shrinks instead of overflowing. */
+.rowLine {
+  display: grid;
+  grid-template-columns: var(--mds-space-12) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--mds-gap-hairline) var(--mds-gap);
+  width: 100%;
+  text-align: start;
+  white-space: normal;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--mds-type-meta);
+  white-space: nowrap;
+  color: var(--mds-text-primary);
+}
+
+.what {
+  color: var(--mds-text-primary);
+}
+
+/* Divisions sit under the heat rather than beside it: on a phone they are the
+   line that wraps, and wrapping into the time column breaks the axis. */
+.divisions {
+  grid-column: 2;
+  font-size: var(--mds-type-meta);
+  color: var(--mds-text-muted);
+}
+
+.rowDetail {
+  padding: 0 var(--mds-pad-card) var(--mds-pad-card);
+}
+
+.lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap-hairline);
+}
+
+.lane {
+  display: grid;
+  grid-template-columns: var(--mds-space-8) 1fr auto;
+  align-items: baseline;
+  gap: var(--mds-gap-tight);
+}
+
+.laneNumber {
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-muted);
+}

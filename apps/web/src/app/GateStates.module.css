@@ -1,0 +1,5 @@
+/* A gate answer is the whole screen — Centered does the placing. What is left
+   is that its words are addressed to the reader, so they read centred too. */
+.gate {
+  text-align: center;
+}

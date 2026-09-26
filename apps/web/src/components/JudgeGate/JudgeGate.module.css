@@ -1,0 +1,5 @@
+/* The system's centred-dialog width, which is what a one-field gate is. */
+.card {
+  width: 100%;
+  max-width: var(--mds-modal-w);
+}

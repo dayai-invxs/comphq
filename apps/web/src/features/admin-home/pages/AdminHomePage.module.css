@@ -1,0 +1,5 @@
+/* The prefix and the box it precedes are one address, so the box takes what is
+   left of the line rather than sitting at its own width. */
+.slug {
+  width: 100%;
+}

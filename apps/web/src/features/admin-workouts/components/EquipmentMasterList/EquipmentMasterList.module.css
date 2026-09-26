@@ -1,0 +1,11 @@
+.breakdown {
+  flex-wrap: wrap;
+}
+
+.wod {
+  color: var(--mds-text-secondary);
+}
+
+.count {
+  color: var(--mds-text-accent);
+}

@@ -1,22 +1,26 @@
 import { test, expect, type Page } from '@playwright/test'
-import { createClient, type User } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
+import { serviceClient } from './api'
+import { login } from './fixtures'
 
 /**
- * Access-gate E2E. Verifies the layout-level redirects that server routes'
- * 403s were supposed to catch as a fallback:
+ * The gates, from the outside. Each of these redirects is also a 403 on the
+ * server, and this is the proof that a person who never sees the 403 is still
+ * stopped:
  *
- * - non-super with membership on comp A visits /admin → redirected to /A/admin
- * - non-super with NO memberships visits /admin → access-denied screen
- * - non-super admin of A visits /B/admin → "no access to this competition"
- * - super visits /admin or /any-slug/admin → loads normally
+ *   - a member of comp A opening /admin lands on /A/admin
+ *   - somebody with no membership opening /admin is told access is required
+ *   - a member of A opening /B/admin is told they have no access to it
+ *   - a super opens either, and neither stops them
  *
- * Creates throwaway auth users + comps per-run, tears down in afterAll.
+ * Throwaway users and competitions per run; removed in afterAll, and swept by
+ * the global teardown if a run is killed before it gets there.
+ *
+ * Ported from v1's e2e/access-gates.spec.ts. The screens are redrawn, so the
+ * names are v3's; the four rules are v1's.
  */
 
-const URL = process.env.SUPABASE_URL!
-const SERVICE = process.env.SUPABASE_SERVICE_KEY!
-
-const admin = createClient(URL, SERVICE, { auth: { persistSession: false } })
+const admin = serviceClient()
 
 const ts = Date.now()
 const passwd = 'access-gate-password-12345'
@@ -26,15 +30,19 @@ let memberUser: User
 let noneUser: User
 
 test.beforeAll(async () => {
-  // Two comps.
-  const { data: a } = await admin.from('Competition').insert({ name: `A-${ts}`, slug: `ag-a-${ts}` }).select('*').single()
-  const { data: b } = await admin.from('Competition').insert({ name: `B-${ts}`, slug: `ag-b-${ts}` }).select('*').single()
+  const { data: a } = await admin.from('Competition')
+    .insert({ name: `A-${ts}`, slug: `ag-a-${ts}` }).select('*').single()
+  const { data: b } = await admin.from('Competition')
+    .insert({ name: `B-${ts}`, slug: `ag-b-${ts}` }).select('*').single()
   compA = a as { id: number; slug: string }
   compB = b as { id: number; slug: string }
 
-  // Two users: one CompetitionAdmin of A only, one with zero memberships.
-  const { data: m } = await admin.auth.admin.createUser({ email: `ag-member-${ts}@test.local`, password: passwd, email_confirm: true })
-  const { data: n } = await admin.auth.admin.createUser({ email: `ag-none-${ts}@test.local`, password: passwd, email_confirm: true })
+  const { data: m } = await admin.auth.admin.createUser({
+    email: `ag-member-${ts}@test.local`, password: passwd, email_confirm: true,
+  })
+  const { data: n } = await admin.auth.admin.createUser({
+    email: `ag-none-${ts}@test.local`, password: passwd, email_confirm: true,
+  })
   memberUser = m.user!
   noneUser = n.user!
 
@@ -48,80 +56,56 @@ test.afterAll(async () => {
   if (noneUser) await admin.auth.admin.deleteUser(noneUser.id)
 })
 
-async function login(page: Page, email: string) {
-  await page.goto('/login')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(passwd)
-  await page.getByRole('button', { name: 'Sign In' }).click()
-  // Login redirects to /admin by default; non-supers bounce onward.
-  await page.waitForURL(/\/(admin|ag-.+\/admin)/)
-}
+const asUser = (page: Page, email: string) => login(page, email, passwd)
 
 test.describe('non-super with zero memberships', () => {
-  test('visiting /admin shows access-denied screen', async ({ page }) => {
-    await page.goto('/login')
-    await page.getByLabel('Email').fill(noneUser.email!)
-    await page.getByLabel('Password').fill(passwd)
-    await page.getByRole('button', { name: 'Sign In' }).click()
-    await page.waitForURL('**/admin', { timeout: 10_000 })
-
-    await expect(page.getByRole('heading', { name: 'Access required' })).toBeVisible({ timeout: 10_000 })
+  test('visiting /admin is told access is required', async ({ page }) => {
+    await asUser(page, noneUser.email!)
+    await expect(page.getByRole('heading', { name: 'Access required' }))
+      .toBeVisible({ timeout: 10_000 })
   })
 
-  test('visiting a random /{slug}/admin shows no-access screen', async ({ page }) => {
-    await page.goto('/login')
-    await page.getByLabel('Email').fill(noneUser.email!)
-    await page.getByLabel('Password').fill(passwd)
-    await page.getByRole('button', { name: 'Sign In' }).click()
-    await page.waitForURL('**/admin', { timeout: 10_000 })
-
+  test('visiting a competition they are not in is told so', async ({ page }) => {
+    await asUser(page, noneUser.email!)
     await page.goto(`/${compA.slug}/admin`)
-    await expect(page.getByRole('heading', { name: /no access to this competition/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /no access to this competition/i }))
+      .toBeVisible({ timeout: 10_000 })
   })
 })
 
 test.describe('non-super with membership on comp A', () => {
   test('visiting /admin bounces to /A/admin', async ({ page }) => {
-    await login(page, memberUser.email!)
+    await asUser(page, memberUser.email!)
     await expect(page).toHaveURL(new RegExp(`/${compA.slug}/admin/?$`), { timeout: 10_000 })
   })
 
-  test('visiting /B/admin shows no-access screen', async ({ page }) => {
-    await login(page, memberUser.email!)
+  test('visiting /B/admin is told they have no access to it', async ({ page }) => {
+    await asUser(page, memberUser.email!)
     await page.goto(`/${compB.slug}/admin`)
-    await expect(page.getByRole('heading', { name: /no access to this competition/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /no access to this competition/i }))
+      .toBeVisible({ timeout: 10_000 })
   })
 
-  test('visiting /A/admin loads the dashboard', async ({ page }) => {
-    await login(page, memberUser.email!)
+  test('visiting /A/admin reaches the competition it belongs to', async ({ page }) => {
+    await asUser(page, memberUser.email!)
     await page.goto(`/${compA.slug}/admin`)
-    // The per-comp admin page renders headings unique to that layout
-    // (the "Dashboard" nav link).
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible({ timeout: 10_000 })
+    // The Dashboard link is the competition rail, and only that shell has one.
+    await expect(page.getByRole('link', { name: 'Dashboard', exact: true }))
+      .toBeVisible({ timeout: 10_000 })
   })
 })
 
 test.describe('super admin', () => {
-  test('visiting /admin renders the super dashboard with nav buttons', async ({ page }) => {
-    await page.goto('/login')
-    await page.getByLabel('Email').fill(process.env.E2E_ADMIN_EMAIL ?? 'admin@test.local')
-    await page.getByLabel('Password').fill(process.env.E2E_ADMIN_PASSWORD ?? 'crossfit123456')
-    await page.getByRole('button', { name: 'Sign In' }).click()
-    await page.waitForURL('**/admin')
-
+  test('visiting /admin reaches the site-wide rail', async ({ page }) => {
+    await login(page)
     await expect(page.getByRole('link', { name: 'Competitions' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Manage Users' })).toBeVisible()
   })
 
-  test('super can visit any comp admin page (even one they have no CompetitionAdmin row for)', async ({ page }) => {
-    await page.goto('/login')
-    await page.getByLabel('Email').fill(process.env.E2E_ADMIN_EMAIL ?? 'admin@test.local')
-    await page.getByLabel('Password').fill(process.env.E2E_ADMIN_PASSWORD ?? 'crossfit123456')
-    await page.getByRole('button', { name: 'Sign In' }).click()
-    await page.waitForURL('**/admin', { timeout: 10_000 })
-
+  test('may open a competition they hold no membership row for', async ({ page }) => {
+    await login(page)
     await page.goto(`/${compB.slug}/admin`)
-    // Dashboard nav link (href="/{slug}/admin") is unique to the comp-admin layout.
-    await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('link', { name: 'Dashboard', exact: true }))
+      .toBeVisible({ timeout: 10_000 })
   })
 })

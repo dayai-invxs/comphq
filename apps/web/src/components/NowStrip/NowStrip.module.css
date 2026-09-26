@@ -1,0 +1,45 @@
+/* The one place in the app that carries amber as a surface. Everything else
+   reads neutral, which is what makes this readable across a gym. */
+.strip {
+  padding: var(--mds-pad-card);
+  background: var(--mds-highlight-soft);
+  border: var(--mds-border-width) solid var(--mds-highlight);
+  border-radius: var(--mds-radius-card);
+}
+
+.heat {
+  font: var(--mds-type-title);
+  color: var(--mds-text-primary);
+}
+
+.clocks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mds-gap-loose);
+  margin: 0;
+}
+
+.clock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap-hairline);
+}
+
+.clock dt {
+  font: var(--mds-type-eyebrow);
+  letter-spacing: var(--mds-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--mds-text-muted);
+}
+
+.clock dd {
+  margin: 0;
+  font: var(--mds-type-item-title);
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-secondary);
+}
+
+/* The clock the heat actually runs on. */
+.start dd {
+  color: var(--mds-highlight);
+}

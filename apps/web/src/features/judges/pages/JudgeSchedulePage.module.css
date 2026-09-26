@@ -1,0 +1,47 @@
+.heat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap-tight);
+}
+
+.heatHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mds-gap);
+}
+
+/* The heat owns the columns and each row takes them as a subgrid, so the
+   label column is as wide as the widest "Lane N" and the names line up down
+   the heat: a judge finds their own row by scanning one column. */
+.lanes {
+  display: grid;
+  grid-template-columns: max-content 1fr auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lane {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  gap: var(--mds-gap);
+  padding-block: var(--mds-space-2);
+}
+
+.lane + .lane {
+  border-block-start: var(--mds-border-width) solid var(--mds-border-subtle);
+}
+
+.laneNumber {
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-muted);
+}
+
+/* The row a scheduler has to change. Tinted rather than dimmed, because it is
+   the one row in the heat that wants reading. */
+.over {
+  background: var(--mds-status-danger-soft);
+}

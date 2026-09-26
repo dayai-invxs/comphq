@@ -1,0 +1,5 @@
+/* A percentage: three digits and no more. v1 wrote it as Tailwind's w-14. */
+
+.percent {
+  width: 9ch;
+}

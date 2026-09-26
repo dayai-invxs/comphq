@@ -1,0 +1,10 @@
+.column {
+  width: 100%;
+  max-width: var(--mds-modal-w);
+}
+
+/* Stacked logo is the page identity: two header-bar rungs tall, ~213px wide. */
+.logo {
+  display: block;
+  height: calc(var(--mds-space-12) * 2);
+}

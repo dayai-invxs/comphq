@@ -1,0 +1,6 @@
+/* The consequence of a replacement, read under the picker rather than beside
+   it: it is a sentence, and a sentence on the end of a control line wraps to
+   nothing legible on a narrow sheet. */
+.note {
+  margin-block-start: calc(-1 * var(--mds-gap-hairline));
+}

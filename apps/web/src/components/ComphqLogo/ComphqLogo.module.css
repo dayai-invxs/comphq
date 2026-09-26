@@ -1,0 +1,16 @@
+/* Height-driven: the parent sets the height, the viewBox sets the width. */
+.logo {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  color: var(--mds-text-primary);
+}
+
+.neutral {
+  fill: currentcolor;
+}
+
+.emerald {
+  fill: var(--mds-accent);
+}

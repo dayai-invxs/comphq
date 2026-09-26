@@ -1,0 +1,231 @@
+/* One class per colour token. A swatch has to name a value the app is allowed
+   to draw with, and the app is allowed to draw with tokens — so the swatch
+   reads the token the same way every other sheet does, and check:tokens holds
+   this file to the same rule as the rest.
+
+   Generated shape, hand-maintained: a token added to the brand file wants a
+   row here too, or the styleguide stops being the whole language. */
+
+.sw-text-primary {
+  background: var(--mds-text-primary);
+}
+
+.sw-text-secondary {
+  background: var(--mds-text-secondary);
+}
+
+.sw-text-muted {
+  background: var(--mds-text-muted);
+}
+
+.sw-text-inverse {
+  background: var(--mds-text-inverse);
+}
+
+.sw-text-accent {
+  background: var(--mds-text-accent);
+}
+
+.sw-text-on-media {
+  background: var(--mds-text-on-media);
+}
+
+.sw-surface-page {
+  background: var(--mds-surface-page);
+}
+
+.sw-surface-card {
+  background: var(--mds-surface-card);
+}
+
+.sw-surface-raised {
+  background: var(--mds-surface-raised);
+}
+
+.sw-surface-sunken {
+  background: var(--mds-surface-sunken);
+}
+
+.sw-surface-inverse {
+  background: var(--mds-surface-inverse);
+}
+
+.sw-surface-media {
+  background: var(--mds-surface-media);
+}
+
+.sw-surface-selected {
+  background: var(--mds-surface-selected);
+}
+
+.sw-border-subtle {
+  background: var(--mds-border-subtle);
+}
+
+.sw-border-strong {
+  background: var(--mds-border-strong);
+}
+
+.sw-control-border {
+  background: var(--mds-control-border);
+}
+
+.sw-button-border {
+  background: var(--mds-button-border);
+}
+
+.sw-button-secondary-fg {
+  background: var(--mds-button-secondary-fg);
+}
+
+.sw-control-knob {
+  background: var(--mds-control-knob);
+}
+
+.sw-action-bg {
+  background: var(--mds-action-bg);
+}
+
+.sw-action-fg {
+  background: var(--mds-action-fg);
+}
+
+.sw-action-bg-hover {
+  background: var(--mds-action-bg-hover);
+}
+
+.sw-action-bg-active {
+  background: var(--mds-action-bg-active);
+}
+
+.sw-action-disabled-bg {
+  background: var(--mds-action-disabled-bg);
+}
+
+.sw-action-disabled-fg {
+  background: var(--mds-action-disabled-fg);
+}
+
+.sw-accent {
+  background: var(--mds-accent);
+}
+
+.sw-accent-contrast {
+  background: var(--mds-accent-contrast);
+}
+
+.sw-accent-hover {
+  background: var(--mds-accent-hover);
+}
+
+.sw-accent-soft {
+  background: var(--mds-accent-soft);
+}
+
+.sw-highlight {
+  background: var(--mds-highlight);
+}
+
+.sw-highlight-contrast {
+  background: var(--mds-highlight-contrast);
+}
+
+.sw-highlight-hover {
+  background: var(--mds-highlight-hover);
+}
+
+.sw-highlight-soft {
+  background: var(--mds-highlight-soft);
+}
+
+.sw-avatar-tone-1 {
+  background: var(--mds-avatar-tone-1);
+}
+
+.sw-avatar-tone-2 {
+  background: var(--mds-avatar-tone-2);
+}
+
+.sw-avatar-tone-3 {
+  background: var(--mds-avatar-tone-3);
+}
+
+.sw-avatar-tone-4 {
+  background: var(--mds-avatar-tone-4);
+}
+
+.sw-avatar-tone-5 {
+  background: var(--mds-avatar-tone-5);
+}
+
+.sw-status-danger {
+  background: var(--mds-status-danger);
+}
+
+.sw-status-danger-contrast {
+  background: var(--mds-status-danger-contrast);
+}
+
+.sw-status-danger-soft {
+  background: var(--mds-status-danger-soft);
+}
+
+.sw-status-warning {
+  background: var(--mds-status-warning);
+}
+
+.sw-status-warning-contrast {
+  background: var(--mds-status-warning-contrast);
+}
+
+.sw-status-warning-soft {
+  background: var(--mds-status-warning-soft);
+}
+
+.sw-status-success {
+  background: var(--mds-status-success);
+}
+
+.sw-status-success-contrast {
+  background: var(--mds-status-success-contrast);
+}
+
+.sw-status-success-soft {
+  background: var(--mds-status-success-soft);
+}
+
+.sw-focus-ring-color {
+  background: var(--mds-focus-ring-color);
+}
+
+.sw-scrim {
+  background: var(--mds-scrim);
+}
+
+.sw-scrim-strong {
+  background: var(--mds-scrim-strong);
+}
+
+.sw-overlay {
+  background: var(--mds-overlay);
+}
+
+.sw-on-media-dim {
+  background: var(--mds-on-media-dim);
+}
+
+.sw-on-media-border {
+  background: var(--mds-on-media-border);
+}
+
+.sw-on-media-focus-ring {
+  background: var(--mds-on-media-focus-ring);
+}
+
+.sw-on-media-surface-hover {
+  background: var(--mds-on-media-surface-hover);
+}
+
+.sw-on-media-surface-active {
+  background: var(--mds-on-media-surface-active);
+}

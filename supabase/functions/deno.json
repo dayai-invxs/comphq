@@ -1,0 +1,39 @@
+{
+  "imports": {
+    "@/lib/audit": "./_shared/audit.ts",
+    "@/lib/auth-competition": "./_shared/auth-competition.ts",
+    "@/lib/competition": "./_shared/competition.ts",
+    "@/lib/csv": "./_shared/csv.ts",
+    "@/lib/datetime": "./_shared/datetime.ts",
+    "@/lib/db": "./_shared/db.ts",
+    "@/lib/embeds": "./_shared/embeds.ts",
+    "@/lib/env": "./_shared/env.ts",
+    "@/lib/heat-reorder": "./_shared/heat-reorder.ts",
+    "@/lib/heatCompletion": "./_shared/heatCompletion.ts",
+    "@/lib/heatTime": "./_shared/heatTime.ts",
+    "@/lib/parseJson": "./_shared/parseJson.ts",
+    "@/lib/rate-limit": "./_shared/rate-limit.ts",
+    "@/lib/request-context": "./_shared/request-context.ts",
+    "@/lib/router": "./_shared/router.ts",
+    "@/lib/schemas": "./_shared/schemas.ts",
+    "@/lib/scoreFormat": "./_shared/scoreFormat.ts",
+    "@/lib/scoring": "./_shared/scoring.ts",
+    "@/lib/supabase-server": "./_shared/supabase-server.ts",
+    "@/lib/supabase": "./_shared/supabase.ts",
+    "@/lib/workoutEnums": "./_shared/workoutEnums.ts",
+    "@/db/schema": "./_shared/db/schema.ts",
+    "drizzle-orm": "npm:drizzle-orm@^0.45.2",
+    "drizzle-orm/": "npm:/drizzle-orm@^0.45.2/",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.112.4",
+    "postgres": "npm:postgres@^3.4.9",
+    "zod": "npm:zod@^4.4.3",
+    "fflate": "npm:fflate@^0.8.2"
+  },
+  "compilerOptions": {
+    "lib": [
+      "deno.window",
+      "deno.ns"
+    ],
+    "strict": true
+  }
+}

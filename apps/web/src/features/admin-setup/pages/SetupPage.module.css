@@ -1,0 +1,19 @@
+/* Six regions and the list that reaches them. Below the step where the shell
+   swaps its bottom bar for a rail the two stack, list first; above it they run
+   side by side and the list is the narrower column. */
+
+.layout {
+  display: grid;
+  gap: var(--mds-stack-section);
+}
+
+.sections {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, var(--mds-sidebar-w)) minmax(0, 1fr);
+    align-items: start;
+  }
+}

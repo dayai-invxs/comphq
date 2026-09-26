@@ -1,0 +1,25 @@
+/* Divisions come in any number, and the pill row does not wrap or shrink —
+   so on a phone it scrolls sideways rather than pushing the page wide. */
+.divisionScroll {
+  overflow-x: auto;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mds-gap);
+}
+
+.rank {
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-muted);
+}
+
+/* v1 painted first, second and third gold, silver and bronze — and clamped, so
+   everyone from third down was bronze. A placing is a number: the top three
+   get the page's own foreground and a heavier weight, which reads at a glance
+   and does not colour-code a table whose subject is the numbers. */
+.podium {
+  color: var(--mds-text-primary);
+  font-weight: var(--mds-weight-semibold);
+}

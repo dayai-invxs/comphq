@@ -1,0 +1,21 @@
+/* Score boxes are sized by what goes in them, not by a spacing rung: "m:ss.cc"
+   is eight characters and a round count is three, so `ch` is the measure. A
+   --mds-space-* step would be a guess at the same number. */
+.time {
+  width: 9ch;
+  font-family: var(--mds-font-mono);
+}
+
+.count {
+  width: 5ch;
+  text-align: center;
+}
+
+.tiebreak {
+  margin-block-start: var(--mds-gap-hairline);
+}
+
+.tiebreakBox {
+  width: 8ch;
+  font-family: var(--mds-font-mono);
+}

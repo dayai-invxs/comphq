@@ -1,0 +1,26 @@
+/* MDS composes a Screen as a column: AppBar, ScreenContent, and whatever
+   bottom chrome the screen has. A rail sits between the bar and the content,
+   in a row of its own — SideNav is already sized to be a flex child, so this
+   only has to open the row. */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* v1's admin nav was a row of links on a wide screen and a hamburger below
+   that. Same split, at the step the design system names for it: --mds-bp-lg,
+   where the bottom bar gives way to the sidebar. */
+.rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .rail {
+    display: flex;
+  }
+
+  .menu {
+    display: none;
+  }
+}

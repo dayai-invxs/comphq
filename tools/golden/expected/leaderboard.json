@@ -1,0 +1,314 @@
+{
+  "divisions": [
+    {
+      "name": "Rx",
+      "order": 1
+    },
+    {
+      "name": "Scaled",
+      "order": 2
+    }
+  ],
+  "entries": [
+    {
+      "athleteId": 6,
+      "athleteName": "Finn Fox",
+      "divisionName": null,
+      "totalPoints": 6,
+      "workoutScores": {
+        "1": null,
+        "2": null,
+        "3": null,
+        "4": {
+          "display": "0:00.60",
+          "partBPoints": null,
+          "points": 6,
+          "rawScore": 600,
+          "tiebreakDisplay": null
+        }
+      }
+    },
+    {
+      "athleteId": 2,
+      "athleteName": "Bob Brown",
+      "divisionName": "Rx",
+      "totalPoints": 6.5,
+      "workoutScores": {
+        "1": {
+          "display": "0:00.11",
+          "partBPoints": null,
+          "points": 2,
+          "rawScore": 110,
+          "tiebreakDisplay": null
+        },
+        "2": {
+          "display": "65",
+          "partBPoints": null,
+          "points": 1,
+          "rawScore": 65,
+          "tiebreakDisplay": "0:00.10"
+        },
+        "3": {
+          "display": "0:00.21",
+          "partBPoints": 1,
+          "points": 2,
+          "rawScore": 210,
+          "tiebreakDisplay": null
+        },
+        "4": {
+          "display": "0:00.10",
+          "partBPoints": null,
+          "points": 1,
+          "rawScore": 100,
+          "tiebreakDisplay": null
+        }
+      }
+    },
+    {
+      "athleteId": 1,
+      "athleteName": "Alice Adams",
+      "divisionName": "Rx",
+      "totalPoints": 7,
+      "workoutScores": {
+        "1": {
+          "display": "0:00.10",
+          "partBPoints": null,
+          "points": 1,
+          "rawScore": 100,
+          "tiebreakDisplay": null
+        },
+        "2": {
+          "display": "60",
+          "partBPoints": null,
+          "points": 2,
+          "rawScore": 60,
+          "tiebreakDisplay": "0:00.10"
+        },
+        "3": {
+          "display": "0:00.20",
+          "partBPoints": 2,
+          "points": 1,
+          "rawScore": 200,
+          "tiebreakDisplay": null
+        },
+        "4": {
+          "display": "0:00.20",
+          "partBPoints": null,
+          "points": 2,
+          "rawScore": 200,
+          "tiebreakDisplay": null
+        }
+      }
+    },
+    {
+      "athleteId": 4,
+      "athleteName": "Dan Diaz",
+      "divisionName": "Scaled",
+      "totalPoints": 10,
+      "workoutScores": {
+        "1": {
+          "display": "0:00.13",
+          "partBPoints": null,
+          "points": 4,
+          "rawScore": 130,
+          "tiebreakDisplay": null
+        },
+        "2": {
+          "display": "50",
+          "partBPoints": null,
+          "points": 4,
+          "rawScore": 50,
+          "tiebreakDisplay": "0:00.12"
+        },
+        "3": null,
+        "4": {
+          "display": "0:00.40",
+          "partBPoints": null,
+          "points": 4,
+          "rawScore": 400,
+          "tiebreakDisplay": null
+        }
+      }
+    },
+    {
+      "athleteId": 5,
+      "athleteName": "Eve Evans",
+      "divisionName": "Scaled",
+      "totalPoints": 12.5,
+      "workoutScores": {
+        "1": {
+          "display": "0:00.14",
+          "partBPoints": null,
+          "points": 5,
+          "rawScore": 140,
+          "tiebreakDisplay": null
+        },
+        "2": {
+          "display": "45",
+          "partBPoints": null,
+          "points": 5,
+          "rawScore": 45,
+          "tiebreakDisplay": "0:00.13"
+        },
+        "3": null,
+        "4": {
+          "display": "0:00.50",
+          "partBPoints": null,
+          "points": 5,
+          "rawScore": 500,
+          "tiebreakDisplay": null
+        }
+      }
+    },
+    {
+      "athleteId": 3,
+      "athleteName": "Cara Cole",
+      "divisionName": "Rx",
+      "totalPoints": 13.5,
+      "workoutScores": {
+        "1": {
+          "display": "0:00.12",
+          "partBPoints": null,
+          "points": 3,
+          "rawScore": 120,
+          "tiebreakDisplay": null
+        },
+        "2": {
+          "display": "55",
+          "partBPoints": null,
+          "points": 3,
+          "rawScore": 55,
+          "tiebreakDisplay": "0:00.11"
+        },
+        "3": {
+          "display": "0:00.22",
+          "partBPoints": 3,
+          "points": 3,
+          "rawScore": 220,
+          "tiebreakDisplay": null
+        },
+        "4": {
+          "display": "0:00.30",
+          "partBPoints": null,
+          "points": 3,
+          "rawScore": 300,
+          "tiebreakDisplay": null
+        }
+      }
+    },
+    {
+      "athleteId": 7,
+      "athleteName": "Gus Gray",
+      "divisionName": "Rx",
+      "totalPoints": 0,
+      "workoutScores": {
+        "1": null,
+        "2": null,
+        "3": null,
+        "4": null
+      }
+    }
+  ],
+  "halfWeightIds": [
+    2
+  ],
+  "tiebreakWorkoutId": 4,
+  "tvLeaderboardOrder": {},
+  "tvLeaderboardPercentages": {},
+  "workouts": [
+    {
+      "callTimeSecs": 180,
+      "competitionId": 1,
+      "description": "21-15-9 thruster and pull-up",
+      "halfWeight": false,
+      "heatIntervalSecs": 600,
+      "heatStartOverrides": {},
+      "id": 1,
+      "lanes": 3,
+      "locationId": 1,
+      "mixedHeats": false,
+      "name": "Fran",
+      "number": 1,
+      "partBEnabled": false,
+      "partBScoreType": "time",
+      "scoreType": "time",
+      "startTime": "2026-03-01 10:00:00+01",
+      "status": "completed",
+      "tiebreakEnabled": false,
+      "tiebreakScoreType": "time",
+      "timeBetweenHeatsSecs": 120,
+      "walkoutTimeSecs": 60
+    },
+    {
+      "callTimeSecs": 150,
+      "competitionId": 1,
+      "description": "AMRAP 12",
+      "halfWeight": true,
+      "heatIntervalSecs": 480,
+      "heatStartOverrides": {},
+      "id": 2,
+      "lanes": 3,
+      "locationId": 1,
+      "mixedHeats": false,
+      "name": "Grace",
+      "number": 2,
+      "partBEnabled": false,
+      "partBScoreType": "time",
+      "scoreType": "reps",
+      "startTime": "2026-03-01 12:00:00+01",
+      "status": "completed",
+      "tiebreakEnabled": true,
+      "tiebreakScoreType": "time",
+      "timeBetweenHeatsSecs": 90,
+      "walkoutTimeSecs": 45
+    },
+    {
+      "callTimeSecs": 160,
+      "competitionId": 1,
+      "description": "Part A for time, Part B max reps",
+      "halfWeight": false,
+      "heatIntervalSecs": 540,
+      "heatStartOverrides": {
+        "2": "2026-03-01T13:30:00.000Z"
+      },
+      "id": 3,
+      "lanes": 3,
+      "locationId": 2,
+      "mixedHeats": false,
+      "name": "Helen",
+      "number": 3,
+      "partBEnabled": true,
+      "partBScoreType": "reps",
+      "scoreType": "time",
+      "startTime": "2026-03-01 14:00:00+01",
+      "status": "active",
+      "tiebreakEnabled": false,
+      "tiebreakScoreType": "time",
+      "timeBetweenHeatsSecs": 100,
+      "walkoutTimeSecs": 50
+    },
+    {
+      "callTimeSecs": 140,
+      "competitionId": 1,
+      "description": null,
+      "halfWeight": false,
+      "heatIntervalSecs": 420,
+      "heatStartOverrides": {},
+      "id": 4,
+      "lanes": 3,
+      "locationId": 2,
+      "mixedHeats": false,
+      "name": "Isabel",
+      "number": 4,
+      "partBEnabled": false,
+      "partBScoreType": "time",
+      "scoreType": "lower_is_better",
+      "startTime": "2026-03-01 16:00:00+01",
+      "status": "completed",
+      "tiebreakEnabled": false,
+      "tiebreakScoreType": "time",
+      "timeBetweenHeatsSecs": 80,
+      "walkoutTimeSecs": 40
+    }
+  ]
+}

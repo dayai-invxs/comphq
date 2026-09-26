@@ -1,0 +1,13 @@
+/* The filters sit inside the panel's flush body, which drops the gutter for
+   the table under it — so they put their own back. */
+.filters {
+  padding: var(--mds-pad-card);
+  padding-block-end: 0;
+}
+
+/* The name box holds a name before it earns a line of its own. v1 wrote it as
+   Tailwind's min-w-32. */
+.grow {
+  flex: 1;
+  min-width: 16ch;
+}

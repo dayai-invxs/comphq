@@ -1,0 +1,47 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--mds-surface-card);
+  border: var(--mds-border-width) solid var(--mds-border-subtle);
+  border-radius: var(--mds-radius-card);
+  overflow: hidden;
+}
+
+.sunken {
+  background: var(--mds-surface-sunken);
+}
+
+.head {
+  padding: var(--mds-pad-card);
+  border-bottom: var(--mds-border-width) solid var(--mds-border-subtle);
+}
+
+.description {
+  font: var(--mds-type-meta);
+  color: var(--mds-text-muted);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--mds-pad-card);
+}
+
+/* A table draws its own row padding; a second gutter around it wastes the
+   width the columns need. */
+.flush {
+  padding: 0;
+}
+
+/* A panel inside a panel is the habit this component exists to end. If one
+   lands anyway, it loses its surface rather than stacking a third grey box. */
+.panel .panel {
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.panel .panel > .body,
+.panel .panel > .head {
+  padding-inline: 0;
+}

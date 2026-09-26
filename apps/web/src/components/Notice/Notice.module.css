@@ -1,0 +1,15 @@
+.notice {
+  padding: var(--mds-pad-control);
+  border: var(--mds-border-width) solid;
+  border-radius: var(--mds-radius-card);
+}
+
+.danger {
+  border-color: var(--mds-status-danger);
+  background: var(--mds-status-danger-soft);
+}
+
+.success {
+  border-color: var(--mds-status-success);
+  background: var(--mds-status-success-soft);
+}

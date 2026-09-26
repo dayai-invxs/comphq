@@ -1,0 +1,32 @@
+/* Pinned by being a flex sibling of the scrolling content rather than by
+   position: fixed — a fixed bar on a tablet moves when the soft keyboard
+   opens, and this screen is mostly number entry. */
+.context {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: none;
+  min-height: var(--mds-header-h);
+  padding: var(--mds-pad-control) var(--mds-pad-page-x);
+  background: var(--mds-surface-card);
+  border-bottom: var(--mds-border-width) solid var(--mds-border-subtle);
+}
+
+/* ScreenContent already pads; this only adds the room the dock takes. */
+.padded {
+  padding-bottom: 0;
+}
+
+.dock {
+  display: flex;
+  flex: none;
+  gap: var(--mds-gap-tight);
+  padding: var(--mds-pad-control) var(--mds-pad-page-x)
+    calc(var(--mds-pad-control) + var(--mds-safe-bottom));
+  background: var(--mds-surface-card);
+  border-top: var(--mds-border-width) solid var(--mds-border-subtle);
+}
+
+.dock > * {
+  flex: 1;
+}

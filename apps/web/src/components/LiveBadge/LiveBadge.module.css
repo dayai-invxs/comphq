@@ -1,0 +1,43 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mds-gap-hairline);
+  padding: var(--mds-pad-pill-y) var(--mds-pad-pill-x);
+  border-radius: var(--mds-radius-pill);
+  background: var(--mds-highlight-soft);
+  color: var(--mds-highlight);
+  font: var(--mds-type-eyebrow);
+  letter-spacing: var(--mds-tracking-eyebrow);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Dot alone in a dense row: no pill, no padding, just the mark. */
+.compact {
+  padding: 0;
+  background: none;
+}
+
+.dot {
+  width: var(--mds-dot);
+  height: var(--mds-dot);
+  border-radius: var(--mds-radius-pill);
+  background: currentcolor;
+  animation: pulse var(--mds-dur-pulse) var(--mds-ease-standard) infinite;
+}
+
+.word {
+  font-weight: var(--mds-weight-semibold);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}

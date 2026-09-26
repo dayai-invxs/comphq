@@ -1,0 +1,101 @@
+/* The type scale is declared once on the stage in TvPage.module.css, because
+   the projector step re-points it in one place rather than in every sheet that
+   draws with it. */
+
+/* A message on a wall is read from the same distance the board is, so the
+   system's own heading and body sizes are stepped up to the board's scale. */
+.notice {
+  margin-block-start: var(--mds-stack-section);
+  text-align: center;
+}
+
+.notice h3,
+.notice p {
+  font-size: var(--tv-text-notice);
+}
+
+/* Three across, always: the board is one screen with no scrollbar, and the
+   fourth heat is what useScaleToFit would have to shrink everything for. */
+.heats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mds-gap);
+}
+
+.card {
+  overflow: hidden;
+}
+
+/* The heat on the floor. One amber edge, because a card painted amber all
+   over stops the names on it being the brightest thing in the room. */
+.now {
+  border-color: var(--mds-highlight);
+  box-shadow: inset var(--mds-space-1) 0 0 0 var(--mds-highlight);
+}
+
+.workout,
+.athlete {
+  font-size: var(--tv-text-title);
+}
+
+.heatLine {
+  display: flex;
+  align-items: center;
+  gap: var(--mds-gap);
+}
+
+.heat {
+  font-size: var(--tv-text-title);
+  font-weight: var(--mds-weight-bold);
+  color: var(--mds-text-primary);
+}
+
+.now .heat {
+  color: var(--mds-highlight);
+}
+
+.divisions,
+.division {
+  font-size: var(--tv-text-meta);
+}
+
+/* Corral, walk out, start — read in the order the heat runs, each clock under
+   the word for it rather than after a colon. */
+.times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mds-gap-hairline) var(--mds-gap-loose);
+  margin: 0;
+}
+
+.time {
+  display: flex;
+  flex-direction: column;
+}
+
+.time dt {
+  font-size: var(--tv-text-points);
+  text-transform: uppercase;
+  letter-spacing: var(--mds-tracking-eyebrow);
+  color: var(--mds-text-muted);
+}
+
+.time dd {
+  margin: 0;
+  font-size: var(--tv-text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-secondary);
+}
+
+/* The clock the room is counting down to. */
+.start dd {
+  font-weight: var(--mds-weight-bold);
+  color: var(--mds-text-primary);
+}
+
+.laneNumber {
+  font-size: var(--tv-text-title);
+  font-weight: var(--mds-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-muted);
+}

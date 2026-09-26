@@ -1,0 +1,14 @@
+/* Two tiles side by side, the way v1 drew them, and never wider than the pair
+   needs to be. */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mds-space-4);
+  max-width: var(--mds-modal-w);
+}
+
+.count {
+  display: block;
+  font-size: var(--mds-text-3xl);
+  font-weight: var(--mds-weight-bold);
+}

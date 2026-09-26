@@ -1,0 +1,23 @@
+/* Two columns from the tablet step up; one on a phone, where a settings pair
+   side by side leaves neither wide enough to read. */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mds-gap);
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* "10:15" is five characters — the box is sized by what is typed into it,
+   not by a spacing rung. */
+.minSec {
+  width: 8ch;
+}

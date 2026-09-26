@@ -1,0 +1,234 @@
+/* CompHQ brand — colour and font, and nothing else.
+ *
+ * Copied from @mond-design-system/tokens/brand-template.css and re-pointed.
+ * The template's geometry block is deliberately absent: shape and size are the
+ * design system's. Anything geometric that looks wrong is fixed in MDS.
+ *
+ * Palette: the CompHQ brand palette (CompHQ Brand Palette Export). Core is
+ * carbon #0B0C0D, chalk #F2F0ED, emerald bright #2BAA7B, emerald deep #00714A,
+ * with an emerald ramp (E50–E900), a neutral ramp (carbon, N900–N200, chalk)
+ * and four status colours. Each signal means one thing:
+ *
+ *   emerald is brand + interactive   logo, links, buttons, focus
+ *   amber (hold) is live-now         the running heat, the current lane
+ *   neutral is data                  names, lanes, times, standings
+ *   status is outcome                no-rep, hold, go/valid, and nothing else
+ *
+ * The brand names go/valid emerald, so success and interactive share a hue.
+ * Brand rule: emerald bright on dark, emerald deep on light.
+ *
+ * The palette block below is comphq-colors.css from the export, verbatim:
+ * the one place a brand colour is written. The --mds-* tokens point at it
+ * with var(). To take a new export, paste it over the block. check:tokens
+ * keeps swatches in this file: components read roles, never swatches.
+ *
+ * Hex literals left in the mapping are not in the export and are marked
+ * "derived": a mix of a brand colour with carbon or chalk. Two cases need
+ * them — soft tints (brand gives none outside emerald), and light-theme
+ * no-rep and hold, which fail 4.5:1 as text on chalk at their brand values.
+ * White (#ffffff) is not a swatch either; it stays literal where MDS wants it.
+ *
+ * Info (#2092E0) is declared but fills no role: MDS has no info status yet.
+ *
+ * Structure follows the MDS brand convention: :root is the light theme and
+ * re-declares every colour token; [data-theme="dark"] re-points only what
+ * flips. index.html ships data-theme="dark". check:tokens proves every
+ * contrast pair against both tables.
+ *
+ * Load order: tokens/styles.css, then @mond-design-system/react/styles.css,
+ * then this file. It re-points custom properties only, so it wins by being
+ * last.
+ */
+/* palette — comphq-colors.css, verbatim */
+:root {
+  /* Core */
+  --comphq-core-carbon: #0B0C0D;
+  --comphq-core-chalk: #F2F0ED;
+  --comphq-core-emerald-bright: #2BAA7B;
+  --comphq-core-emerald-deep: #00714A;
+  /* Emerald */
+  --comphq-emerald-50: #E1F8ED;
+  --comphq-emerald-100: #BFEFD6;
+  --comphq-emerald-200: #88DCB5;
+  --comphq-emerald-300: #5AC798;
+  --comphq-emerald-400: #2BAA7B;
+  --comphq-emerald-500: #0F8C63;
+  --comphq-emerald-600: #00714A;
+  --comphq-emerald-700: #005337;
+  --comphq-emerald-800: #003823;
+  --comphq-emerald-900: #012215;
+  /* Neutral */
+  --comphq-carbon: #0B0C0D;
+  --comphq-neutral-900: #131416;
+  --comphq-neutral-800: #1A1B1E;
+  --comphq-neutral-700: #26282B;
+  --comphq-neutral-600: #3C4045;
+  --comphq-steel: #6F7378;
+  --comphq-neutral-400: #9A9EA3;
+  --comphq-neutral-300: #C9CCD0;
+  --comphq-neutral-200: #E4E3E0;
+  --comphq-chalk: #F2F0ED;
+  /* Status */
+  --comphq-status-go-valid: #00714A;
+  --comphq-status-no-rep: #E74243;
+  --comphq-status-hold: #F3B037;
+  --comphq-status-info: #2092E0;
+}
+
+:root {
+  color-scheme: light;
+
+  /* fonts — system stack. Archivo Black is the wordmark's typeface, but the
+     wordmark ships as outlined paths, so no webfont is loaded for it. */
+  --mds-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mds-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mds-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* text — carbon, N700, N600. Nothing in the data is coloured. */
+  --mds-text-primary: var(--comphq-carbon);
+  --mds-text-secondary: var(--comphq-neutral-700);
+  --mds-text-muted: var(--comphq-neutral-600);
+  --mds-text-inverse: var(--comphq-chalk);
+  --mds-text-accent: var(--mds-accent);
+  --mds-text-on-media: #ffffff;
+
+  /* surfaces — chalk page, white card and raised, N200 sunken; selected is
+     the accent soft */
+  --mds-surface-page: var(--comphq-chalk);
+  --mds-surface-card: #ffffff;
+  --mds-surface-raised: #ffffff;
+  --mds-surface-sunken: var(--comphq-neutral-200);
+  --mds-surface-inverse: var(--comphq-carbon);
+  --mds-surface-media: var(--comphq-carbon);
+  --mds-surface-selected: var(--mds-accent-soft);
+
+  /* borders + controls — N300, N400, steel */
+  --mds-border-subtle: var(--comphq-neutral-300);
+  --mds-border-strong: var(--comphq-neutral-400);
+  --mds-control-border: var(--comphq-steel);
+  --mds-button-border: var(--mds-control-border);
+  --mds-button-secondary-fg: var(--mds-text-primary);
+  --mds-control-knob: #ffffff;
+
+  /* action — emerald deep (E600), darkening E700, E800 */
+  --mds-action-bg: var(--comphq-emerald-600);
+  --mds-action-fg: #ffffff;
+  --mds-action-bg-hover: var(--comphq-emerald-700);
+  --mds-action-bg-active: var(--comphq-emerald-800);
+  --mds-action-disabled-bg: var(--comphq-neutral-200);
+  --mds-action-disabled-fg: var(--comphq-neutral-400);
+
+  /* accent — emerald, and it means interactive */
+  --mds-accent: var(--comphq-emerald-600);
+  --mds-accent-contrast: #ffffff;
+  --mds-accent-hover: var(--comphq-emerald-700);
+  --mds-accent-soft: var(--comphq-emerald-50);
+
+  /* highlight — hold amber, and it means live-now. Hover and soft derived:
+     25% white, 75% chalk. */
+  --mds-highlight: var(--comphq-status-hold);
+  --mds-highlight-contrast: var(--comphq-carbon);
+  --mds-highlight-hover: #f6c469;
+  --mds-highlight-soft: #f2e0c0;
+
+  /* avatar identity tints — accent, highlight and danger softs, info soft
+     (derived, 80% chalk), N200. Initials draw in text-primary. */
+  --mds-avatar-tone-1: var(--mds-accent-soft);
+  --mds-avatar-tone-2: var(--mds-highlight-soft);
+  --mds-avatar-tone-3: #c8ddea;
+  --mds-avatar-tone-4: var(--mds-status-danger-soft);
+  --mds-avatar-tone-5: var(--comphq-neutral-200);
+
+  /* status — no-rep, hold, go/valid. Light danger and warning derived (20%
+     and 55% carbon) to hold 4.5:1 as text; danger soft derived (80% chalk),
+     warning soft is the highlight soft, success soft is E100. */
+  --mds-status-danger: #b03536;
+  --mds-status-danger-contrast: #ffffff;
+  --mds-status-danger-soft: #f0cdcb;
+  --mds-status-warning: #735620;
+  --mds-status-warning-contrast: #ffffff;
+  --mds-status-warning-soft: var(--mds-highlight-soft);
+  --mds-status-success: var(--comphq-status-go-valid);
+  --mds-status-success-contrast: #ffffff;
+  --mds-status-success-soft: var(--comphq-emerald-100);
+
+  /* focus — the accent, so the ring says the same thing the fill does */
+  --mds-focus-ring-color: var(--mds-accent);
+
+  /* overlays */
+  --mds-scrim: rgb(0 0 0 / 0.45);
+  --mds-scrim-strong: rgb(0 0 0 / 0.6);
+  --mds-overlay: rgb(0 0 0 / 0.4);
+
+  /* on-media sits on a photograph, so these do not move with the theme.
+     Focus ring is amber: emerald sinks into grass and foliage. */
+  --mds-on-media-dim: rgb(255 255 255 / 0.55);
+  --mds-on-media-border: rgb(255 255 255 / 0.55);
+  --mds-on-media-focus-ring: var(--comphq-status-hold);
+  --mds-on-media-surface-hover: rgb(255 255 255 / 0.16);
+  --mds-on-media-surface-active: rgb(255 255 255 / 0.28);
+
+  /* shadow tint — carbon */
+  --mds-shadow-rgb: 11 12 13;
+}
+
+/* Dark — the shipped theme. Carbon page; card N900, raised N800. Sunken takes
+   the raised step: nothing sits below the page, and sunken is the system's
+   contrast fill (skeletons, hovers, tracks), so it must show on page and card. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --mds-text-primary: var(--comphq-chalk);
+  --mds-text-secondary: var(--comphq-neutral-300);
+  --mds-text-muted: var(--comphq-neutral-400);
+  --mds-text-inverse: var(--comphq-carbon);
+
+  --mds-surface-page: var(--comphq-carbon);
+  --mds-surface-card: var(--comphq-neutral-900);
+  --mds-surface-raised: var(--comphq-neutral-800);
+  --mds-surface-sunken: var(--comphq-neutral-800);
+  --mds-surface-inverse: var(--comphq-chalk);
+
+  --mds-border-subtle: var(--comphq-neutral-800);
+  --mds-border-strong: var(--comphq-neutral-700);
+
+  /* action — emerald bright (E400), hover E300, active E500 */
+  --mds-action-bg: var(--comphq-emerald-400);
+  --mds-action-fg: var(--comphq-carbon);
+  --mds-action-bg-hover: var(--comphq-emerald-300);
+  --mds-action-bg-active: var(--comphq-emerald-500);
+  --mds-action-disabled-bg: var(--comphq-neutral-800);
+  --mds-action-disabled-fg: var(--comphq-steel);
+
+  --mds-accent: var(--comphq-emerald-400);
+  --mds-accent-contrast: var(--comphq-carbon);
+  --mds-accent-hover: var(--comphq-emerald-300);
+  --mds-accent-soft: var(--comphq-emerald-900);
+
+  /* derived: 80% carbon */
+  --mds-highlight-soft: #392d15;
+
+  /* avatar identity tints — 1, 2, 4 follow their softs; info soft derived
+     (78% carbon); N700 */
+  --mds-avatar-tone-3: #10293b;
+  --mds-avatar-tone-5: var(--comphq-neutral-700);
+
+  /* status — brand values; success is emerald bright per the dark rule.
+     Danger soft derived (78% carbon); success soft E800. */
+  --mds-status-danger: var(--comphq-status-no-rep);
+  --mds-status-danger-contrast: var(--comphq-carbon);
+  --mds-status-danger-soft: #3b1819;
+  --mds-status-warning: var(--comphq-status-hold);
+  --mds-status-warning-contrast: var(--comphq-carbon);
+  --mds-status-success: var(--comphq-emerald-400);
+  --mds-status-success-contrast: var(--comphq-carbon);
+  --mds-status-success-soft: var(--comphq-emerald-800);
+
+  /* Scrims sit on a near-black page, so they lean heavier to read as a layer. */
+  --mds-scrim: rgb(0 0 0 / 0.6);
+  --mds-scrim-strong: rgb(0 0 0 / 0.75);
+  --mds-overlay: rgb(0 0 0 / 0.55);
+
+  /* shadow tint — black; a tinted shadow on carbon reads as a colour cast */
+  --mds-shadow-rgb: 0 0 0;
+}

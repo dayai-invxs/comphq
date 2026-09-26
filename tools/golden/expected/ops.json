@@ -1,0 +1,396 @@
+{
+  "showBib": true,
+  "workouts": [
+    {
+      "callTimeSecs": 180,
+      "heatIntervalSecs": 600,
+      "heatStartOverrides": {},
+      "heats": [
+        {
+          "corralTime": "2026-03-01T08:57:00.000Z",
+          "entries": [
+            {
+              "athleteId": 2,
+              "athleteName": "Bob Brown",
+              "bibNumber": "102",
+              "divisionName": "Rx",
+              "lane": 1,
+              "scoreDisplay": "0:00.11",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 1,
+              "athleteName": "Alice Adams",
+              "bibNumber": "101",
+              "divisionName": "Rx",
+              "lane": 2,
+              "scoreDisplay": "0:00.10",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 3,
+              "athleteName": "Cara Cole",
+              "bibNumber": "103",
+              "divisionName": "Rx",
+              "lane": 3,
+              "scoreDisplay": "0:00.12",
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 1,
+          "heatTime": "2026-03-01T09:00:00.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T08:59:00.000Z"
+        },
+        {
+          "corralTime": "2026-03-01T09:09:00.000Z",
+          "entries": [
+            {
+              "athleteId": 5,
+              "athleteName": "Eve Evans",
+              "bibNumber": "105",
+              "divisionName": "Scaled",
+              "lane": 1,
+              "scoreDisplay": "0:00.14",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 4,
+              "athleteName": "Dan Diaz",
+              "bibNumber": "104",
+              "divisionName": "Scaled",
+              "lane": 2,
+              "scoreDisplay": "0:00.13",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 6,
+              "athleteName": "Finn Fox",
+              "bibNumber": "106",
+              "divisionName": null,
+              "lane": 3,
+              "scoreDisplay": null,
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 2,
+          "heatTime": "2026-03-01T09:12:00.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T09:11:00.000Z"
+        },
+        {
+          "corralTime": "2026-03-01T09:21:00.000Z",
+          "entries": [
+            {
+              "athleteId": 7,
+              "athleteName": "Gus Gray",
+              "bibNumber": "107",
+              "divisionName": "Rx",
+              "lane": 2,
+              "scoreDisplay": null,
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 3,
+          "heatTime": "2026-03-01T09:24:00.000Z",
+          "isComplete": false,
+          "walkoutTime": "2026-03-01T09:23:00.000Z"
+        }
+      ],
+      "id": 1,
+      "locationName": "Main Floor",
+      "name": "Fran",
+      "number": 1,
+      "startTime": "2026-03-01 10:00:00+01",
+      "status": "completed",
+      "timeBetweenHeatsSecs": 120,
+      "walkoutTimeSecs": 60
+    },
+    {
+      "callTimeSecs": 150,
+      "heatIntervalSecs": 480,
+      "heatStartOverrides": {},
+      "heats": [
+        {
+          "corralTime": "2026-03-01T10:57:30.000Z",
+          "entries": [
+            {
+              "athleteId": 1,
+              "athleteName": "Alice Adams",
+              "bibNumber": "101",
+              "divisionName": "Rx",
+              "lane": 1,
+              "scoreDisplay": "60",
+              "tiebreakDisplay": "0:00.10"
+            },
+            {
+              "athleteId": 3,
+              "athleteName": "Cara Cole",
+              "bibNumber": "103",
+              "divisionName": "Rx",
+              "lane": 2,
+              "scoreDisplay": "55",
+              "tiebreakDisplay": "0:00.11"
+            },
+            {
+              "athleteId": 2,
+              "athleteName": "Bob Brown",
+              "bibNumber": "102",
+              "divisionName": "Rx",
+              "lane": 3,
+              "scoreDisplay": "65",
+              "tiebreakDisplay": "0:00.10"
+            }
+          ],
+          "heatNumber": 1,
+          "heatTime": "2026-03-01T11:00:00.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T10:59:15.000Z"
+        },
+        {
+          "corralTime": "2026-03-01T11:07:00.000Z",
+          "entries": [
+            {
+              "athleteId": 4,
+              "athleteName": "Dan Diaz",
+              "bibNumber": "104",
+              "divisionName": "Scaled",
+              "lane": 1,
+              "scoreDisplay": "50",
+              "tiebreakDisplay": "0:00.12"
+            },
+            {
+              "athleteId": 5,
+              "athleteName": "Eve Evans",
+              "bibNumber": "105",
+              "divisionName": "Scaled",
+              "lane": 2,
+              "scoreDisplay": "45",
+              "tiebreakDisplay": "0:00.13"
+            },
+            {
+              "athleteId": 6,
+              "athleteName": "Finn Fox",
+              "bibNumber": "106",
+              "divisionName": null,
+              "lane": 3,
+              "scoreDisplay": null,
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 2,
+          "heatTime": "2026-03-01T11:09:30.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T11:08:45.000Z"
+        },
+        {
+          "corralTime": "2026-03-01T11:16:30.000Z",
+          "entries": [
+            {
+              "athleteId": 7,
+              "athleteName": "Gus Gray",
+              "bibNumber": "107",
+              "divisionName": "Rx",
+              "lane": 2,
+              "scoreDisplay": null,
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 3,
+          "heatTime": "2026-03-01T11:19:00.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T11:18:15.000Z"
+        }
+      ],
+      "id": 2,
+      "locationName": "Main Floor",
+      "name": "Grace",
+      "number": 2,
+      "startTime": "2026-03-01 12:00:00+01",
+      "status": "completed",
+      "timeBetweenHeatsSecs": 90,
+      "walkoutTimeSecs": 45
+    },
+    {
+      "callTimeSecs": 160,
+      "heatIntervalSecs": 540,
+      "heatStartOverrides": {
+        "2": "2026-03-01T13:30:00.000Z"
+      },
+      "heats": [
+        {
+          "corralTime": "2026-03-01T12:57:20.000Z",
+          "entries": [
+            {
+              "athleteId": 2,
+              "athleteName": "Bob Brown",
+              "bibNumber": "102",
+              "divisionName": "Rx",
+              "lane": 1,
+              "scoreDisplay": "0:00.21",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 1,
+              "athleteName": "Alice Adams",
+              "bibNumber": "101",
+              "divisionName": "Rx",
+              "lane": 2,
+              "scoreDisplay": "0:00.20",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 3,
+              "athleteName": "Cara Cole",
+              "bibNumber": "103",
+              "divisionName": "Rx",
+              "lane": 3,
+              "scoreDisplay": "0:00.22",
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 1,
+          "heatTime": "2026-03-01T13:00:00.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T12:59:10.000Z"
+        },
+        {
+          "corralTime": "2026-03-01T13:27:20.000Z",
+          "entries": [
+            {
+              "athleteId": 5,
+              "athleteName": "Eve Evans",
+              "bibNumber": "105",
+              "divisionName": "Scaled",
+              "lane": 1,
+              "scoreDisplay": null,
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 4,
+              "athleteName": "Dan Diaz",
+              "bibNumber": "104",
+              "divisionName": "Scaled",
+              "lane": 2,
+              "scoreDisplay": null,
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 2,
+          "heatTime": "2026-03-01T13:30:00.000Z",
+          "isComplete": false,
+          "walkoutTime": "2026-03-01T13:29:10.000Z"
+        }
+      ],
+      "id": 3,
+      "locationName": "Back Rig",
+      "name": "Helen",
+      "number": 3,
+      "startTime": "2026-03-01 14:00:00+01",
+      "status": "active",
+      "timeBetweenHeatsSecs": 100,
+      "walkoutTimeSecs": 50
+    },
+    {
+      "callTimeSecs": 140,
+      "heatIntervalSecs": 420,
+      "heatStartOverrides": {},
+      "heats": [
+        {
+          "corralTime": "2026-03-01T14:57:40.000Z",
+          "entries": [
+            {
+              "athleteId": 1,
+              "athleteName": "Alice Adams",
+              "bibNumber": "101",
+              "divisionName": "Rx",
+              "lane": 1,
+              "scoreDisplay": "0:00.20",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 2,
+              "athleteName": "Bob Brown",
+              "bibNumber": "102",
+              "divisionName": "Rx",
+              "lane": 2,
+              "scoreDisplay": "0:00.10",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 3,
+              "athleteName": "Cara Cole",
+              "bibNumber": "103",
+              "divisionName": "Rx",
+              "lane": 3,
+              "scoreDisplay": "0:00.30",
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 1,
+          "heatTime": "2026-03-01T15:00:00.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T14:59:20.000Z"
+        },
+        {
+          "corralTime": "2026-03-01T15:06:00.000Z",
+          "entries": [
+            {
+              "athleteId": 5,
+              "athleteName": "Eve Evans",
+              "bibNumber": "105",
+              "divisionName": "Scaled",
+              "lane": 1,
+              "scoreDisplay": "0:00.50",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 4,
+              "athleteName": "Dan Diaz",
+              "bibNumber": "104",
+              "divisionName": "Scaled",
+              "lane": 2,
+              "scoreDisplay": "0:00.40",
+              "tiebreakDisplay": null
+            },
+            {
+              "athleteId": 6,
+              "athleteName": "Finn Fox",
+              "bibNumber": "106",
+              "divisionName": null,
+              "lane": 3,
+              "scoreDisplay": "0:00.60",
+              "tiebreakDisplay": null
+            }
+          ],
+          "heatNumber": 2,
+          "heatTime": "2026-03-01T15:08:20.000Z",
+          "isComplete": true,
+          "walkoutTime": "2026-03-01T15:07:40.000Z"
+        }
+      ],
+      "id": 4,
+      "locationName": "Back Rig",
+      "name": "Isabel",
+      "number": 4,
+      "startTime": "2026-03-01 16:00:00+01",
+      "status": "completed",
+      "timeBetweenHeatsSecs": 80,
+      "walkoutTimeSecs": 40
+    },
+    {
+      "callTimeSecs": 130,
+      "heatIntervalSecs": 400,
+      "heatStartOverrides": {},
+      "heats": [],
+      "id": 5,
+      "locationName": null,
+      "name": "Jackie",
+      "number": 5,
+      "startTime": null,
+      "status": "pending",
+      "timeBetweenHeatsSecs": 70,
+      "walkoutTimeSecs": 35
+    }
+  ]
+}

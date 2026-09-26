@@ -1,36 +1,47 @@
 import { defineConfig, devices } from '@playwright/test'
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
-
-// Load .env.local so tests that use Supabase admin APIs (creating throwaway
-// users for access-gate coverage) see SUPABASE_URL / SUPABASE_SERVICE_KEY.
-config({ path: resolve(process.cwd(), '.env.local') })
+import { baseURL, functionsUrl } from './e2e/env'
 
 /**
- * Playwright config. E2E tests mutate the linked Supabase test DB — run
- * them against a fresh branch or staging, not prod.
+ * The end-to-end suite. It mutates the linked Supabase project, so it runs
+ * against the test project rather than production.
+ *
+ * `testDir` is the point of this file existing at all: without it `playwright
+ * test` globs the whole repository and picks up the ~160 vitest specs, which
+ * it cannot run.
+ *
+ * Two servers, because v3 is two: the SPA on Vite, and the Edge Functions the
+ * SPA calls. v1 needed one — its API was the same Next server as its pages.
  */
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
-  fullyParallel: false, // competition mutations collide if run in parallel
+  // A competition is a shared fixture, and two specs mutating one collide.
+  fullyParallel: false,
   workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
-  // Safety net — sweeps any rows/users per-test cleanup missed.
+  // The safety net for the fixtures a killed run never cleaned up.
   globalTeardown: './e2e/global-teardown.ts',
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
     video: 'retain-on-failure',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
-  // Reuse an existing dev server if one's running; else start one.
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: true,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: 'pnpm dev',
+      url: baseURL,
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+    {
+      // The functions answer 401 without credentials, which counts as ready.
+      command: 'pnpm dev:functions',
+      url: `${functionsUrl}/functions/v1/health`,
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+  ],
 })

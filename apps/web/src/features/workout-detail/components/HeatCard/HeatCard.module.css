@@ -1,0 +1,114 @@
+/* A completed heat recedes without disappearing — its scores are still read. */
+.done {
+  opacity: 0.6;
+}
+
+/* The score columns push the table past a phone; the card does not scroll. */
+.scroller {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding-block: var(--mds-pad-item-y);
+  padding-inline: var(--mds-pad-tight);
+  color: var(--mds-text-muted);
+  font: var(--mds-type-meta);
+  font-weight: var(--mds-weight-medium);
+  white-space: nowrap;
+}
+
+.table td {
+  padding-block: var(--mds-pad-item-y);
+  padding-inline: var(--mds-pad-tight);
+  border-block-start: var(--mds-border-width) solid var(--mds-border-subtle);
+  vertical-align: top;
+}
+
+/* Lane, heat and points hold a number or two; the athlete's name gets the rest. */
+.narrow {
+  width: var(--mds-space-10);
+}
+
+.row:hover td {
+  background: var(--mds-surface-sunken);
+}
+
+/* A row lifted under the pointer. Draggable owns the transform; this is only
+   what says the row has left the table. */
+.dragging td {
+  background: var(--mds-surface-raised);
+  box-shadow: var(--mds-shadow-a3);
+}
+
+.dropCell {
+  padding: var(--mds-pad-tight);
+}
+
+.dropZone {
+  border: var(--mds-border-width) dashed var(--mds-border-strong);
+  border-radius: var(--mds-radius-card);
+  padding-block: var(--mds-pad-drop-y);
+  text-align: center;
+  color: var(--mds-text-muted);
+  font: var(--mds-type-meta);
+}
+
+/* The handle exists only for a coarse pointer, and only while the table is
+   narrow enough that a row is hard to grab without hitting a score box. */
+.handleCell {
+  width: var(--mds-space-9);
+}
+
+@media (min-width: 600px) {
+  .handleCell {
+    display: none;
+  }
+}
+
+.handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mds-tap-min);
+  height: var(--mds-tap-min);
+  border-radius: var(--mds-radius-control);
+  color: var(--mds-text-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.handle:active {
+  cursor: grabbing;
+}
+
+/* Two boxes sized by what goes in them rather than by a spacing rung: "hh:mm"
+   is five characters and a placing is two or three. */
+.timeBox {
+  width: 8ch;
+}
+
+.pointsBox {
+  width: 6ch;
+}
+
+/* The placing is a button because it opens the override, but it reads as the
+   number it is — the tone comes from the Text around it. */
+.placing {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.placing:hover {
+  text-decoration: underline;
+}

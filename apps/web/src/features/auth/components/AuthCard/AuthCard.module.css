@@ -1,0 +1,11 @@
+/* --mds-modal-w is the system's centred-dialog width, which is what this is. */
+.card {
+  width: 100%;
+  max-width: var(--mds-modal-w);
+}
+
+/* The mark takes its width from its height, so the box sets only height. */
+.mark {
+  align-self: center;
+  height: var(--mds-space-12);
+}

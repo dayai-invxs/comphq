@@ -1,0 +1,68 @@
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--mds-avatar-xl), 1fr));
+  gap: var(--mds-gap);
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap-hairline);
+}
+
+/* Bordered because half the palette is a near-black on a near-black page and
+   an unbordered chip of #05070A on #0A0D12 is an invisible chip. */
+.chip {
+  height: var(--mds-avatar-md);
+  border: var(--mds-border-width) solid var(--mds-border-strong);
+  border-radius: var(--mds-radius-2);
+}
+
+.name {
+  font: var(--mds-type-code);
+  color: var(--mds-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.scale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap);
+}
+
+.glyphs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--mds-avatar-xl), 1fr));
+  gap: var(--mds-gap);
+}
+
+.glyph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mds-gap-hairline);
+  color: var(--mds-text-secondary);
+}
+
+.glyph > :first-child {
+  width: var(--mds-icon-lg);
+  height: var(--mds-icon-lg);
+}
+
+.rules {
+  display: grid;
+  gap: var(--mds-gap);
+}
+
+.rule {
+  display: flex;
+  gap: var(--mds-gap-tight);
+  align-items: baseline;
+}
+
+.ruleKey {
+  flex: none;
+  width: var(--mds-avatar-xl);
+  font: var(--mds-type-label);
+  color: var(--mds-text-primary);
+}
