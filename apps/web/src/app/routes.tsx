@@ -10,20 +10,8 @@ import { PublicApp } from './PublicApp'
 import { RequireCompetition } from './RequireCompetition'
 import { RequireSession } from './RequireSession'
 
-// v1's route table was its directory layout, which is the one part of the port
-// with no file to copy. routes.parity.test.ts derives the same table from v1's
-// page tree and demands this match it, so a page v1 serves and v3 does not is
-// a failing test rather than a 404 someone finds in production.
-//
 // Paths are v1's verbatim, `TV` included: it is upper-case in v1's URL, and a
 // QR code printed for a gym display outlives the port.
-//
-// Every path now resolves to a ported page. `Pending` is still in the tree and
-// routes.test.tsx still looks for it, so a path added ahead of its page is
-// caught rather than shipped blank.
-//
-// The table may now hold more than v1's 24 paths, but not silently: anything
-// added has to be named in routes.parity.test.ts's ADDED map with its reason.
 
 // Every page is split into its own chunk: with everything in one bundle the
 // phone that scans a QR code at the door downloaded eight admin screens to
