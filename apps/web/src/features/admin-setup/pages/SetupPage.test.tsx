@@ -89,13 +89,13 @@ it('names the screen and what it is for', async () => {
   expect(screen.getByText('Competition structure and roles')).toBeInTheDocument()
 })
 
-// Six regions on one address, and a list that reaches the sixth without
-// scrolling past the five before it.
+// Seven regions on one address, and a list that reaches the last without
+// scrolling past the ones before it.
 it('offers a way to each region without scrolling to it', async () => {
   mount()
   const nav = within(await screen.findByRole('navigation', { name: 'Setup sections' }))
   expect(nav.getAllByRole('link').map((a) => a.textContent)).toEqual([
-    'Settings', 'Logo', 'TV leaderboard', 'Divisions', 'Locations', 'Volunteer roles',
+    'Settings', 'Logo', 'TV leaderboard', 'Divisions', 'Locations', 'Volunteer roles', 'Competition Corner',
   ])
   expect(nav.getByRole('link', { name: 'Volunteer roles' })).toHaveAttribute('href', '#setup-roles')
   expect(document.getElementById('setup-roles')).toBeInTheDocument()
@@ -147,6 +147,20 @@ it('adds a workout location', async () => {
   await add('location', 'Turf Field')
   await waitFor(() =>
     expect(apiPost).toHaveBeenCalledWith('/api/workout-locations', { slug: 'summer', name: 'Turf Field' }))
+})
+
+it('previews a Competition Corner event for this competition', async () => {
+  apiPost.mockResolvedValue({ event: { id: 19948, name: 'Spring Throwdown' }, changes: [], version: 'v1' })
+  mount()
+  fireEvent.change(await screen.findByLabelText('Event link'), { target: { value: 'competitioncorner.net/events/19948' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
+  expect(await screen.findByText('Already matches Spring Throwdown.')).toBeInTheDocument()
+  expect(apiPost).toHaveBeenCalledWith('/api/import/competition-corner/preview', {
+    slug: 'summer',
+    url: 'competitioncorner.net/events/19948',
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    mergePartB: true,
+  })
 })
 
 it('adds a volunteer role', async () => {

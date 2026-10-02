@@ -1,0 +1,21 @@
+/* Each kind of change is a fieldset, so its boxes are named as a group. The
+   browser's fieldset frame is dropped; the legend reads as a row heading. */
+
+.group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--mds-gap-tight);
+  font-weight: var(--mds-weight-bold);
+  color: var(--mds-text-primary);
+}
+
+/* Field changes and warnings sit under the box's label, not under the box. */
+.details {
+  padding-inline-start: var(--mds-gap);
+}

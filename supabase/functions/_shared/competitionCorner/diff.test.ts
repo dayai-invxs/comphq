@@ -128,6 +128,14 @@ describe('diffPlan — workouts', () => {
     expect(changes).toEqual([])
   })
 
+  it('flags a new workout the source could not type, so the admin picks one', () => {
+    const [typed] = diffPlan(plan({ workouts: [planWorkout()] }), empty)
+    const [untyped] = diffPlan(plan({ workouts: [planWorkout({ scoreType: null })] }), empty)
+
+    expect(typed.needsScoreType).toBeUndefined()
+    expect(untyped.needsScoreType).toBe(true)
+  })
+
   it('carries the plan warnings', () => {
     const [c] = diffPlan(plan({ workouts: [planWorkout({ scoreType: null, warnings: ['pick one'] })] }), empty)
 

@@ -1,6 +1,7 @@
 import { EmptyState, Skeleton, Stack } from '@mond-design-system/react'
 import { useState } from 'react'
 import { useParams } from 'react-router'
+import { useCcApply, useCcPreview } from '@/api/competitionCorner'
 import {
   useAddDivision, useDeleteDivision, useDivisions, useImportDivisions, useReorderDivisions, useSaveDivision,
 } from '@/api/divisions'
@@ -15,6 +16,7 @@ import {
 } from '@/api/workoutLocations'
 import { Notice } from '@/components/Notice/Notice'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
+import { CompetitionCornerSection } from '../components/CompetitionCornerSection/CompetitionCornerSection'
 import { CompetitionSettingsSection } from '../components/CompetitionSettingsSection/CompetitionSettingsSection'
 import { DivisionsSection } from '../components/DivisionsSection/DivisionsSection'
 import { LogoSection } from '../components/LogoSection/LogoSection'
@@ -29,7 +31,9 @@ import styles from './SetupPage.module.css'
 // reaches a section without scrolling past the five before it.
 //
 // The sections are in v1's order, which is not the order of the page heading:
-// settings, logo, TV, divisions, locations, roles.
+// settings, logo, TV, divisions, locations, roles. The Competition Corner import
+// is new in v3 and goes last; it reports its own errors in place, since a
+// rejected selection lists several problems rather than one.
 
 const LINKS: SectionLink[] = [
   { id: 'setup-settings', label: 'Settings' },
@@ -38,6 +42,7 @@ const LINKS: SectionLink[] = [
   { id: 'setup-divisions', label: 'Divisions' },
   { id: 'setup-locations', label: 'Locations' },
   { id: 'setup-roles', label: 'Volunteer roles' },
+  { id: 'setup-competition-corner', label: 'Competition Corner' },
 ]
 
 export function SetupPage() {
@@ -65,6 +70,9 @@ export function SetupPage() {
   const importRoles = useImportVolunteerRoles(slug)
 
   const updateSettings = useUpdateSettings(slug)
+  const ccPreview = useCcPreview(slug)
+  const ccApply = useCcApply(slug)
+
   const uploadLogo = useUploadLogo()
   const removeLogo = useRemoveLogo()
 
@@ -226,6 +234,13 @@ export function SetupPage() {
               onDelete={(id) => deleteRole.mutateAsync(id)}
             />
             )}
+          </div>
+
+          <div id="setup-competition-corner">
+            <CompetitionCornerSection
+              onPreview={(source) => ccPreview.mutateAsync(source)}
+              onApply={(input) => ccApply.mutateAsync(input)}
+            />
           </div>
         </Stack>
       </div>

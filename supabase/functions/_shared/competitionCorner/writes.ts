@@ -47,7 +47,7 @@ const DEFAULT_WALKOUT_SECS = 120
 
 const externalIdOf = (key: string) => key.slice(key.indexOf(':') + 1)
 
-function checkSelection(changes: Change[], plan: ImportPlan, sel: Selection): string[] {
+function checkSelection(changes: Change[], sel: Selection): string[] {
   const byKey = new Map(changes.map((c) => [c.key, c]))
   const accepted = new Set(sel.accepted)
   const errors: string[] = []
@@ -60,10 +60,7 @@ function checkSelection(changes: Change[], plan: ImportPlan, sel: Selection): st
     for (const req of change.requires) {
       if (!accepted.has(req)) errors.push(`${change.label} needs ${byKey.get(req)?.label ?? req} too.`)
     }
-    if (change.entity === 'workout' && change.kind === 'add') {
-      const w = plan.workouts.find((p) => p.externalId === externalIdOf(key))
-      if (w && !w.scoreType && !sel.scoreTypes[key]) errors.push(`Pick a score type for ${w.name}.`)
-    }
+    if (change.needsScoreType && !sel.scoreTypes[key]) errors.push(`Pick a score type for ${change.label}.`)
   }
   return errors
 }
@@ -74,7 +71,7 @@ function workoutColumns(w: PlanWorkout, scoreType: ScoreTypeValue): WorkoutColum
 }
 
 export function planWrites(plan: ImportPlan, current: Current, changes: Change[], sel: Selection): WritesResult {
-  const errors = checkSelection(changes, plan, sel)
+  const errors = checkSelection(changes, sel)
   if (errors.length) return { ok: false, errors }
 
   const accepted = new Set(sel.accepted)

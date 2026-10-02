@@ -43,6 +43,8 @@ export type Change = {
   requires: string[]
   /** Number a new workout gets. */
   number?: number
+  /** A new workout whose source score type had no match; apply needs one picked. */
+  needsScoreType?: true
 }
 
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -156,7 +158,10 @@ function workoutChanges(plan: PlanWorkout[], current: CurrentWorkout[]) {
       while (takenNumbers.has(number)) number++
       takenNumbers.add(number)
       if (number !== w.number) warnings.push(`Number ${w.number} is taken; this becomes workout ${number}.`)
-      changes.push({ key, entity: 'workout', kind: 'add', id: null, label: w.name, fields: [], warnings, requires: [], number })
+      changes.push({
+        key, entity: 'workout', kind: 'add', id: null, label: w.name, fields: [], warnings, requires: [], number,
+        ...(!w.scoreType && { needsScoreType: true as const }),
+      })
       continue
     }
     const fields = workoutFields(w, m.row)
