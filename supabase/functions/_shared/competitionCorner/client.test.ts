@@ -1,29 +1,6 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { CcFetchError, fetchEvent, parseEventUrl } from './client'
-
-const FIXTURES = new URL('./__fixtures__/19948/', import.meta.url)
-const fixture = (name: string) => readFileSync(new URL(name, FIXTURES), 'utf8')
-
-const BASE = 'https://competitioncorner.net/api2/v1'
-
-/** Serves the saved 19948 responses by URL; anything else is a 404. */
-function fixtureFetch(overrides: Record<string, Response> = {}) {
-  const routes: Record<string, string> = {
-    [`${BASE}/events/19948`]: 'event.json',
-    [`${BASE}/schedule/events/19948/workouts`]: 'schedule-workouts.json',
-    [`${BASE}/schedule/events/19948/heats`]: 'heats.json',
-  }
-  for (const id of [119545, 119547, 121768, 121777, 121778]) {
-    routes[`${BASE}/events/19948/workouts/${id}/public`] = `workout-${id}.json`
-  }
-  return vi.fn(async (input: string | URL | Request) => {
-    const url = String(input)
-    if (overrides[url]) return overrides[url]
-    const file = routes[url]
-    return file ? new Response(fixture(file)) : new Response('not found', { status: 404 })
-  })
-}
+import { CC_BASE as BASE, fixtureFetch } from './__fixtures__/fixtureFetch'
 
 describe('parseEventUrl', () => {
   it.each([
