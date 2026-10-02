@@ -4,6 +4,12 @@
 // any origin. So the browser reads the event and posts it to the import
 // routes, which validate it fully (supabase/functions/_shared/competitionCorner/event.ts).
 // Only the outer shape is checked here, enough to say which request failed.
+//
+// Competition Corner's server caches each answer by URL along with the headers
+// of whichever request filled it. When that request had no Origin (its own
+// site, a crawler), the cached answer has no CORS header and browsers refuse
+// it until the cache turns over, minutes later. Each read adds a query no one
+// else sends, so the answer is made fresh for this browser's request.
 
 export const CC_API = 'https://competitioncorner.net/api2/v1'
 
@@ -24,6 +30,9 @@ export function parseEventUrl(input: string): number | null {
 
 const RETRY = 'Try again in a minute.'
 
+let reads = 0
+const fresh = () => `fresh=${Date.now().toString(36)}${(reads++).toString(36)}`
+
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 function shapeError(what: string): Error {
@@ -37,7 +46,7 @@ function shapeError(what: string): Error {
 async function read(fetchFn: FetchFn, path: string, what: string, notFound?: string): Promise<unknown> {
   let res: Response
   try {
-    res = await fetchFn(`${CC_API}/${path}`)
+    res = await fetchFn(`${CC_API}/${path}?${fresh()}`)
   } catch {
     throw new Error("Couldn't reach Competition Corner from this browser. Check your connection and try again; if it keeps failing, Competition Corner may be blocking this browser, so try another one.")
   }

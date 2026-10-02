@@ -49,6 +49,8 @@ export function useCcPreview(slug: string) {
       const preview = await apiPost<Omit<CcPreview, 'request'>>('/api/import/competition-corner/preview', { slug, ...request })
       return { ...preview, request }
     },
+    // The section shows the error; an own onError keeps the global toast quiet.
+    onError: () => {},
   })
 }
 
@@ -57,6 +59,8 @@ export function useCcApply(slug: string) {
   return useMutation({
     mutationFn: (input: CcRequest & CcSelection) =>
       apiPost<{ applied: number }>('/api/import/competition-corner/apply', { slug, ...input }),
+    // The section shows the error; an own onError keeps the global toast quiet.
+    onError: () => {},
     onSuccess: () => {
       for (const queryKey of [
         queryKeys.divisions(slug), queryKeys.workouts(slug), queryKeys.workoutLocations(slug),

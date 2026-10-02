@@ -30,7 +30,7 @@ const json = (body: unknown, status = 200) =>
 /** A fake Competition Corner: path below the API root to response. */
 function source(routes: Record<string, () => Response | Promise<Response>>) {
   return vi.fn(async (url: string) => {
-    const path = url.slice(CC_API.length + 1)
+    const path = new URL(url).pathname.slice(new URL(CC_API).pathname.length + 1)
     const route = routes[path]
     return route ? route() : json({ error: 'Not found' }, 404)
   })
@@ -54,6 +54,22 @@ describe('fetchCcEvent', () => {
     const event = await fetchCcEvent(7, fetchFn)
 
     expect(event).toEqual({ ...EVENT, workouts: [{ ...WORKOUT, timeCap: '00:12:00' }], heats: [HEAT] })
+  })
+
+  // Competition Corner's server caches each answer by URL with the headers of
+  // whichever request filled it; one filled without an Origin lacks the CORS
+  // header, so the browser refuses it for minutes. A query no one else sends
+  // gets a fresh answer, made for this browser's request.
+  it('asks for every answer fresh, so it carries the CORS header', async () => {
+    const fetchFn = source(full())
+
+    await fetchCcEvent(7, fetchFn)
+    await fetchCcEvent(7, fetchFn)
+
+    const urls = fetchFn.mock.calls.map(([url]) => url)
+    expect(urls).toHaveLength(8)
+    expect(urls.every((u) => new URL(u).searchParams.has('fresh'))).toBe(true)
+    expect(new Set(urls).size).toBe(urls.length)
   })
 
   // An event announced before its schedule is published.

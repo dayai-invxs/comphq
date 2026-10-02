@@ -53,6 +53,24 @@ describe('useCcPreview', () => {
   })
 })
 
+// The import section shows these errors itself. The global handler toasts a
+// failed mutation unless it has its own onError (QueryProvider).
+// Each row renders the hook and hands back a call that runs it.
+it.each<[string, () => () => Promise<unknown>]>([
+  ['preview', () => { const m = useCcPreview('summer'); return () => m.mutateAsync(SOURCE) }],
+  ['apply', () => { const m = useCcApply('summer'); return () => m.mutateAsync({ ...REQUEST, version: 'v', accepted: [], scoreTypes: {} }) }],
+])('leaves the %s error to the section, not a toast', async (_name, hook) => {
+  fetchCcEvent.mockRejectedValue(new Error('down'))
+  apiPost.mockRejectedValue(new Error('down'))
+  const { result } = renderHook(hook, { wrapper })
+
+  await act(() => result.current().catch(() => {}))
+
+  const [mutation] = client.getMutationCache().getAll()
+  expect(mutation.state.status).toBe('error')
+  expect(mutation.options.onError).toBeTypeOf('function')
+})
+
 describe('useCcApply', () => {
   const selection = { version: 'v', accepted: ['division:1'], scoreTypes: {} }
 
