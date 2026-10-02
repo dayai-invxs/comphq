@@ -1,4 +1,4 @@
-import type { ImportPlan, PlanAthlete, PlanDivision, PlanHeat, PlanWorkout } from './mapper'
+import type { ImportPlan, PlanAthlete, PlanDivision, PlanHeat, PlanWorkout } from '@/lib/competitionCorner/mapper'
 
 /**
  * Compares an import plan with what the competition already holds and lists
@@ -11,7 +11,7 @@ import type { ImportPlan, PlanAthlete, PlanDivision, PlanHeat, PlanWorkout } fro
 
 export type CurrentDivision = { id: number; name: string; order: number; externalId: string | null }
 export type CurrentAthlete = { id: number; name: string; divisionId: number | null; externalId: string | null }
-export type CurrentWorkout = Omit<PlanWorkout, 'scoreType' | 'warnings' | 'externalId'> & {
+export type CurrentWorkout = Omit<PlanWorkout, 'scoreType' | 'tiebreakScoreType' | 'partBScoreType' | 'warnings' | 'externalId'> & {
   id: number
   scoreType: string
   tiebreakScoreType: string

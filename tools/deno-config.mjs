@@ -28,8 +28,20 @@ const dep = (name) => {
   return range
 }
 
+// Folders of shared modules map too ('@/lib/competitionCorner/diff'). db/ is
+// mapped by hand below; test/ and fixtures never ship.
+const SKIP_DIRS = new Set(['db', 'test', '__fixtures__'])
+
+function sharedModules(dir, prefix = '') {
+  return readdirSync(join(sharedDir, dir), { withFileTypes: true }).flatMap((e) => {
+    const rel = `${prefix}${e.name}`
+    if (e.isDirectory()) return SKIP_DIRS.has(e.name) ? [] : sharedModules(join(dir, e.name), `${rel}/`)
+    return e.name.endsWith('.ts') && !e.name.endsWith('.test.ts') ? [rel] : []
+  })
+}
+
 const imports = {}
-for (const f of readdirSync(sharedDir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')).sort()) {
+for (const f of sharedModules('').sort()) {
   imports[`@/lib/${f.slice(0, -3)}`] = `./_shared/${f}`
 }
 imports['@/db/schema'] = './_shared/db/schema.ts'
