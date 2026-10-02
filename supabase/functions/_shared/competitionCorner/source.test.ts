@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { changesVersion, ImportRequest, loadPlan } from './source'
-import { fixtureFetch } from './__fixtures__/fixtureFetch'
+import { rawEvent19948 } from './__fixtures__/event19948'
 import type { Change } from './diff'
 
-const body = { slug: 'default', url: 'https://competitioncorner.net/events/19948/details', tz: 'America/Los_Angeles', mergePartB: true }
+const body = { slug: 'default', tz: 'America/Los_Angeles', mergePartB: true, event: rawEvent19948() }
 
 describe('ImportRequest', () => {
   it('accepts a known time zone and refuses an unknown one', () => {
@@ -13,26 +13,21 @@ describe('ImportRequest', () => {
 })
 
 describe('loadPlan', () => {
-  it('maps the event behind the link', async () => {
-    const result = await loadPlan(body, fixtureFetch())
-    if (!result.ok) throw new Error(await result.response.text())
+  it('maps the posted event', () => {
+    const result = loadPlan(body)
+    if (!result.ok) throw new Error('expected a plan')
 
-    expect(result.event).toEqual({ id: 19948, name: expect.any(String) })
+    expect(result.event).toEqual({ id: 19948, name: 'Rugged Rumble - Gladiator Games' })
     expect(result.plan.workouts).toHaveLength(4)
   })
 
-  it('answers 400 for a link that is not an event', async () => {
-    const result = await loadPlan({ ...body, url: 'https://example.com' }, fixtureFetch())
+  it('answers 400 saying where a posted event stops matching', async () => {
+    const result = loadPlan({ ...body, event: { ...rawEvent19948(), heats: 'nope' } })
 
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.response.status).toBe(400)
-  })
-
-  it('answers 502 when Competition Corner fails', async () => {
-    const result = await loadPlan({ ...body, url: '1' }, fixtureFetch())
-
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.response.status).toBe(502)
+    if (result.ok) return
+    expect(result.response.status).toBe(400)
+    expect(await result.response.text()).toMatch(/not in the shape the import reads \(at heats\)/)
   })
 })
 

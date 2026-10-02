@@ -11,9 +11,15 @@ const change = (key: string, over: Partial<CcChange> = {}): CcChange => ({
   key, entity: 'division', kind: 'add', id: null, label: key, fields: [], warnings: [], requires: [], ...over,
 })
 
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+const EVENT = { id: 19948, name: 'Spring Throwdown', divisions: [{}, {}], workouts: [{}], heats: [{}, {}, {}] }
+const REQUEST = { tz: TZ, mergePartB: true, event: EVENT }
+
 const PREVIEW: CcPreview = {
   event: { id: 19948, name: 'Spring Throwdown' },
   version: 'v1',
+  request: REQUEST,
   changes: [
     change('division:1', { label: 'Rx' }),
     change('division:2', { label: 'Scaled', kind: 'update', id: 4, fields: [{ field: 'name', before: 'scaled', after: 'Scaled' }] }),
@@ -46,9 +52,40 @@ it('previews the event in the browser time zone, merging Part B by default', asy
   await preview()
   expect(onPreview).toHaveBeenCalledWith({
     url: 'competitioncorner.net/events/19948',
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tz: TZ,
     mergePartB: true,
   })
+})
+
+// Reading three Competition Corner endpoints plus each workout page takes a moment.
+it('says what it is doing while it reads the event', async () => {
+  let finish!: (p: CcPreview) => void
+  onPreview.mockReturnValue(new Promise((r) => { finish = r }))
+  draw()
+  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
+  expect(screen.getByRole('status')).toHaveTextContent('Reading the event from Competition Corner…')
+  finish(PREVIEW)
+  await waitFor(() => expect(screen.queryByText('Reading the event from Competition Corner…')).not.toBeInTheDocument())
+})
+
+it('says what the event lists', async () => {
+  draw()
+  await preview()
+  expect(screen.getByText('Competition Corner lists 2 divisions, 1 workout and 3 heats.')).toBeInTheDocument()
+})
+
+// An event announced before its schedule: only its divisions can come in yet.
+it('explains why only divisions can be imported before the schedule is out', async () => {
+  onPreview.mockResolvedValue({
+    ...PREVIEW,
+    changes: [change('division:1', { label: 'Scramble Team' })],
+    request: { ...REQUEST, event: { ...EVENT, divisions: [{}], workouts: [], heats: [] } },
+  })
+  draw()
+  await preview()
+  expect(screen.getByText(/no workouts or heat sheets published yet, so only divisions can be imported/)).toBeInTheDocument()
+  expect(box('Scramble Team').checked).toBe(true)
 })
 
 it('lists each change by kind, with what it changes and why to look', async () => {
@@ -80,10 +117,9 @@ it('asks for a score type the source could not give, and sends it', async () => 
   await preview()
   fireEvent.change(screen.getByLabelText('Score type for WOD 1'), { target: { value: 'weight' } })
   fireEvent.click(screen.getByRole('button', { name: /Apply 4 changes/ }))
+  // Apply posts the event the admin reviewed, not a fresh read.
   await waitFor(() => expect(onApply).toHaveBeenCalledWith({
-    url: 'competitioncorner.net/events/19948',
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    mergePartB: true,
+    ...REQUEST,
     version: 'v1',
     accepted: ['division:1', 'division:2', 'workout:10', 'athlete:100'],
     scoreTypes: { 'workout:10': 'weight' },
@@ -108,9 +144,17 @@ it('shows each problem the server found with the selection', async () => {
 })
 
 it('shows why a preview failed', async () => {
-  onPreview.mockRejectedValue(new HttpError(400, 'Paste a Competition Corner event link.'))
+  onPreview.mockRejectedValue(new Error("Competition Corner answered 403 when reading the event's heat sheets. Try again in a minute."))
   draw()
-  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: 'nope' } })
+  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
   fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
-  expect(await screen.findByText('Paste a Competition Corner event link.')).toBeInTheDocument()
+  expect(await screen.findByRole('alert')).toHaveTextContent("answered 403 when reading the event's heat sheets")
+})
+
+it('reads the router error body, not raw JSON', async () => {
+  onPreview.mockRejectedValue(new HttpError(500, JSON.stringify({ error: 'Database is busy' })))
+  draw()
+  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
+  expect(await screen.findByText('Database is busy')).toBeInTheDocument()
 })

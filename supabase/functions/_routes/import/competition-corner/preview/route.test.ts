@@ -1,15 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { drizzleMock as mock, setAuthUser } from '@/test/setup'
-import { CC_BASE, fixtureFetch } from '@/lib/competitionCorner/__fixtures__/fixtureFetch'
+import { rawEvent19948 } from '@/lib/competitionCorner/__fixtures__/event19948'
 import { POST } from './route'
 
-const body = { slug: 'default', url: 'https://competitioncorner.net/events/19948/details', tz: 'America/Los_Angeles', mergePartB: true }
+const body = { slug: 'default', tz: 'America/Los_Angeles', mergePartB: true, event: rawEvent19948() }
 const req = (b: unknown) => new Request('http://test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })
 
 describe('POST /api/import/competition-corner/preview', () => {
-  beforeEach(() => vi.stubGlobal('fetch', fixtureFetch()))
-  afterEach(() => vi.unstubAllGlobals())
-
   it('rejects unauthenticated', async () => {
     setAuthUser(null)
 
@@ -28,16 +25,23 @@ describe('POST /api/import/competition-corner/preview', () => {
     expect(json.version).toMatch(/^[0-9a-f]{64}$/)
   })
 
-  it('answers 400 for a link that is not an event', async () => {
+  it('answers 400 when the posted event does not match', async () => {
     mock.queueResults([], [], [], [])
 
-    expect((await POST(req({ ...body, url: 'nope' }))).status).toBe(400)
+    const res = await POST(req({ ...body, event: { id: 1 } }))
+
+    expect(res.status).toBe(400)
+    expect(await res.text()).toMatch(/not in the shape the import reads/)
   })
 
-  it('answers 502 when Competition Corner is down', async () => {
-    vi.stubGlobal('fetch', fixtureFetch({ [`${CC_BASE}/events/19948`]: new Response('', { status: 503 }) }))
+  // The function never calls Competition Corner: Cloudflare refuses it there.
+  it('reads nothing from the network', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
     mock.queueResults([], [], [], [])
 
-    expect((await POST(req(body))).status).toBe(502)
+    await POST(req(body))
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 })

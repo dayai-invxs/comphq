@@ -1,9 +1,13 @@
 import { z } from 'zod'
-import { CcFetchError, fetchEvent, parseEventUrl, type FetchFn } from '@/lib/competitionCorner/client'
+import { parseEvent } from '@/lib/competitionCorner/event'
 import type { Change } from '@/lib/competitionCorner/diff'
 import { mapEvent, type ImportPlan } from '@/lib/competitionCorner/mapper'
 
-/** What both the preview and the apply routes are asked: which event, read how. */
+/**
+ * What both the preview and the apply routes are asked: the event the admin's
+ * browser read from Competition Corner (see event.ts for why it is posted),
+ * and how to read it.
+ */
 
 const isTimeZone = (tz: string) => {
   try {
@@ -16,9 +20,10 @@ const isTimeZone = (tz: string) => {
 
 export const ImportRequest = z.object({
   slug: z.string().min(1),
-  url: z.string().min(1),
   tz: z.string().refine(isTimeZone, 'Unknown time zone'),
   mergePartB: z.boolean(),
+  /** Validated by parseEvent, so a mismatch gets its own message. */
+  event: z.unknown(),
 })
 export type ImportRequest = z.infer<typeof ImportRequest>
 
@@ -26,18 +31,20 @@ type Loaded =
   | { ok: true; event: { id: number; name: string }; plan: ImportPlan }
   | { ok: false; response: Response }
 
-export async function loadPlan(req: Omit<ImportRequest, 'slug'>, fetchFn: FetchFn = fetch): Promise<Loaded> {
-  const eventId = parseEventUrl(req.url)
-  if (eventId == null) {
-    return { ok: false, response: new Response('Paste a Competition Corner event link, like competitioncorner.net/events/12345.', { status: 400 }) }
+export function loadPlan(req: Omit<ImportRequest, 'slug'>): Loaded {
+  const parsed = parseEvent(req.event)
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      response: new Response(
+        `Competition Corner's data for this event is not in the shape the import reads (at ${parsed.where}). ` +
+          'The import needs an update before this event can come in.',
+        { status: 400 },
+      ),
+    }
   }
-  try {
-    const ev = await fetchEvent(eventId, fetchFn)
-    return { ok: true, event: { id: ev.id, name: ev.name }, plan: mapEvent(ev, { tz: req.tz, mergePartB: req.mergePartB }) }
-  } catch (e) {
-    if (e instanceof CcFetchError) return { ok: false, response: new Response(e.message, { status: 502 }) }
-    throw e
-  }
+  const ev = parsed.event
+  return { ok: true, event: { id: ev.id, name: ev.name }, plan: mapEvent(ev, { tz: req.tz, mergePartB: req.mergePartB }) }
 }
 
 /** Fingerprint of a preview, so apply can tell when the source or the competition moved since. */

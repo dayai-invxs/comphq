@@ -12,6 +12,11 @@ const { apiGet, apiPost, apiPut, apiPatch, apiDel, apiUpload } = vi.hoisted(() =
   apiGet: vi.fn(), apiPost: vi.fn(), apiPut: vi.fn(), apiPatch: vi.fn(), apiDel: vi.fn(), apiUpload: vi.fn(),
 }))
 vi.mock('@/lib/api', () => ({ apiGet, apiPost, apiPut, apiPatch, apiDel, apiUpload }))
+const { fetchCcEvent } = vi.hoisted(() => ({ fetchCcEvent: vi.fn() }))
+vi.mock('@/lib/competitionCorner', async (actual) => ({
+  ...(await actual<typeof import('@/lib/competitionCorner')>()),
+  fetchCcEvent,
+}))
 
 const DIVISIONS = [
   { id: 1, name: 'RX', order: 1 },
@@ -150,6 +155,8 @@ it('adds a workout location', async () => {
 })
 
 it('previews a Competition Corner event for this competition', async () => {
+  const event = { id: 19948, name: 'Spring Throwdown', divisions: [], workouts: [], heats: [] }
+  fetchCcEvent.mockResolvedValue(event)
   apiPost.mockResolvedValue({ event: { id: 19948, name: 'Spring Throwdown' }, changes: [], version: 'v1' })
   mount()
   fireEvent.change(await screen.findByLabelText('Event link'), { target: { value: 'competitioncorner.net/events/19948' } })
@@ -157,10 +164,11 @@ it('previews a Competition Corner event for this competition', async () => {
   expect(await screen.findByText('Already matches Spring Throwdown.')).toBeInTheDocument()
   expect(apiPost).toHaveBeenCalledWith('/api/import/competition-corner/preview', {
     slug: 'summer',
-    url: 'competitioncorner.net/events/19948',
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
     mergePartB: true,
+    event,
   })
+  expect(fetchCcEvent).toHaveBeenCalledWith(19948)
 })
 
 it('adds a volunteer role', async () => {

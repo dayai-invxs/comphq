@@ -10,16 +10,16 @@ import { executeWrites, loadCurrent } from '@/lib/competitionCorner/store'
 import { planWrites } from '@/lib/competitionCorner/writes'
 
 const ApplyRequest = ImportRequest.extend({
-  /** The preview's version; a mismatch means the source or the competition moved since. */
+  /** The preview's version; a mismatch means the competition moved since. */
   version: z.string(),
   accepted: z.array(z.string()).min(1),
   scoreTypes: z.record(z.string(), ScoreType).default({}),
 })
 
 /**
- * Writes the changes the admin accepted. The event is read again and the
- * diff rebuilt inside the transaction, so nothing is written against a
- * preview that no longer holds.
+ * Writes the changes the admin accepted. The browser posts the same event it
+ * previewed, and the diff is rebuilt against the competition inside the
+ * transaction, so nothing is written against a preview that no longer holds.
  */
 export async function POST(req: Request) {
   const parsed = await parseJson(req, ApplyRequest)
@@ -28,14 +28,14 @@ export async function POST(req: Request) {
 
   try {
     const { user, competition } = await requireCompetitionAdmin(body.slug)
-    const loaded = await loadPlan(body)
+    const loaded = loadPlan(body)
     if (!loaded.ok) return loaded.response
 
     const response = await db.transaction(async (tx) => {
       const current = await loadCurrent(tx, competition.id)
       const changes = diffPlan(loaded.plan, current)
       if (await changesVersion(changes) !== body.version) {
-        return new Response('The event or this competition changed since the preview. Preview again.', { status: 409 })
+        return new Response('This competition changed since the preview. Preview again.', { status: 409 })
       }
       const planned = planWrites(loaded.plan, current, changes, { accepted: body.accepted, scoreTypes: body.scoreTypes })
       if (!planned.ok) return Response.json({ errors: planned.errors }, { status: 400 })

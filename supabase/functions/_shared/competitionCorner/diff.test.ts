@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { diffPlan, type Current } from './diff'
 import { mapEvent, type ImportPlan, type PlanWorkout } from './mapper'
-import { loadEvent19948 } from './__fixtures__/fixtureFetch'
+import { loadEvent19948 } from './__fixtures__/event19948'
 
 const empty: Current = { divisions: [], workouts: [], athletes: [], heatAssignments: [] }
 

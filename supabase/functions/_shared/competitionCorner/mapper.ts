@@ -1,7 +1,7 @@
 import type { ScoreTypeValue } from '@/lib/workoutEnums'
 import { zonedTimeToIso } from '@/lib/datetime'
 import { calcHeatStartMs } from '@/lib/heatTime'
-import type { CcEvent, CcHeat, CcWorkout } from '@/lib/competitionCorner/client'
+import type { CcEvent, CcHeat, CcWorkout } from '@/lib/competitionCorner/event'
 
 /**
  * Pure translation of a Competition Corner event into the rows comphq would

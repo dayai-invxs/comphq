@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { drizzleMock as mock, setAuthUser } from '@/test/setup'
-import { fixtureFetch } from '@/lib/competitionCorner/__fixtures__/fixtureFetch'
+import { rawEvent19948 } from '@/lib/competitionCorner/__fixtures__/event19948'
 import { POST as preview } from '../preview/route'
 import { POST } from './route'
 
-const body = { slug: 'default', url: 'https://competitioncorner.net/events/19948/details', tz: 'America/Los_Angeles', mergePartB: true }
+const body = { slug: 'default', tz: 'America/Los_Angeles', mergePartB: true, event: rawEvent19948() }
 const req = (b: unknown) => new Request('http://test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })
 const emptyCompetition = () => mock.queueResults([], [], [], [])
 
@@ -14,9 +14,6 @@ async function previewEmpty() {
 }
 
 describe('POST /api/import/competition-corner/apply', () => {
-  beforeEach(() => vi.stubGlobal('fetch', fixtureFetch()))
-  afterEach(() => vi.unstubAllGlobals())
-
   it('rejects unauthenticated', async () => {
     setAuthUser(null)
 

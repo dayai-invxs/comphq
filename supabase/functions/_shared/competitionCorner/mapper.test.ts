@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { CcEvent, CcHeat, CcWorkout } from './client'
+import type { CcEvent, CcHeat, CcWorkout } from './event'
 import { htmlToText, mapEvent, mapScoreType } from './mapper'
-import { loadEvent19948 } from './__fixtures__/fixtureFetch'
+import { loadEvent19948 } from './__fixtures__/event19948'
 
 const LA = 'America/Los_Angeles'
 

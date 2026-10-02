@@ -1,8 +1,9 @@
 import { Badge, Button, Checkbox, Field, Inline, Input, Select, Stack, Switch, Text, type BadgeTone } from '@mond-design-system/react'
 import { useState, type FormEvent } from 'react'
-import { applyErrors, type CcChange, type CcPreview, type CcSelection, type CcSource } from '@/api/competitionCorner'
+import { applyErrors, type CcChange, type CcPreview, type CcRequest, type CcSelection, type CcSource } from '@/api/competitionCorner'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { Notice } from '@/components/Notice/Notice'
+import { summarizeEvent } from '@/lib/competitionCorner'
 import { SCORE_TYPE_OPTIONS, type ScoreTypeValue } from '@/lib/scoreTypes'
 import { defaultAccepted, toggle } from './selection'
 import styles from './CompetitionCornerSection.module.css'
@@ -15,7 +16,7 @@ import styles from './CompetitionCornerSection.module.css'
 
 interface Props {
   onPreview: (source: CcSource) => Promise<CcPreview>
-  onApply: (input: CcSource & CcSelection) => Promise<{ applied: number }>
+  onApply: (input: CcRequest & CcSelection) => Promise<{ applied: number }>
 }
 
 const GROUPS: { entity: CcChange['entity']; title: string }[] = [
@@ -39,13 +40,18 @@ function show(value: unknown): string {
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
+const WORKING = {
+  preview: 'Reading the event from Competition Corner…',
+  apply: 'Applying changes…',
+} as const
+
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
 export function CompetitionCornerSection({ onPreview, onApply }: Props) {
   const [url, setUrl] = useState('')
   const [tz, setTz] = useState(browserZone)
   const [mergePartB, setMergePartB] = useState(true)
-  const [busy, setBusy] = useState(false)
+  const [working, setWorking] = useState<keyof typeof WORKING | null>(null)
   const [preview, setPreview] = useState<CcPreview | null>(null)
   const [accepted, setAccepted] = useState<Set<string>>(new Set())
   const [scoreTypes, setScoreTypes] = useState<Record<string, ScoreTypeValue>>({})
@@ -54,8 +60,11 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
 
   const source = { url: url.trim(), tz: tz.trim(), mergePartB }
 
-  async function attempt(work: () => Promise<void>) {
-    setBusy(true)
+  const busy = working != null
+  const summary = preview ? summarizeEvent(preview.request.event) : null
+
+  async function attempt(step: keyof typeof WORKING, work: () => Promise<void>) {
+    setWorking(step)
     setErrors([])
     setDone(null)
     try {
@@ -63,13 +72,13 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
     } catch (e) {
       setErrors(applyErrors(e))
     } finally {
-      setBusy(false)
+      setWorking(null)
     }
   }
 
   const handlePreview = (e: FormEvent) => {
     e.preventDefault()
-    void attempt(async () => {
+    void attempt('preview', async () => {
       const next = await onPreview(source)
       setPreview(next)
       setAccepted(defaultAccepted(next.changes))
@@ -81,8 +90,8 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
     if (!preview) return
     const keys = preview.changes.map((c) => c.key).filter((k) => accepted.has(k))
     const picked = Object.fromEntries(Object.entries(scoreTypes).filter(([k]) => accepted.has(k)))
-    void attempt(async () => {
-      const { applied } = await onApply({ ...source, version: preview.version, accepted: keys, scoreTypes: picked })
+    void attempt('apply', async () => {
+      const { applied } = await onApply({ ...preview.request, version: preview.version, accepted: keys, scoreTypes: picked })
       setDone(`Applied ${plural(applied, 'change')} from ${preview.event.name}.`)
       setPreview(null)
     })
@@ -120,8 +129,16 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
           </Stack>
         </form>
 
+        {working && <Text role="status" tone="muted">{WORKING[working]}</Text>}
         {errors.map((e) => <Notice key={e} tone="danger">{e}</Notice>)}
         {done && <Notice tone="success" onDismiss={() => setDone(null)}>{done}</Notice>}
+
+        {summary && (
+          <Stack gap="tight">
+            <Text variant="meta" tone="muted">{summary.text}</Text>
+            {summary.notice && <Text tone="warning">{summary.notice}</Text>}
+          </Stack>
+        )}
 
         {preview && preview.changes.length === 0 && (
           <Text tone="muted">Already matches {preview.event.name}.</Text>
