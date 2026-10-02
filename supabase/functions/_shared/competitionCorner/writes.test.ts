@@ -62,7 +62,18 @@ describe('planWrites — adds', () => {
       externalId: '10', externalPartBId: null, location: 'Floor',
     }])
     expect(writes.athletes.insert).toEqual([{ name: 'Ann', externalId: '100', divisionExternalId: '1' }])
-    expect(writes.heats).toEqual([{ workoutExternalId: '10', assignments: [{ athleteExternalId: '100', heatNumber: 1, lane: 3 }] }])
+    expect(writes.heats).toEqual([{
+      workoutExternalId: '10', assignments: [{ athleteExternalId: '100', heatNumber: 1, lane: 3 }], heatStartOverrides: {},
+    }])
+  })
+
+  // Placing lanes clears a workout's start overrides, which belong to the old
+  // heat sheet. The source's overrides belong to the sheet being placed.
+  it('carries the source start overrides with the lanes they time', () => {
+    const plan = { ...fullPlan, workouts: [planWorkout({ heatStartOverrides: { 1: '2026-04-25T15:05:00.000Z' } })] }
+    const result = run(plan, empty, 'all')
+    if (!result.ok) throw new Error(result.errors.join())
+    expect(result.writes.heats[0].heatStartOverrides).toEqual({ 1: '2026-04-25T15:05:00.000Z' })
   })
 
   it('appends new divisions after the existing ones', () => {

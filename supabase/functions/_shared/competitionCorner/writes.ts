@@ -36,7 +36,13 @@ export type Writes = {
     update: Array<{ id: number; set: { name?: string; externalId: string }; divisionExternalId?: string | null }>
     remove: number[]
   }
-  heats: Array<{ workoutExternalId: string; assignments: Array<{ athleteExternalId: string; heatNumber: number; lane: number }> }>
+  /** Placing lanes clears a workout's start overrides, since they timed the old
+      heat sheet; `heatStartOverrides` are the source's for the sheet placed. */
+  heats: Array<{
+    workoutExternalId: string
+    assignments: Array<{ athleteExternalId: string; heatNumber: number; lane: number }>
+    heatStartOverrides: Record<string, string>
+  }>
 }
 
 export type WritesResult = { ok: true; writes: Writes } | { ok: false; errors: string[] }
@@ -147,6 +153,7 @@ export function planWrites(plan: ImportPlan, current: Current, changes: Change[]
       assignments: plan.heats
         .filter((h) => h.workoutExternalId === workoutExternalId)
         .flatMap((h) => h.lanes.map((l) => ({ athleteExternalId: l.athleteExternalId, heatNumber: h.heatNumber, lane: l.lane }))),
+      heatStartOverrides: workoutByExt.get(workoutExternalId)?.heatStartOverrides ?? {},
     }
   })
 

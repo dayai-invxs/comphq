@@ -37,7 +37,11 @@ describe('executeWrites', () => {
     const writes: Writes = {
       ...none,
       athletes: { insert: [{ name: 'Ann', externalId: '100', divisionExternalId: '1' }], update: [], remove: [] },
-      heats: [{ workoutExternalId: '10', assignments: [{ athleteExternalId: '100', heatNumber: 1, lane: 3 }] }],
+      heats: [{
+        workoutExternalId: '10',
+        assignments: [{ athleteExternalId: '100', heatNumber: 1, lane: 3 }],
+        heatStartOverrides: { 1: '2026-04-25T15:05:00.000Z' },
+      }],
     }
     mock.queueResults(
       [{ id: 3, externalId: '1' }], // divisions by external id
@@ -45,12 +49,16 @@ describe('executeWrites', () => {
       [{ id: 7, externalId: '10' }], // workouts by external id
       [{ id: 5, externalId: '100' }], // athletes by external id
       undefined, // heat RPC
+      undefined, // start overrides
       undefined, // competition stamp
     )
 
     await executeWrites(tx, 1, 19948, writes)
 
-    expect(methods()).toEqual(['select', 'insert', 'select', 'select', 'execute', 'update'])
+    // The RPC clears the overrides; the source's go back on after it.
+    expect(methods()).toEqual(['select', 'insert', 'select', 'select', 'execute', 'update', 'update'])
+    const sets = mock.calls.filter((c) => c.method === 'set').map((c) => c.args[0])
+    expect(sets[0]).toEqual({ heatStartOverrides: { 1: '2026-04-25T15:05:00.000Z' } })
     const values = mock.calls.find((c) => c.method === 'values')!.args[0]
     expect(values).toEqual([{ competitionId: 1, name: 'Ann', externalId: '100', divisionId: 3 }])
     const rpc = JSON.stringify(mock.calls.find((c) => c.method === 'execute')!.args)

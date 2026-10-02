@@ -114,6 +114,8 @@ export async function executeWrites(tx: Tx, competitionId: number, eventId: numb
         return { athleteId, heatNumber: a.heatNumber, lane: a.lane }
       })
       await tx.execute(sql`SELECT replace_workout_heat_assignments(${workoutId}::int, ${JSON.stringify(assignments)}::jsonb)`)
+      // The RPC clears the overrides; these are the source's for the sheet just placed.
+      await tx.update(workout).set({ heatStartOverrides: h.heatStartOverrides }).where(eq(workout.id, workoutId))
     }
   }
 
