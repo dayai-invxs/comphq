@@ -1,0 +1,69 @@
+{
+  "workouts": [
+    {
+      "id": 121778,
+      "format": "individual",
+      "type": "amrap",
+      "tiebreakerType": "time",
+      "tiebreaker": "Last set of successful rope climbs",
+      "name": "Maximus - WOD 1",
+      "location": "Gym Floor",
+      "start": "08:15",
+      "end": "11:01",
+      "date": "2026-04-25T00:00:00",
+      "description": "<!DOCTYPE html>\n<html>\n<head>\n</head>\n<body>\n<p>13 Minute AMREP:</p>\n<p><em><span style=\"text-decoration: underline;\"><strong>RX:</strong></span></em></p>\n<p>20/16 Cal Row<br />20' HSW<br />2/1 Rope Climb</p>\n<p><br />20/16 Cal Row<br />40' HSW<br />3/2 Rope Climbs</p>\n<p><br />20/16 Cal Row<br />60' HSW<br />4/3 Rope Climbs</p>\n<p>....</p>\n<p>Continue adding 20 ft of handstand walks and 1 additional rope climb for each round.</p>\n<p>&nbsp;</p>\n<p><em><span style=\"text-decoration: underline;\"><strong>INTERMEDIATE:</strong></span></em></p>\n<p>20/16 Cal Row<br />2 Wall Walks<br />2/1 Rope Climbs (12 ft)</p>\n<p><br />20/16 Cal Row<br />3 Wall Walks<br />3/2 Rope Climbs</p>\n<p><br />20/16 Cal Row<br />4 Wall Walks<br />4/3 Rope Climbs</p>\n<p>....</p>\n<p>Continue adding 1 wall walk and 1 additional rope climb for each round.</p>\n<p>*Rope climb height is 13 ft.</p>\n<p><em><span style=\"text-decoration: underline;\"><strong>SCALED:</strong></span></em></p>\n<p>15/12 Cal Row<br />2 Scaled Wall Walks<br />2 Zombie Rope Climbs</p>\n<p><br />15/12 Cal Row<br />3 Scaled Wall Walks<br />3 Zombie Rope Climbs</p>\n<p><br />15/12 Cal Row<br />4 Scaled Wall Walks<br />4 Zombie Rope Climbs</p>\n<p>....</p>\n<p>Continue adding 1 scaled wall walk and 1 additional zombie rope climb for each round.</p>\n<p>&nbsp;</p>\n<p>**Tiebreak time: last fully completed set of zombie rope climbs</p>\n</body>\n</html>"
+    },
+    {
+      "id": 121777,
+      "format": "individual",
+      "type": "time",
+      "tiebreakerType": "",
+      "tiebreaker": "",
+      "name": "Unleash Hell - WOD 2",
+      "location": "Parking Lot",
+      "start": "10:15",
+      "end": "12:23",
+      "date": "2026-04-25T00:00:00",
+      "description": "<!DOCTYPE html>\n<html>\n<head>\n</head>\n<body>\n<p>Time Cap: 8 minutes</p>\n<p><span style=\"text-decoration: underline;\"><em><strong>RX:</strong></em></span></p>\n<p>100 Double Unders</p>\n<p>50 GHD Sit-Ups</p>\n<p>30 Pistol Squats</p>\n<p>10 Squat Snatches (135#/95#)</p>\n<p>&nbsp;</p>\n<p><span style=\"text-decoration: underline;\"><em><strong>INTERMEDIATE:</strong></em></span></p>\n<p>80 Double Unders</p>\n<p>40 GHD Sit-Ups</p>\n<p>30 Front Squats (95#/65#)</p>\n<p>10 Snatches (95#/65#)</p>\n<p>&nbsp;</p>\n<p><span style=\"text-decoration: underline;\"><em><strong>SCALED</strong></em></span></p>\n<p>100 Single Unders</p>\n<p>50 Ab-Mat Sit-Ups</p>\n<p>30 Front Squats (75#/55#)</p>\n<p>10 Ground-to-Overhead (75#/55#)</p>\n<p>&nbsp;</p>\n<p>**Ground-to-overhead may be any of the following movements: Any snatch variation, any clean and jerk variation including strict press or push press, or a cluster (squat clean + thruster).</p>\n</body>\n</html>"
+    },
+    {
+      "id": 119545,
+      "format": "individual",
+      "type": "time",
+      "tiebreakerType": "repmax",
+      "tiebreaker": "Part B Score",
+      "name": "Are You Not Entertained!? - WOD 3 (Part A)",
+      "location": "Gym Floor",
+      "start": "12:05",
+      "end": "13:45",
+      "date": "2026-04-25T00:00:00",
+      "description": "<!DOCTYPE html>\n<html>\n<head>\n</head>\n<body>\n<p>Time Cap: 10 Mins</p>\n<p><span style=\"text-decoration: underline;\"><em>For Time:</em></span></p>\n<p><span style=\"text-decoration: underline;\"><em><strong>RX/INTERMEDIATE:</strong></em></span></p>\n<p>30 Lateral Burpee Over Barbell</p>\n<p>-Immediately Into Part B-</p>\n<p>&nbsp;</p>\n<p>*Tiebreak: Part B Score</p>\n<p>&nbsp;</p>\n<p><em><span style=\"text-decoration: underline;\"><strong>SCALED:</strong></span></em></p>\n<p>20 Lateral Burpee Over Barbell</p>\n<p>-Immediatley Into Part B-</p>\n<p>&nbsp;</p>\n<p>*Tiebreak: Part B Score</p>\n</body>\n</html>"
+    },
+    {
+      "id": 119547,
+      "format": "individual",
+      "type": "repmax",
+      "tiebreakerType": "time",
+      "tiebreaker": "Part A Score",
+      "name": "Are You Not Entertained!? (Part B)",
+      "location": "Gym Floor",
+      "start": "12:05",
+      "end": "13:45",
+      "date": "2026-04-25T00:00:00",
+      "description": "<!DOCTYPE html>\n<html>\n<head>\n</head>\n<body>\n<p><span style=\"text-decoration: underline;\"><em>In Remaining Time From Part A (10 mins total):</em></span></p>\n<p><span style=\"text-decoration: underline;\"><em>For Max Load:</em></span></p>\n<p>(3) Heaviest Clean &amp; Jerks</p>\n<p>&nbsp;</p>\n<p>*Athletes may attempt as many lifts as they want during the remaining time. Only the 3 heaviest lifts will count towards their total. Multiple lifts may be the same weight. Athletes who do not complete 3 successful lifts will receive a \"0\" for lifts not completed.</p>\n<p>&nbsp;</p>\n<p>***Any style clean is permitted</p>\n<p>***Any style shoulder-to-overhead is permitted for the jerk</p>\n<p>&nbsp;</p>\n<p>*Tiebreak: Part A Score</p>\n</body>\n</html>"
+    },
+    {
+      "id": 121768,
+      "format": "individual",
+      "type": "time",
+      "tiebreakerType": "time",
+      "tiebreaker": "Time of last completed gymnastics set",
+      "name": "The Coliseum - WOD 4",
+      "location": "Gym Floor",
+      "start": "14:00",
+      "end": "16:20",
+      "date": "2026-04-25T00:00:00",
+      "description": "<!DOCTYPE html>\n<html>\n<head>\n</head>\n<body>\n<p><span style=\"text-decoration: underline;\"><em>For Time:</em></span></p>\n<p><em><span style=\"text-decoration: underline;\"><strong>RX:</strong></span></em></p>\n<p>300m Run<br />18 Dumbbell Box Step Overs<br />30 Toes-to-Bar</p>\n<p>-into-<br /><br />300m Run<br />12 Dumbbell Box Step Overs<br />20 Chest-to-Bar Pull-Ups</p>\n<p>-into-</p>\n<p>300m Run<br />6 Dumbbell Box Step Overs<br />10 Bar Muscle-Ups</p>\n<p>DB Weight: Double 50#/35#</p>\n<p>Box Height 24\"/20\"</p>\n<p>Tiebreak: time of last completed set of pull-up bar movement</p>\n<p><em><span style=\"text-decoration: underline;\"><strong>INTERMEDIATE:</strong></span></em></p>\n<p>300m Run<br />18 Dumbbell Box Step Overs<br />25 Toes-to-Bar</p>\n<p>-into-</p>\n<p>300m Run<br />12 Dumbbell Box Step Overs<br />20 Pull-Ups</p>\n<p>-into-</p>\n<p>300m Run<br />6 Dumbbell Box Step Overs<br />10 Chest-to-Bar Pull-Ups</p>\n<p>DB Weight: Double 35#/25#</p>\n<p>Box Height 24\"/20\"</p>\n<p>Tiebreak: time of last completed set of pull-up bar movement</p>\n<p><em><span style=\"text-decoration: underline;\"><strong>SCALED:</strong></span></em></p>\n<p>200m Run<br />18 Dumbbell Box Step Overs<br />25 Hanging Knee Raises</p>\n<p>-into-</p>\n<p>200m Run<br />12 Dumbbell Box Step Overs<br />20 Ring Rows (feet under rig)</p>\n<p>-into-</p>\n<p>200m Run<br />6 Dumbbell Box Step Overs<br />10 Ring Rows (feet past rig)</p>\n<p>DB Weight: Single 25#/15#</p>\n<p>Box Height 24\"/20\"</p>\n<p>Tiebreak: time of last completed set of knee raises/ring rows</p>\n</body>\n</html>"
+    }
+  ]
+}

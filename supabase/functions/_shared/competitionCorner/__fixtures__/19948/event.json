@@ -1,0 +1,39 @@
+{
+  "id": 19948,
+  "name": "Rugged Rumble - Gladiator Games",
+  "startDate": "2026-04-25T08:00:00",
+  "endDate": "2026-04-25T16:00:00",
+  "isMultiDayEvent": false,
+  "divisions": [
+    {
+      "id": 131045,
+      "title": "Rx - Individual Women",
+      "format": "individual"
+    },
+    {
+      "id": 131046,
+      "title": "Scaled - Individual Women",
+      "format": "individual"
+    },
+    {
+      "id": 131047,
+      "title": "Rx - Individual Men",
+      "format": "individual"
+    },
+    {
+      "id": 131048,
+      "title": "Scaled - Individual Men",
+      "format": "individual"
+    },
+    {
+      "id": 131085,
+      "title": "Intermediate - Individual Women",
+      "format": "individual"
+    },
+    {
+      "id": 131086,
+      "title": "Intermediate - Individual Men",
+      "format": "individual"
+    }
+  ]
+}
