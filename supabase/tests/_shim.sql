@@ -8,7 +8,7 @@
 -- unmodified.
 --
 -- This file is test scaffolding, not a migration. It is deliberately the
--- minimum surface the migrations touch — `auth.users`, `auth.uid()`,
+-- minimum surface the migrations touch — `auth.users`, `auth.uid()`, `storage.buckets`,
 -- anon/authenticated/service_role, and `supabase_realtime`.
 
 -- ─── API roles ──────────────────────────────────────────────────────────
@@ -63,6 +63,17 @@ AS $$
 $$;
 
 GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+
+-- ─── storage schema ─────────────────────────────────────────────────────
+-- 20260830150000_logos_bucket.sql inserts its bucket with ON CONFLICT (id),
+-- so the stub needs the three columns it names and the primary key.
+CREATE SCHEMA IF NOT EXISTS storage;
+
+CREATE TABLE IF NOT EXISTS storage.buckets (
+  id     TEXT PRIMARY KEY,
+  name   TEXT NOT NULL,
+  public BOOLEAN DEFAULT false
+);
 
 -- ─── Realtime publication ───────────────────────────────────────────────
 -- 20260421170000_rls_public_read.sql does ALTER PUBLICATION ... ADD TABLE,

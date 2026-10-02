@@ -22,6 +22,7 @@ import {
   index,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // ─── auth schema stub (referenced by UserProfile, CompetitionAdmin, etc.) ────
 export const authSchema = pgSchema('auth')
@@ -35,6 +36,8 @@ export const competition = pgTable('Competition', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull(),
+  ccEventId: integer('ccEventId'),
+  ccSyncedAt: timestamp('ccSyncedAt', { withTimezone: true, mode: 'string' }),
 }, (t) => [
   uniqueIndex('Competition_slug_key').on(t.slug),
 ])
@@ -60,8 +63,10 @@ export const division = pgTable('Division', {
   competitionId: integer('competitionId').notNull().references(() => competition.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   name: text('name').notNull(),
   order: integer('order').notNull(),
+  externalId: text('externalId'),
 }, (t) => [
   uniqueIndex('Division_competitionId_name_key').on(t.competitionId, t.name),
+  uniqueIndex('Division_competitionId_externalId_key').on(t.competitionId, t.externalId).where(sql`"externalId" IS NOT NULL`),
   index('Division_competitionId_idx').on(t.competitionId),
 ])
 
@@ -73,8 +78,10 @@ export const athlete = pgTable('Athlete', {
   divisionId: integer('divisionId').references(() => division.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   userId: uuid('userId').references(() => authUsers.id, { onDelete: 'set null' }),
   withdrawn: boolean('withdrawn').notNull().default(false),
+  externalId: text('externalId'),
 }, (t) => [
   index('Athlete_competitionId_idx').on(t.competitionId),
+  uniqueIndex('Athlete_competitionId_externalId_key').on(t.competitionId, t.externalId).where(sql`"externalId" IS NOT NULL`),
 ])
 
 export const workoutLocation = pgTable('WorkoutLocation', {
@@ -105,8 +112,11 @@ export const workout = pgTable('Workout', {
   halfWeight: boolean('halfWeight').notNull().default(false),
   heatStartOverrides: jsonb('heatStartOverrides').$type<Record<string, string>>().notNull().default({}),
   locationId: integer('locationId').references(() => workoutLocation.id, { onDelete: 'set null' }),
+  externalId: text('externalId'),
+  externalPartBId: text('externalPartBId'),
 }, (t) => [
   uniqueIndex('Workout_competitionId_number_key').on(t.competitionId, t.number),
+  uniqueIndex('Workout_competitionId_externalId_key').on(t.competitionId, t.externalId).where(sql`"externalId" IS NOT NULL`),
   index('Workout_competitionId_idx').on(t.competitionId),
 ])
 

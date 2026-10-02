@@ -160,16 +160,18 @@ SELECT test.ok(
 --
 -- The set is asserted as a whole rather than table by table: a new table
 -- that ships with RLS on and no policy should turn this red, since that is
--- almost always an oversight rather than a decision.
+-- almost always an oversight rather than a decision. SiteSetting is the
+-- exception that is a decision: install-wide config read and written only
+-- through the service key (20260830160000_site_setting.sql).
 SELECT test.ok(
   (SELECT array_agg(c.relname::text ORDER BY c.relname)
      FROM pg_class c
      JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
       AND NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid))
-  = ARRAY['AuditLog', 'JudgeAssignment', 'Volunteer', 'VolunteerRole',
-          'WorkoutEquipment', 'WorkoutLocation'],
-  'DEFECT: exactly six tables have RLS on with no policy at all'
+  = ARRAY['AuditLog', 'JudgeAssignment', 'SiteSetting', 'Volunteer',
+          'VolunteerRole', 'WorkoutEquipment', 'WorkoutLocation'],
+  'DEFECT: exactly seven tables have RLS on with no policy at all'
 );
 
 SELECT test.as_user('00000000-0000-4000-8000-000000000002');
