@@ -11,7 +11,7 @@ const change = (key: string, over: Partial<CcChange> = {}): CcChange => ({
   key, entity: 'division', kind: 'add', id: null, label: key, fields: [], warnings: [], requires: [], ...over,
 })
 
-const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
+const TZ = 'America/Chicago'
 
 const EVENT = { id: 19948, name: 'Spring Throwdown', divisions: [{}, {}], workouts: [{}], heats: [{}, {}, {}] }
 const REQUEST = { tz: TZ, mergePartB: true, event: EVENT }
@@ -33,8 +33,13 @@ function draw() {
   return render(<CompetitionCornerSection onPreview={onPreview} onApply={onApply} />)
 }
 
+function fill(link = 'competitioncorner.net/events/19948') {
+  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: link } })
+  fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: TZ } })
+}
+
 async function preview() {
-  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: 'competitioncorner.net/events/19948' } })
+  fill()
   fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
   await screen.findByText(/Spring Throwdown/)
 }
@@ -42,12 +47,45 @@ async function preview() {
 const box = (name: string) => screen.getByRole('checkbox', { name: new RegExp(name) }) as HTMLInputElement
 
 beforeEach(() => {
+  vi.restoreAllMocks()
   vi.clearAllMocks()
   onPreview.mockResolvedValue(PREVIEW)
   onApply.mockResolvedValue({ applied: 3 })
 })
 
-it('previews the event in the browser time zone, merging Part B by default', async () => {
+it('offers the US time zones', () => {
+  draw()
+  const zones = within(screen.getByLabelText('Time zone')).getAllByRole('option').map((o) => [o.getAttribute('value'), o.textContent])
+  expect(zones).toEqual([
+    ['', 'Pick the event\'s time zone'],
+    ['America/Los_Angeles', 'US West (Pacific)'],
+    ['America/Denver', 'US Mountain'],
+    ['America/Chicago', 'US Central'],
+    ['America/New_York', 'US East'],
+  ])
+})
+
+const browserZone = (timeZone: string) =>
+  vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ ...new Intl.DateTimeFormat().resolvedOptions(), timeZone })
+
+it('starts on the browser time zone when it is one of them', () => {
+  browserZone('America/Denver')
+  draw()
+  expect(screen.getByLabelText('Time zone')).toHaveValue('America/Denver')
+})
+
+// A guess outside the list would read every heat start hours off.
+it('waits for a time zone pick when the browser is elsewhere', () => {
+  browserZone('Europe/Berlin')
+  draw()
+  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
+  expect(screen.getByLabelText('Time zone')).toHaveValue('')
+  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeDisabled()
+  fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'America/New_York' } })
+  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeEnabled()
+})
+
+it('previews the event in the picked time zone, merging Part B by default', async () => {
   draw()
   await preview()
   expect(onPreview).toHaveBeenCalledWith({
@@ -62,7 +100,7 @@ it('says what it is doing while it reads the event', async () => {
   let finish!: (p: CcPreview) => void
   onPreview.mockReturnValue(new Promise((r) => { finish = r }))
   draw()
-  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
+  fill('19948')
   fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
   expect(screen.getByRole('status')).toHaveTextContent('Reading the event from Competition Corner…')
   finish(PREVIEW)
@@ -146,7 +184,7 @@ it('shows each problem the server found with the selection', async () => {
 it('shows why a preview failed', async () => {
   onPreview.mockRejectedValue(new Error("Competition Corner answered 403 when reading the event's heat sheets. Try again in a minute."))
   draw()
-  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
+  fill('19948')
   fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
   expect(await screen.findByRole('alert')).toHaveTextContent("answered 403 when reading the event's heat sheets")
 })
@@ -154,7 +192,7 @@ it('shows why a preview failed', async () => {
 it('reads the router error body, not raw JSON', async () => {
   onPreview.mockRejectedValue(new HttpError(500, JSON.stringify({ error: 'Database is busy' })))
   draw()
-  fireEvent.change(screen.getByLabelText('Event link'), { target: { value: '19948' } })
+  fill('19948')
   fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
   expect(await screen.findByText('Database is busy')).toBeInTheDocument()
 })

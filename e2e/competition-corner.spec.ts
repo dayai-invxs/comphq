@@ -58,6 +58,7 @@ test.describe('Competition Corner import', () => {
 
     const section = page.locator('#setup-competition-corner')
     await section.getByRole('textbox', { name: 'Event link' }).fill(EVENT)
+    await section.getByRole('combobox', { name: 'Time zone' }).selectOption('America/Chicago')
     await section.getByRole('button', { name: 'Preview changes' }).click()
 
     const divisions = section.getByRole('group', { name: /Divisions/ })
@@ -86,6 +87,7 @@ test.describe('Competition Corner import', () => {
 
     const section = page.locator('#setup-competition-corner')
     await section.getByRole('textbox', { name: 'Event link' }).fill(UNSCHEDULED)
+    await section.getByRole('combobox', { name: 'Time zone' }).selectOption('America/Los_Angeles')
     await section.getByRole('button', { name: 'Preview changes' }).click()
 
     await expect(section.getByText(/only divisions can be imported/)).toBeVisible({ timeout: 30_000 })
@@ -104,6 +106,7 @@ test.describe('Competition Corner import', () => {
 
     const section = page.locator('#setup-competition-corner')
     await section.getByRole('textbox', { name: 'Event link' }).fill('https://competitioncorner.net/events/99999999')
+    await section.getByRole('combobox', { name: 'Time zone' }).selectOption('America/New_York')
     await section.getByRole('button', { name: 'Preview changes' }).click()
 
     await expect(section.getByRole('alert')).toHaveText('Competition Corner has no event 99999999. Check the link.', { timeout: 30_000 })

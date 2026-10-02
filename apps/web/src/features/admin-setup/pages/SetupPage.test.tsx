@@ -160,11 +160,12 @@ it('previews a Competition Corner event for this competition', async () => {
   apiPost.mockResolvedValue({ event: { id: 19948, name: 'Spring Throwdown' }, changes: [], version: 'v1' })
   mount()
   fireEvent.change(await screen.findByLabelText('Event link'), { target: { value: 'competitioncorner.net/events/19948' } })
+  fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'America/Chicago' } })
   fireEvent.click(screen.getByRole('button', { name: 'Preview changes' }))
   expect(await screen.findByText('Already matches Spring Throwdown.')).toBeInTheDocument()
   expect(apiPost).toHaveBeenCalledWith('/api/import/competition-corner/preview', {
     slug: 'summer',
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tz: 'America/Chicago',
     mergePartB: true,
     event,
   })

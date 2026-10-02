@@ -45,11 +45,24 @@ const WORKING = {
   apply: 'Applying changes…',
 } as const
 
-const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
+// The zones events run in. Arizona keeps Mountain Standard Time all year,
+// so an Arizona event read as US Mountain lands an hour off in summer.
+const TIME_ZONES = [
+  { value: 'America/Los_Angeles', label: 'US West (Pacific)' },
+  { value: 'America/Denver', label: 'US Mountain' },
+  { value: 'America/Chicago', label: 'US Central' },
+  { value: 'America/New_York', label: 'US East' },
+]
+
+/** The browser's zone when it is one of the choices; otherwise the admin picks. */
+function startZone(): string {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  return TIME_ZONES.some((z) => z.value === zone) ? zone : ''
+}
 
 export function CompetitionCornerSection({ onPreview, onApply }: Props) {
   const [url, setUrl] = useState('')
-  const [tz, setTz] = useState(browserZone)
+  const [tz, setTz] = useState(startZone)
   const [mergePartB, setMergePartB] = useState(true)
   const [working, setWorking] = useState<keyof typeof WORKING | null>(null)
   const [preview, setPreview] = useState<CcPreview | null>(null)
@@ -58,7 +71,7 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
   const [errors, setErrors] = useState<string[]>([])
   const [done, setDone] = useState<string | null>(null)
 
-  const source = { url: url.trim(), tz: tz.trim(), mergePartB }
+  const source = { url: url.trim(), tz, mergePartB }
 
   const busy = working != null
   const summary = preview ? summarizeEvent(preview.request.event) : null
@@ -113,7 +126,10 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
               <Input value={url} onChange={(e) => setUrl(e.target.value)} required />
             </Field>
             <Field label="Time zone" hint="The event's local times are read in this zone.">
-              <Input value={tz} onChange={(e) => setTz(e.target.value)} required />
+              <Select value={tz} onChange={(e) => setTz(e.target.value)} required>
+                <option value="" disabled>Pick the event's time zone</option>
+                {TIME_ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
+              </Select>
             </Field>
             <Switch
               label="Merge Part B into Part A"
@@ -124,7 +140,7 @@ export function CompetitionCornerSection({ onPreview, onApply }: Props) {
               Athletes come from the heat sheets. Anyone registered without a lane is not imported.
             </Text>
             <Inline gap="base">
-              <Button type="submit" disabled={busy || !url.trim()}>Preview changes</Button>
+              <Button type="submit" disabled={busy || !url.trim() || !tz}>Preview changes</Button>
             </Inline>
           </Stack>
         </form>
