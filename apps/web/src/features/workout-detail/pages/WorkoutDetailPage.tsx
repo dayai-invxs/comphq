@@ -352,7 +352,7 @@ export function WorkoutDetailPage() {
                     title={!someScored
                       ? 'Enter at least one score first'
                       : scoredCount < totalAthletes
-                        ? `${totalAthletes - scoredCount} athlete(s) without scores will be unranked`
+                        ? `${totalAthletes - scoredCount} athlete(s)/team(s) without scores will be unranked`
                         : ''}
                   >
                     Calculate Rankings &amp; Complete

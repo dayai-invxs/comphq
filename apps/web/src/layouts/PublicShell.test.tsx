@@ -34,7 +34,7 @@ describe('PublicShell', () => {
     mount()
     const bar = tabBar()
     expect(within(bar).getAllByRole('link').map((l) => l.textContent)).toEqual([
-      'Schedule', 'Leaderboard', 'Athletes',
+      'Schedule', 'Leaderboard', 'Athletes/Teams',
     ])
     expect(within(bar).queryByRole('link', { name: 'Judges' })).toBeNull()
   })

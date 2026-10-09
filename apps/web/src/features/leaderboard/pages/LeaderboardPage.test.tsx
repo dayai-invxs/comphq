@@ -159,7 +159,7 @@ describe('LeaderboardPage', () => {
   it('names a workout column per workout, marking the half-weight one', async () => {
     mount()
     const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-    expect(headers).toEqual(['Rank', 'Athlete', 'WOD 1', 'WOD 2 ½', 'Total Pts'])
+    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1', 'WOD 2 ½', 'Total Pts'])
   })
 
   it('shows the placing, the score behind it and the tiebreak', async () => {
@@ -230,8 +230,8 @@ describe('LeaderboardPage', () => {
   it('says so when a filter leaves nothing to show', async () => {
     mount()
     await screen.findByRole('table', { name: 'Rx standings' })
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search athlete' }), { target: { value: 'zzz' } })
-    expect(await screen.findByText('No athletes match')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search athlete or team' }), { target: { value: 'zzz' } })
+    expect(await screen.findByText('No athletes or teams match')).toBeInTheDocument()
   })
 
   // Picking a workout drops the other columns and the overall total with them:
@@ -241,7 +241,7 @@ describe('LeaderboardPage', () => {
     await screen.findByRole('table', { name: 'Rx standings' })
     choose('Workout', '12')
     const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-    expect(headers).toEqual(['Rank', 'Athlete', 'WOD 2 ½'])
+    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 2 ½'])
     expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveValue('12')
   })
 
@@ -255,7 +255,7 @@ describe('LeaderboardPage', () => {
   it('searches by athlete name', async () => {
     mount()
     await screen.findByRole('table', { name: 'Rx standings' })
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search athlete' }), { target: { value: 'cy' } })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search athlete or team' }), { target: { value: 'cy' } })
     expect(await names()).toEqual(['Cy Cat'])
   })
 
@@ -269,7 +269,7 @@ describe('LeaderboardPage', () => {
       setViewport(375)
       mount()
       const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-      expect(headers).toEqual(['Rank', 'Athlete', 'Total Pts'])
+      expect(headers).toEqual(['Rank', 'Athlete/Team', 'Total Pts'])
     })
 
     it('shows the workout a reader has narrowed to', async () => {
@@ -278,7 +278,7 @@ describe('LeaderboardPage', () => {
       await screen.findByRole('table', { name: 'Rx standings' })
       choose('Workout', '11')
       const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-      expect(headers).toEqual(['Rank', 'Athlete', 'WOD 1'])
+      expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1'])
     })
 
     it('gives the columns back when the phone is turned on its side', async () => {
@@ -287,7 +287,7 @@ describe('LeaderboardPage', () => {
       await screen.findByRole('table', { name: 'Rx standings' })
       act(() => setViewport(900))
       const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-      expect(headers).toEqual(['Rank', 'Athlete', 'WOD 1', 'WOD 2 ½', 'Total Pts'])
+      expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1', 'WOD 2 ½', 'Total Pts'])
     })
   })
 

@@ -176,7 +176,7 @@ describe('EquipmentPage', () => {
       },
     })
     mount()
-    expect((await heat(1)).getByText('No athletes assigned')).toBeInTheDocument()
+    expect((await heat(1)).getByText('No athletes/teams assigned')).toBeInTheDocument()
   })
 
   // A failed read is not an empty floor, and it must not shimmer for ever.

@@ -25,7 +25,7 @@ export function WorkoutLeaderboard({ workout }: { workout: Workout }) {
     .sort((a, b) => totalPoints(a, workout.partBEnabled) - totalPoints(b, workout.partBEnabled))
 
   const columns: DataColumn<Score>[] = [
-    { key: 'athlete', header: 'Athlete', cell: (s) => <Text as="span" variant="label">{s.athlete.name}</Text> },
+    { key: 'athlete', header: 'Athlete/Team', cell: (s) => <Text as="span" variant="label">{s.athlete.name}</Text> },
     {
       key: 'partA',
       header: 'Part A',

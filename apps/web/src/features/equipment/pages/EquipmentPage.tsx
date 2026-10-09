@@ -92,7 +92,7 @@ function HeatRow({
           nobody makes. */}
       <div className={styles.divisions}>
         {divisionNames.length === 0 && (
-          <Text variant="meta" tone="muted">No athletes assigned</Text>
+          <Text variant="meta" tone="muted">No athletes/teams assigned</Text>
         )}
         {divisionNames.map((divisionName) => (
           <Checkbox

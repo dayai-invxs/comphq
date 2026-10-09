@@ -65,7 +65,7 @@ export function AthletesTab({
   slug, athletes, divisions, loading, setLoading, run, reload, setAthletes, adding, onCloseAdd,
 }: Props) {
   const roster = useRoster<Athlete>({
-    slug, resource: 'athletes', noun: 'athlete', swapField: 'newAthleteId',
+    slug, resource: 'athletes', noun: 'athlete/team', swapField: 'newAthleteId',
     rows: athletes, setRows: setAthletes, run, reload, setLoading,
   })
 
@@ -162,7 +162,7 @@ export function AthletesTab({
     const mark = (w: boolean) =>
       setAthletes((prev) => prev.map((a) => (a.id === athlete.id ? { ...a, withdrawn: w } : a)))
     mark(!was)
-    void run(was ? 'Un-withdraw athlete' : 'Withdraw athlete', async () => {
+    void run(was ? 'Un-withdraw athlete/team' : 'Withdraw athlete/team', async () => {
       await (was ? apiDel(path) : apiPost(path, {}))
       return true
     }).then((ok) => { if (!ok) mark(was) })
@@ -225,12 +225,12 @@ export function AthletesTab({
         </div>
       ) : athletes.length === 0 ? (
         <EmptyState
-          title="No athletes yet"
+          title="No athletes or teams yet"
           description="Add them one at a time, or paste a whole roster in at once."
         />
       ) : (
         <DataPanel
-          title="Athletes"
+          title="Athletes/Teams"
           description={`${athletes.length} entered${flagged ? ` · ${flagged} to check` : ''}`}
           flush
         >
@@ -244,7 +244,7 @@ export function AthletesTab({
             />
           </Stack>
           <DataTable
-            label="Athletes"
+            label="Athletes/Teams"
             columns={columns}
             rows={visible}
             rowKey={(a) => String(a.id)}
@@ -257,12 +257,12 @@ export function AthletesTab({
               </Inline>
             )}
             actionsHeader="Actions"
-            empty="No athlete matches that name."
+            empty="No athlete or team matches that name."
             selected={roster.selected}
             onSelectedChange={roster.setSelected}
             selectionLabels={{
               row: (label) => `Select ${label}`,
-              all: 'Select every athlete',
+              all: 'Select every athlete and team',
               count: (n) => `${n} selected`,
             }}
             bulkActions={
@@ -280,8 +280,8 @@ export function AthletesTab({
       )}
 
       <RosterSheet
-        noun="athlete"
-        plural="athletes"
+        noun="athlete/team"
+        plural="athletes/teams"
         roster={roster}
         adding={adding}
         onClose={close}
@@ -366,19 +366,19 @@ export function AthletesTab({
         target={deleting}
         onClose={() => setDeleting(null)}
         onConfirm={(a) => roster.remove(a.id)}
-        title="Remove athlete?"
+        title="Remove athlete/team?"
         description={deleting ? `${deleting.name} loses their lane in every heat they were in.` : ''}
-        confirmLabel="Remove athlete"
+        confirmLabel="Remove athlete/team"
         cancelLabel="Cancel"
         tone="danger"
-        errorMessage={(message) => `Remove athlete: ${message}`}
+        errorMessage={(message) => `Remove athlete/team: ${message}`}
       />
 
       <ConfirmDialog
         open={roster.confirmDeleteSelected}
         onClose={() => roster.setConfirmDeleteSelected(false)}
         onConfirm={() => roster.deleteSelected()}
-        title={`Delete ${roster.selected.length} athletes?`}
+        title={`Delete ${roster.selected.length} athletes/teams?`}
         description="They lose their lanes in every heat they were in."
         confirmLabel={`Delete ${roster.selected.length}`}
         cancelLabel="Cancel"

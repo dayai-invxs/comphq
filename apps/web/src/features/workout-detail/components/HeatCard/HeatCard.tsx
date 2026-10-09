@@ -273,7 +273,7 @@ export function HeatCard({
               {isTouch && <th className={styles.handleCell}><VisuallyHidden>Reorder</VisuallyHidden></th>}
               <th scope="col" className={styles.narrow}>Lane</th>
               <th scope="col" className={styles.narrow}>Heat</th>
-              <th scope="col">Athlete</th>
+              <th scope="col">Athlete/Team</th>
               <th scope="col">Division</th>
               {showJudges && <th scope="col">Judge</th>}
               <th scope="col">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
@@ -292,7 +292,7 @@ export function HeatCard({
             {!isSaving && sorted.length === 0 && (
               <tr>
                 <td colSpan={columnCount} className={styles.dropCell}>
-                  <div ref={emptyRef} className={styles.dropZone}>Drop athletes here</div>
+                  <div ref={emptyRef} className={styles.dropZone}>Drop athletes/teams here</div>
                 </td>
               </tr>
             )}

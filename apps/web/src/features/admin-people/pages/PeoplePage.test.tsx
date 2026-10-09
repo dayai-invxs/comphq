@@ -61,7 +61,7 @@ beforeEach(() => {
 describe('what the screen says it holds', () => {
   it('counts both rosters under the title', async () => {
     mount()
-    expect(await screen.findByText('2 athletes · 1 volunteers')).toBeInTheDocument()
+    expect(await screen.findByText('2 athletes/teams · 1 volunteers')).toBeInTheDocument()
   })
 
   it('reads both rosters for the competition in the address bar', async () => {
@@ -71,7 +71,7 @@ describe('what the screen says it holds', () => {
 
   it('counts each roster on its own tab', async () => {
     mount()
-    expect(await screen.findByRole('tab', { name: 'Athletes (2)' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'Athletes/Teams (2)' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Volunteers (1)' })).toBeInTheDocument()
   })
 })
@@ -97,14 +97,14 @@ describe('the two tabs', () => {
 describe('adding to whichever roster is open', () => {
   it('names the tab it is pointed at', async () => {
     mount()
-    expect(await screen.findByRole('button', { name: 'Add athlete' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Add athlete/team' })).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('tab', { name: 'Volunteers (1)' }))
     expect(await screen.findByRole('button', { name: 'Add volunteer' })).toBeInTheDocument()
   })
 
   it('opens the editor on the roster that is showing', async () => {
     mount()
-    fireEvent.click(await screen.findByRole('button', { name: 'Add athlete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add athlete/team' }))
     expect(screen.getByTestId('athletes-tab')).toHaveTextContent('adding')
   })
 
@@ -112,7 +112,7 @@ describe('adding to whichever roster is open', () => {
   // it — so a half-typed athlete does not reappear as a volunteer.
   it('closes the editor when the other roster is asked for', async () => {
     mount()
-    fireEvent.click(await screen.findByRole('button', { name: 'Add athlete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add athlete/team' }))
     fireEvent.click(await screen.findByRole('tab', { name: 'Volunteers (1)' }))
     expect(await screen.findByTestId('volunteers-tab')).not.toHaveTextContent('adding')
   })

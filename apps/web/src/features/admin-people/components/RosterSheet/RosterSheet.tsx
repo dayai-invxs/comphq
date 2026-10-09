@@ -76,7 +76,7 @@ export function RosterSheet<T extends Row>({
 }: RosterSheetProps<T>) {
   const [mode, setMode] = useState<AddMode>('single')
   // The footer button submits the form in the body, which it does not contain.
-  const formId = `roster-form-${noun}`
+  const formId = `roster-form-${noun.replace(/\W+/g, '-')}`
   const editing = roster.rows.find((row) => row.id === roster.editingId) ?? null
   const open = adding || editing != null
   const title = editing ? editing.name : `Add ${noun}`

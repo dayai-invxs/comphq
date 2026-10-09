@@ -34,7 +34,7 @@ export function publicDestinations(slug: string): Destination[] {
   return [
     { to: `/${slug}`, label: 'Schedule', icon: 'schedule' },
     { to: `/${slug}/leaderboard`, label: 'Leaderboard', icon: 'leaderboard' },
-    { to: `/${slug}/athlete-overview`, label: 'Athletes', icon: 'athletes' },
+    { to: `/${slug}/athlete-overview`, label: 'Athletes/Teams', icon: 'athletes' },
   ]
 }
 

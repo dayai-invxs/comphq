@@ -86,13 +86,13 @@ export function CompetitionDashboardPage() {
       wide
       actions={
         <>
-          <Button as={RouterAnchor} href={`${base}/people`}>Manage athletes</Button>
+          <Button as={RouterAnchor} href={`${base}/people`}>Manage athletes/teams</Button>
           <Button as={RouterAnchor} href={`${base}/workouts`} variant="secondary">Manage workouts</Button>
         </>
       }
     >
       <div className={styles.stats}>
-        <Stat label="Athletes" count={athletes.length} pending={athletesQuery.isPending} failed={!!athletesQuery.error} />
+        <Stat label="Athletes/Teams" count={athletes.length} pending={athletesQuery.isPending} failed={!!athletesQuery.error} />
         <Stat label="Workouts" count={workouts.length} pending={workoutsQuery.isPending} failed={!!workoutsQuery.error} />
       </div>
 

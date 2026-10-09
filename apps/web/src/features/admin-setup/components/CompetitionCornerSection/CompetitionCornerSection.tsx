@@ -22,7 +22,7 @@ interface Props {
 const GROUPS: { entity: CcChange['entity']; title: string }[] = [
   { entity: 'division', title: 'Divisions' },
   { entity: 'workout', title: 'Workouts' },
-  { entity: 'athlete', title: 'Athletes' },
+  { entity: 'athlete', title: 'Athletes/Teams' },
   { entity: 'heats', title: 'Heats' },
 ]
 

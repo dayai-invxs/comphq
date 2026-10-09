@@ -109,7 +109,7 @@ function mount() {
 }
 
 function search(term: string) {
-  fireEvent.change(screen.getByRole('searchbox', { name: 'Search athlete' }), { target: { value: term } })
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search athletes and teams' }), { target: { value: term } })
 }
 
 async function heatTable(number: number, workout = 'Workout 1: Fran') {

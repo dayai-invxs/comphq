@@ -133,7 +133,7 @@ export function LeaderboardPage() {
     },
     {
       key: 'athlete',
-      header: 'Athlete',
+      header: 'Athlete/Team',
       cell: (r) => (
         <Stack gap="hairline">
           <Text as="span" variant="label">{r.entry.athleteName}</Text>
@@ -255,8 +255,8 @@ export function LeaderboardPage() {
           <div className={styles.filters}>
             <Input
               type="search"
-              aria-label="Search athlete"
-              placeholder="Search athlete…"
+              aria-label="Search athlete or team"
+              placeholder="Search athlete or team…"
               size="sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -296,7 +296,7 @@ export function LeaderboardPage() {
 
           {nothingMatches ? (
             <EmptyState
-              title="No athletes match"
+              title="No athletes or teams match"
               description="Nothing in this division answers to that search."
               action={<Button variant="secondary" onClick={clearFilters}>Clear filters</Button>}
             />

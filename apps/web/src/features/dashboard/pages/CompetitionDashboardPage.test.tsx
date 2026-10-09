@@ -58,7 +58,7 @@ describe('the counts', () => {
   it('counts the roster, withdrawn athletes included, and the workouts', async () => {
     mount()
     await screen.findByRole('link', { name: /Fran/ })
-    expect(within(stat('Athletes')).getByText('3')).toBeInTheDocument()
+    expect(within(stat('Athletes/Teams')).getByText('3')).toBeInTheDocument()
     expect(within(stat('Workouts')).getByText('3')).toBeInTheDocument()
   })
 
@@ -66,14 +66,14 @@ describe('the counts', () => {
   // empty and is then corrected. An unknown count is drawn as a space.
   it('does not call the competition empty while the reads are still out', () => {
     mount()
-    expect(within(stat('Athletes')).queryByText('0')).not.toBeInTheDocument()
-    expect(stat('Athletes')).toHaveAttribute('aria-busy', 'true')
+    expect(within(stat('Athletes/Teams')).queryByText('0')).not.toBeInTheDocument()
+    expect(stat('Athletes/Teams')).toHaveAttribute('aria-busy', 'true')
   })
 
   it('counts zero once the read comes back empty', async () => {
     serve([], [])
     mount()
-    expect(await within(stat('Athletes')).findByText('0')).toBeInTheDocument()
+    expect(await within(stat('Athletes/Teams')).findByText('0')).toBeInTheDocument()
   })
 })
 
@@ -107,7 +107,7 @@ describe('the workout list', () => {
 describe('the ways out', () => {
   it('links to the two screens the dashboard is a way into', () => {
     mount()
-    expect(screen.getByRole('link', { name: 'Manage athletes' })).toHaveAttribute('href', '/summer/admin/people')
+    expect(screen.getByRole('link', { name: 'Manage athletes/teams' })).toHaveAttribute('href', '/summer/admin/people')
     expect(screen.getAllByRole('link', { name: 'Manage workouts' })[0]).toHaveAttribute('href', '/summer/admin/workouts')
   })
 })

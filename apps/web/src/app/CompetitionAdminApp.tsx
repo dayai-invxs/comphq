@@ -111,7 +111,7 @@ export function CompetitionAdminApp() {
       ]}
       extras={[
         { to: `/${slug}`, label: 'Competition Schedule', icon: 'schedule' },
-        { to: `/${slug}/athlete-overview`, label: 'Athlete Overview', icon: 'athletes' },
+        { to: `/${slug}/athlete-overview`, label: 'Athlete/Team Overview', icon: 'athletes' },
         { to: `/${slug}/judges`, label: 'Judges', icon: 'judges' },
         { to: `/${slug}/equipment`, label: 'Equipment', icon: 'equipment' },
         { to: `/${slug}/control`, label: 'Control', icon: 'control' },

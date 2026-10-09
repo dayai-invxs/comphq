@@ -64,7 +64,7 @@ describe('the roster it draws', () => {
   it('shows a shimmer rather than an empty roster while the reads are out', () => {
     draw({ athletes: [], loading: true })
     expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
-    expect(screen.queryByText('No athletes yet')).not.toBeInTheDocument()
+    expect(screen.queryByText('No athletes or teams yet')).not.toBeInTheDocument()
   })
 
   it('lists each athlete with a bib and a division', () => {
@@ -93,7 +93,7 @@ describe('the roster it draws', () => {
   it('says what to do rather than drawing an empty table', () => {
     draw({ athletes: [] })
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    expect(screen.getByText('No athletes yet')).toBeInTheDocument()
+    expect(screen.getByText('No athletes or teams yet')).toBeInTheDocument()
   })
 
   it('narrows the list to what was searched for', () => {
@@ -107,16 +107,16 @@ describe('the roster it draws', () => {
 describe('adding athletes', () => {
   it('opens on the page asking to add, and not before', () => {
     draw()
-    expect(screen.queryByRole('dialog', { name: 'Add athlete' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Add athlete/team' })).not.toBeInTheDocument()
   })
 
   it('sends one athlete and closes the editor', async () => {
     const { onCloseAdd } = draw({ adding: true })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.change(form.getByRole('textbox', { name: 'Name' }), { target: { value: '  Cy Cole  ' } })
     fireEvent.change(form.getByLabelText('Bib #'), { target: { value: '9' } })
     fireEvent.change(form.getByLabelText('Division'), { target: { value: '4' } })
-    press('Add athlete')
+    press('Add athlete/team')
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', {
       slug: 'rugged-rumble', name: 'Cy Cole', bibNumber: '9', divisionId: 4, gender: null,
     }))
@@ -125,19 +125,19 @@ describe('adding athletes', () => {
 
   it('will not send a nameless athlete', () => {
     draw({ adding: true })
-    press('Add athlete')
+    press('Add athlete/team')
     expect(apiPost).not.toHaveBeenCalled()
   })
 
   it('splits each imported line into a name and a bib, under one division', async () => {
     draw({ adding: true })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
     fireEvent.change(form.getByLabelText(/^Default division/), { target: { value: '3' } })
     fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
       target: { value: 'Cy Cole, 9\n\nDi Dean\n' },
     })
-    press('Import athletes')
+    press('Import athletes/teams')
     await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(2))
     expect(apiPost.mock.calls[0][1]).toEqual({ slug: 'rugged-rumble', name: 'Cy Cole', bibNumber: '9', divisionId: 3 })
     expect(apiPost.mock.calls[1][1]).toEqual({ slug: 'rugged-rumble', name: 'Di Dean', bibNumber: null, divisionId: 3 })
@@ -147,13 +147,13 @@ describe('adding athletes', () => {
   // a blank one takes the division picked above.
   it('puts each imported line in the division it names', async () => {
     draw({ adding: true })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
     fireEvent.change(form.getByLabelText(/^Default division/), { target: { value: '3' } })
     fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
       target: { value: 'Name, Bib, Division\nCy Cole, 9, scaled\nDi Dean' },
     })
-    press('Import athletes')
+    press('Import athletes/teams')
     await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(2))
     expect(apiPost.mock.calls[0][1]).toEqual({ slug: 'rugged-rumble', name: 'Cy Cole', bibNumber: '9', divisionId: 4 })
     expect(apiPost.mock.calls[1][1]).toEqual({ slug: 'rugged-rumble', name: 'Di Dean', bibNumber: null, divisionId: 3 })
@@ -161,20 +161,20 @@ describe('adding athletes', () => {
 
   it('names a division that does not exist and imports nothing', async () => {
     draw({ adding: true })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
     fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
       target: { value: 'Cy Cole, 9, Teens\nDi Dean, , Rx' },
     })
     expect(form.getByRole('alert')).toHaveTextContent('No division named Teens')
-    press('Import athletes')
+    press('Import athletes/teams')
     await new Promise((r) => setTimeout(r, 0))
     expect(apiPost).not.toHaveBeenCalled()
   })
 
   it('fills the list from a dropped file', async () => {
     draw({ adding: true })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
     const file = new File(['Cy Cole, 9, Rx'], 'athletes.csv', { type: 'text/csv' })
     const input = document.querySelector('input[type=file]') as HTMLInputElement
@@ -217,8 +217,8 @@ describe('changing one athlete', () => {
     draw()
     fireEvent.click(within(row('Ann Adams')).getByRole('button', { name: 'Remove' }))
     expect(apiDel).not.toHaveBeenCalled()
-    expect(asked('Remove athlete?').getByText(/Ann Adams/)).toBeInTheDocument()
-    press('Remove athlete')
+    expect(asked('Remove athlete/team?').getByText(/Ann Adams/)).toBeInTheDocument()
+    press('Remove athlete/team')
     await waitFor(() => expect(apiDel).toHaveBeenCalledWith('/api/athletes/1?slug=rugged-rumble'))
   })
 
@@ -228,8 +228,8 @@ describe('changing one athlete', () => {
     const { setAthletes } = draw()
     apiDel.mockRejectedValue(new Error('Ann is in a scored heat'))
     fireEvent.click(within(row('Ann Adams')).getByRole('button', { name: 'Remove' }))
-    press('Remove athlete')
-    expect(await screen.findByRole('alert')).toHaveTextContent('Remove athlete: Ann is in a scored heat')
+    press('Remove athlete/team')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Remove athlete/team: Ann is in a scored heat')
     expect(setAthletes).not.toHaveBeenCalled()
   })
 
@@ -295,7 +295,7 @@ describe('changing one athlete', () => {
 describe('changing several at once', () => {
   it('deletes the selected athletes once the question is answered', async () => {
     draw()
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select every athlete' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select every athlete and team' }))
     press('Delete 2 selected')
     expect(apiDel).not.toHaveBeenCalled()
     press('Delete 2')
@@ -318,7 +318,7 @@ describe('teams', () => {
 
   it('asks for a team name and members once a team division is picked', () => {
     draw({ adding: true, divisions: WITH_TEAMS })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     expect(form.queryByRole('textbox', { name: 'Team name' })).not.toBeInTheDocument()
     fireEvent.change(form.getByLabelText('Division'), { target: { value: '5' } })
     expect(form.getByRole('textbox', { name: 'Team name' })).toBeInTheDocument()
@@ -328,7 +328,7 @@ describe('teams', () => {
 
   it('sends a team with its members, blank rows dropped', async () => {
     draw({ adding: true, divisions: WITH_TEAMS })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.change(form.getByLabelText('Division'), { target: { value: '5' } })
     fireEvent.change(form.getByRole('textbox', { name: 'Team name' }), { target: { value: 'Java Jams' } })
     press('Add member')
@@ -337,7 +337,7 @@ describe('teams', () => {
     fireEvent.change(form.getByRole('textbox', { name: 'Member 1 name' }), { target: { value: ' Sarah ' } })
     fireEvent.change(form.getByRole('combobox', { name: 'Member 1 gender' }), { target: { value: 'female' } })
     fireEvent.change(form.getByRole('textbox', { name: 'Member 2 name' }), { target: { value: 'Megan' } })
-    press('Add athlete')
+    press('Add athlete/team')
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', {
       slug: 'rugged-rumble', name: 'Java Jams', bibNumber: null, divisionId: 5, gender: null,
       members: [{ name: 'Sarah', gender: 'female' }, { name: 'Megan', gender: null }],
@@ -347,11 +347,11 @@ describe('teams', () => {
   // A team nobody has filled in yet is still a competitor.
   it('saves a team with no members', async () => {
     draw({ adding: true, divisions: WITH_TEAMS })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.change(form.getByLabelText('Division'), { target: { value: '5' } })
     fireEvent.change(form.getByRole('textbox', { name: 'Team name' }), { target: { value: 'Empty' } })
     expect(form.getByRole('status')).toHaveTextContent('0 of 2 members listed. You can still save.')
-    press('Add athlete')
+    press('Add athlete/team')
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', expect.objectContaining({
       name: 'Empty', members: [],
     })))
@@ -404,10 +404,10 @@ describe('teams', () => {
 
   it('keeps an individual\'s gender', async () => {
     draw({ adding: true })
-    const form = sheet('Add athlete')
+    const form = sheet('Add athlete/team')
     fireEvent.change(form.getByRole('textbox', { name: 'Name' }), { target: { value: 'Dee' } })
     fireEvent.change(form.getByRole('combobox', { name: 'Gender' }), { target: { value: 'female' } })
-    press('Add athlete')
+    press('Add athlete/team')
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', expect.objectContaining({
       name: 'Dee', gender: 'female',
     })))

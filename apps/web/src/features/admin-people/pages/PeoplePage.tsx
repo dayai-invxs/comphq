@@ -37,11 +37,11 @@ export function PeoplePage() {
   return (
     <PageFrame
       title="People"
-      description={`${people.athletes.length} athletes · ${people.volunteers.length} volunteers`}
+      description={`${people.athletes.length} athletes/teams · ${people.volunteers.length} volunteers`}
       wide
       actions={
         <Button onClick={() => setAdding(true)}>
-          Add {tab === 'athletes' ? 'athlete' : 'volunteer'}
+          Add {tab === 'athletes' ? 'athlete/team' : 'volunteer'}
         </Button>
       }
     >
@@ -54,7 +54,7 @@ export function PeoplePage() {
 
         <Tabs value={tab} onChange={changeTab}>
           <TabList label="People">
-            <Tab value="athletes">Athletes ({people.athletes.length})</Tab>
+            <Tab value="athletes">Athletes/Teams ({people.athletes.length})</Tab>
             <Tab value="volunteers">Volunteers ({people.volunteers.length})</Tab>
           </TabList>
 

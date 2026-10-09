@@ -108,7 +108,7 @@ export function AdminLeaderboardPage() {
     { key: 'rank', header: 'Rank', width: '4rem', cell: (r) => <Text as="span" variant="label" tone="muted">{r.rank}</Text> },
     {
       key: 'athlete',
-      header: 'Athlete',
+      header: 'Athlete/Team',
       cell: (r) => (
         <Stack gap="hairline">
           <Text as="span" variant="label">{r.entry.athleteName}</Text>

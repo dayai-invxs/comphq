@@ -142,7 +142,7 @@ describe('the lanes', () => {
 
   it('offers somewhere to drop when the heat is empty', () => {
     mount({ entries: [] })
-    expect(screen.getByText('Drop athletes here')).toBeInTheDocument()
+    expect(screen.getByText('Drop athletes/teams here')).toBeInTheDocument()
   })
 
   it('gives every athlete a score box', () => {
@@ -408,7 +408,7 @@ describe('while a reorder is in flight', () => {
 
   it('shows one skeleton even for a heat with nobody in it', () => {
     mount({ entries: [], isSaving: true })
-    expect(screen.queryByText('Drop athletes here')).not.toBeInTheDocument()
+    expect(screen.queryByText('Drop athletes/teams here')).not.toBeInTheDocument()
     expect(screen.getAllByRole('row')).toHaveLength(2)
   })
 

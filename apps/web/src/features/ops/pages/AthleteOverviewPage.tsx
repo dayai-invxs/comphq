@@ -112,7 +112,7 @@ export function AthleteOverviewPage() {
     },
     {
       key: 'athlete',
-      header: 'Athlete',
+      header: 'Athlete/Team',
       cell: (e) => (
         <>
           <Text as="span" variant="label">{e.athleteName}</Text>
@@ -164,14 +164,14 @@ export function AthleteOverviewPage() {
 
   return (
     <PageFrame
-      title="Athletes"
-      description="Find an athlete, or read the whole floor"
+      title="Athletes/Teams"
+      description="Find an athlete or team, or read the whole floor"
       status={<LiveStatus updatedAt={lastUpdated} />}
       wide
     >
       <Input
         type="search"
-        aria-label="Search athlete"
+        aria-label="Search athletes and teams"
         placeholder="Search by name or bib…"
         value={search}
         onChange={(e) => { setSearch(e.target.value); setSelectedId(null) }}
