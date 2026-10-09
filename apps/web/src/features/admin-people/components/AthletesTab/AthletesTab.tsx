@@ -322,8 +322,8 @@ export function AthletesTab({
                   onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value as Form['gender'] }))}
                 >
                   <option value="">Not set</option>
-                  <option value="female">Woman</option>
-                  <option value="male">Man</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
                 </Select>
               </Field>
             )}

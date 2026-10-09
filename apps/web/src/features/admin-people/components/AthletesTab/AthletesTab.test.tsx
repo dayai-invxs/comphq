@@ -380,7 +380,7 @@ describe('teams', () => {
     })
     expect(within(row('Java Jams')).getByText('Sarah')).toBeInTheDocument()
     expect(within(row('Java Jams')).getByText('Check')).toBeInTheDocument()
-    expect(within(row('Java Jams')).getByText('1 of 2 members listed. 0 of 1 men.')).toBeInTheDocument()
+    expect(within(row('Java Jams')).getByText('1 of 2 members listed. 0 of 1 male.')).toBeInTheDocument()
     expect(screen.getByText('1 entered · 1 to check')).toBeInTheDocument()
   })
 

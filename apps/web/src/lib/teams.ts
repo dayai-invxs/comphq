@@ -6,15 +6,13 @@ import type { Gender } from '@/api/athletes'
 // and its members are listed under it. Everything here is advice: a team with
 // the wrong number of people, or nobody listed at all, still competes.
 
-export const GENDER_LABEL: Record<Gender, string> = { male: 'Man', female: 'Woman' }
-
 export const isTeam = (d: Pick<DivisionShape, 'teamSize'> | null | undefined) => (d?.teamSize ?? 1) > 1
 
-/** "Individual · Women", "Team of 4 · 2M / 2F", "Team of 3". */
+/** "Individual · Female", "Team of 4 · 2M / 2F", "Team of 3". */
 export function divisionFormat(d: DivisionShape): string {
   if (!isTeam(d)) {
-    if (d.womenCount === 1 && !d.menCount) return 'Individual · Women'
-    if (d.menCount === 1 && !d.womenCount) return 'Individual · Men'
+    if (d.womenCount === 1 && !d.menCount) return 'Individual · Female'
+    if (d.menCount === 1 && !d.womenCount) return 'Individual · Male'
     return 'Individual'
   }
   const split = [d.menCount != null && `${d.menCount}M`, d.womenCount != null && `${d.womenCount}F`].filter(Boolean)
@@ -36,7 +34,7 @@ export function entryWarnings(entry: Entry, division: DivisionShape | null | und
     const want: Gender | null = division.womenCount === 1 && !division.menCount ? 'female'
       : division.menCount === 1 && !division.womenCount ? 'male' : null
     if (want && entry.gender && entry.gender !== want) {
-      out.push(`This division is for ${want === 'female' ? 'women' : 'men'}.`)
+      out.push(`This division is for ${want} athletes.`)
     }
     return out
   }
@@ -51,8 +49,8 @@ export function entryWarnings(entry: Entry, division: DivisionShape | null | und
   // Only judged once every listed member has a gender; a blank one could be
   // either, and guessing would warn about teams that are fine.
   if (count > 0 && unset === 0) {
-    if (division.menCount != null && men !== division.menCount) out.push(`${men} of ${division.menCount} men.`)
-    if (division.womenCount != null && women !== division.womenCount) out.push(`${women} of ${division.womenCount} women.`)
+    if (division.menCount != null && men !== division.menCount) out.push(`${men} of ${division.menCount} male.`)
+    if (division.womenCount != null && women !== division.womenCount) out.push(`${women} of ${division.womenCount} female.`)
   }
   return out
 }

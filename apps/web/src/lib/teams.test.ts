@@ -8,8 +8,8 @@ const member = (name: string, gender: 'male' | 'female' | null = null) => ({ nam
 describe('divisionFormat', () => {
   it.each([
     [shape(1), 'Individual'],
-    [shape(1, null, 1), 'Individual · Women'],
-    [shape(1, 1, null), 'Individual · Men'],
+    [shape(1, null, 1), 'Individual · Female'],
+    [shape(1, 1, null), 'Individual · Male'],
     [shape(3), 'Team of 3'],
     [shape(4, 2, 2), 'Team of 4 · 2M / 2F'],
     [shape(2, null, 2), 'Team of 2 · 2F'],
@@ -32,7 +32,7 @@ describe('entryWarnings', () => {
   })
 
   it('flags an individual in the other gender\'s division, but not one with no gender set', () => {
-    expect(entryWarnings({ gender: 'male', members: [] }, shape(1, null, 1))).toEqual(['This division is for women.'])
+    expect(entryWarnings({ gender: 'male', members: [] }, shape(1, null, 1))).toEqual(['This division is for female athletes.'])
     expect(entryWarnings({ gender: null, members: [] }, shape(1, null, 1))).toEqual([])
     expect(entryWarnings({ gender: 'female', members: [] }, shape(1, null, 1))).toEqual([])
   })
@@ -49,7 +49,7 @@ describe('entryWarnings', () => {
 
   it('flags the wrong split once every member has a gender', () => {
     const members = [member('A', 'male'), member('B', 'male'), member('C', 'male'), member('D', 'female')]
-    expect(entryWarnings({ gender: null, members }, shape(4, 2, 2))).toEqual(['3 of 2 men.', '1 of 2 women.'])
+    expect(entryWarnings({ gender: null, members }, shape(4, 2, 2))).toEqual(['3 of 2 male.', '1 of 2 female.'])
   })
 
   it('holds off on the split while a member\'s gender is blank', () => {

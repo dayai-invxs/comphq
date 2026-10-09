@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react'
 import type { DivisionShape } from '@/api/divisions'
 
 // What an entry in a division looks like: one person, or a team of so many,
-// and optionally how many of them are men and women. The counts are only ever
+// and optionally how many of them are male and female. The counts are only ever
 // warned about on the roster, so every field here can be left loose.
 //
 // An individual division's gender is the same two counts with a size of one —
-// "Women" is womenCount 1 — so the roster checks both kinds the same way.
+// "Female" is womenCount 1 — so the roster checks both kinds the same way.
 
 const KINDS = [
   { value: 'individual' as const, label: 'Individual' },
@@ -69,7 +69,7 @@ export function DivisionFormatFields({ value, onChange }: {
             />
           </Field>
           <Inline gap="base">
-            <Field label="Men" hint="Blank for any">
+            <Field label="Male" hint="Blank for any">
               <Input
                 type="number"
                 min={0}
@@ -78,7 +78,7 @@ export function DivisionFormatFields({ value, onChange }: {
                 onChange={(e) => onChange({ ...value, menCount: count(e.target.value) })}
               />
             </Field>
-            <Field label="Women" hint="Blank for any">
+            <Field label="Female" hint="Blank for any">
               <Input
                 type="number"
                 min={0}
@@ -99,8 +99,8 @@ export function DivisionFormatFields({ value, onChange }: {
             }}
           >
             <option value="">Any</option>
-            <option value="female">Women</option>
-            <option value="male">Men</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
           </Select>
         </Field>
       )}

@@ -75,7 +75,7 @@ describe('what an entry is', () => {
       { id: 1, name: 'Women', order: 1, teamSize: 1, menCount: null, womenCount: 1 },
       { id: 2, name: 'Teams', order: 2, teamSize: 4, menCount: 2, womenCount: 2 },
     ] })
-    expect(within(row('Women')).getByText('Individual · Women')).toBeInTheDocument()
+    expect(within(row('Women')).getByText('Individual · Female')).toBeInTheDocument()
     expect(within(row('Teams')).getByText('Team of 4 · 2M / 2F')).toBeInTheDocument()
   })
 
@@ -86,8 +86,8 @@ describe('what an entry is', () => {
     type('Add division', 'Mixed Teams')
     fireEvent.click(form.getByRole('radio', { name: 'Team' }))
     fireEvent.change(form.getByRole('spinbutton', { name: 'Athletes per team' }), { target: { value: '4' } })
-    fireEvent.change(form.getByRole('spinbutton', { name: 'Men' }), { target: { value: '2' } })
-    fireEvent.change(form.getByRole('spinbutton', { name: 'Women' }), { target: { value: '2' } })
+    fireEvent.change(form.getByRole('spinbutton', { name: 'Male' }), { target: { value: '2' } })
+    fireEvent.change(form.getByRole('spinbutton', { name: 'Female' }), { target: { value: '2' } })
     fireEvent.click(form.getByRole('button', { name: 'Add division' }))
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith({
       name: 'Mixed Teams', order: 6, teamSize: 4, menCount: 2, womenCount: 2,

@@ -43,8 +43,8 @@ export function TeamMembersField({ members, onChange, teamSize }: Props) {
               onChange={(e) => set(i, { gender: e.target.value as MemberDraft['gender'] })}
             >
               <option value="">Gender</option>
-              <option value="female">Woman</option>
-              <option value="male">Man</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
             </Select>
             <Button size="sm" variant="ghost" aria-label={`Move member ${i + 1} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>↑</Button>
             <Button size="sm" variant="ghost" aria-label={`Move member ${i + 1} down`} disabled={i === members.length - 1} onClick={() => move(i, i + 1)}>↓</Button>
