@@ -2,9 +2,11 @@ import { Button, ConfirmDialog, DataTable, EmptyState, Select, Text } from '@mon
 import type { DataColumn } from '@mond-design-system/react'
 import { useState } from 'react'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
-import type { Division } from '@/api/divisions'
+import type { Division, DivisionInput, DivisionShape } from '@/api/divisions'
 import { withoutKnown } from '@/lib/csv'
+import { divisionFormat } from '@/lib/teams'
 import { NameSheet } from '../NameSheet/NameSheet'
+import { DivisionFormatFields, INDIVIDUAL } from './DivisionFormatFields'
 
 // v1: the Divisions section of src/app/[slug]/admin/setup/page.tsx. A division
 // carries an order, and that order is the heat running order, so the row offers
@@ -20,12 +22,17 @@ import { NameSheet } from '../NameSheet/NameSheet'
 // Defect 23 — picking a position swapped the two divisions rather than shifting
 // the ones between them — is fixed in useReorderDivisions, which is the shared
 // write, not here. This hands over the two positions and nothing else.
+//
+// A division also says what an entry in it is: one athlete, or a team of so
+// many, with an optional men/women split. That is edited in the same sheet as
+// the name. A pasted list makes individual divisions; each can be made a team
+// after.
 
 interface Props {
   rows: Division[]
   busy?: boolean
-  onAdd: (input: { name: string; order: number }) => Promise<unknown>
-  onSave: (id: number, input: { name: string; order: number }) => Promise<unknown>
+  onAdd: (input: DivisionInput) => Promise<unknown>
+  onSave: (id: number, input: DivisionInput) => Promise<unknown>
   /** Both are places in the list as drawn, counting from zero. */
   onMove: (from: number, to: number) => Promise<unknown>
   onDelete: (id: number) => Promise<unknown>
@@ -37,6 +44,15 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
   const [deleting, setDeleting] = useState<Division | null>(null)
+  const [shape, setShape] = useState<DivisionShape>(INDIVIDUAL)
+
+  function openSheet(division: Division | null) {
+    setShape(division
+      ? { teamSize: division.teamSize, menCount: division.menCount, womenCount: division.womenCount }
+      : INDIVIDUAL)
+    if (division) setEditing(division)
+    else setAdding(true)
+  }
 
   /** A new division runs last, so it takes the order after the last one's —
       which is v1's suggestion, counting from the last order rather than from
@@ -78,6 +94,11 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
       header: 'Division',
       cell: (d) => <Text as="span" variant="label">{d.name}</Text>,
     },
+    {
+      key: 'format',
+      header: 'Entries',
+      cell: (d) => <Text as="span" tone="muted">{divisionFormat(d)}</Text>,
+    },
   ]
 
   return (
@@ -90,14 +111,14 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
           <EmptyState
             title="No divisions yet"
             description="Athletes are entered into a division, and divisions run in the order they are listed."
-            action={<Button onClick={() => setAdding(true)}>Add division</Button>}
+            action={<Button onClick={() => openSheet(null)}>Add division</Button>}
           />
         </DataPanel>
       ) : (
         <DataPanel
           title="Divisions"
           description="Division order determines the heat running order — lower order runs first."
-          actions={<Button size="sm" onClick={() => setAdding(true)}>Add division</Button>}
+          actions={<Button size="sm" onClick={() => openSheet(null)}>Add division</Button>}
           flush
         >
           <DataTable
@@ -108,7 +129,7 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
             rowLabel={(d) => d.name}
             rowActions={(d) => (
               <>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(d)}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => openSheet(d)}>Edit</Button>
                 <Button size="sm" variant="ghost" onClick={() => setDeleting(d)}>Delete</Button>
               </>
             )}
@@ -127,11 +148,13 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
         busy={busy}
         onClose={() => { setAdding(false); setEditing(null) }}
         onSubmit={(name) => editing
-          ? onSave(editing.id, { name, order: editing.order })
-          : onAdd({ name, order: nextOrder })}
+          ? onSave(editing.id, { name, order: editing.order, ...shape })
+          : onAdd({ name, order: nextOrder, ...shape })}
         onSubmitMany={editing ? undefined : addMany}
         plural="divisions"
-      />
+      >
+        <DivisionFormatFields value={shape} onChange={setShape} />
+      </NameSheet>
 
       <ConfirmDialog
         target={deleting}

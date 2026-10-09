@@ -9,8 +9,9 @@ import type { ImportPlan, PlanAthlete, PlanDivision, PlanHeat, PlanWorkout } fro
  * offered for removal.
  */
 
-export type CurrentDivision = { id: number; name: string; order: number; externalId: string | null }
-export type CurrentAthlete = { id: number; name: string; divisionId: number | null; externalId: string | null }
+export type CurrentDivision = { id: number; name: string; order: number; externalId: string | null; teamSize: number }
+/** `members` are the team's member names in listed order; empty for an individual. */
+export type CurrentAthlete = { id: number; name: string; divisionId: number | null; externalId: string | null; members: string[] }
 export type CurrentWorkout = Omit<PlanWorkout, 'scoreType' | 'tiebreakScoreType' | 'partBScoreType' | 'warnings' | 'externalId'> & {
   id: number
   scoreType: string
@@ -114,7 +115,9 @@ function divisionChanges(plan: PlanDivision[], current: CurrentDivision[]) {
   for (const d of plan) {
     const m = matched.get(d.externalId)!
     const key = `division:${d.externalId}`
-    const fields = m && m.row.name !== d.name ? [{ field: 'name', before: m.row.name, after: d.name }] : []
+    const fields: FieldChange[] = []
+    if (m && m.row.name !== d.name) fields.push({ field: 'name', before: m.row.name, after: d.name })
+    if (m && m.row.teamSize !== d.teamSize) fields.push({ field: 'teamSize', before: m.row.teamSize, after: d.teamSize })
     if (!m) changes.push({ key, entity: 'division', kind: 'add', id: null, label: d.name, fields, warnings: [], requires: [] })
     else if (m.linked || fields.length) {
       changes.push({ key, entity: 'division', kind: m.linked ? 'link' : 'update', id: m.row.id, label: d.name, fields, warnings: [], requires: [] })
@@ -197,6 +200,10 @@ function athleteChanges(
     }
     const fields: FieldChange[] = []
     if (m.row.name !== a.name) fields.push({ field: 'name', before: m.row.name, after: a.name })
+    // A blank list from the source never clears members typed in by hand.
+    if (a.members.length > 0 && a.members.join('\n') !== m.row.members.join('\n')) {
+      fields.push({ field: 'members', before: m.row.members.join(', ') || null, after: a.members.join(', ') })
+    }
     const targetDivisionId = a.divisionExternalId ? divisions.matched.get(a.divisionExternalId)?.row.id ?? null : null
     const divisionMoves = a.divisionExternalId != null && (targetDivisionId == null || targetDivisionId !== m.row.divisionId)
     if (divisionMoves) {

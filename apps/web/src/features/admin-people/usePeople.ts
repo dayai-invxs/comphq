@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
-import { athletesOptions } from '@/api/athletes'
+import { athletesOptions, type Athlete } from '@/api/athletes'
 import { useDivisions } from '@/api/divisions'
 import { queryKeys } from '@/api/queryKeys'
 import { useVolunteerRoles } from '@/api/volunteerRoles'
@@ -18,12 +18,9 @@ import { volunteersOptions } from '@/api/volunteers'
 // costs the screen all four and lands in the one banner as `Load: …`, because
 // three working tabs around a silent gap is a different screen.
 
-export type Division = { id: number; name: string; order: number }
+export type { Division } from '@/api/divisions'
 export type VolunteerRole = { id: number; name: string }
-export type Athlete = {
-  id: number; name: string; bibNumber: string | null
-  divisionId: number | null; division: Division | null; withdrawn: boolean
-}
+export type { Athlete } from '@/api/athletes'
 export type Volunteer = { id: number; name: string; roleId: number | null; role: VolunteerRole | null }
 
 export type RunFn = <T>(label: string, op: () => Promise<T>) => Promise<T | undefined>

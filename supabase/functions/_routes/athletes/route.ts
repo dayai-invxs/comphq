@@ -2,8 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AthleteBulkDelete, AthleteCreate } from '@/lib/schemas'
-
-const ATHLETE_WITH_DIVISION = '*, division:Division(id, name, order)'
+import { replaceTeamMembers } from '@/lib/teamMembers'
+import { ATHLETE_WITH_DIVISION, withSortedMembers } from '@/lib/embeds'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
       .order('name')
 
     if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data ?? [])
+    return Response.json((data ?? []).map(withSortedMembers))
   } catch (e) {
     return authErrorResponse(e)
   }
@@ -38,12 +38,16 @@ export async function POST(req: Request) {
         name: parsed.data.name,
         bibNumber: parsed.data.bibNumber?.trim() || null,
         divisionId: parsed.data.divisionId ?? null,
+        gender: parsed.data.gender ?? null,
       })
       .select(ATHLETE_WITH_DIVISION)
       .single()
 
     if (error) return new Response(error.message, { status: 500 })
-    return Response.json(data, { status: 201 })
+    const members = parsed.data.members?.length
+      ? await replaceTeamMembers(data.id, parsed.data.members)
+      : []
+    return Response.json({ ...data, members }, { status: 201 })
   } catch (e) {
     return authErrorResponse(e)
   }

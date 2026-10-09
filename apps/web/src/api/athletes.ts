@@ -11,7 +11,16 @@ import { queryKeys } from './queryKeys'
 // access to the competition, not admin rights: a role='user' member can edit
 // the roster (defect 3), and this is one of the endpoints that lets them.
 
-export type AthleteDivision = { id: number; name: string; order: number }
+export type Gender = 'male' | 'female'
+
+export type AthleteDivision = {
+  id: number; name: string; order: number
+  teamSize: number; menCount: number | null; womenCount: number | null
+}
+
+/** A person on a team. Members are only listed under their team; the team is
+    what takes a lane and gets scored. */
+export type TeamMember = { id: number; name: string; gender: Gender | null; order: number }
 
 export type Athlete = {
   id: number
@@ -21,7 +30,11 @@ export type Athlete = {
   divisionId: number | null
   userId: string | null
   withdrawn: boolean
+  /** An individual's; a team leaves it blank. */
+  gender: Gender | null
   division: AthleteDivision | null
+  /** Empty for an individual, and for a team with nobody listed yet. */
+  members: TeamMember[]
 }
 
 export const athletesOptions = (slug: string) => ({

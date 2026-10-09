@@ -36,6 +36,8 @@ export type WorkoutScore = {
 export type LeaderboardEntry = {
   athleteId: number
   athleteName: string
+  /** A team's members; empty or absent for an individual. */
+  members?: string[]
   divisionName: string | null
   totalPoints: number
   workoutScores: Record<number, WorkoutScore>

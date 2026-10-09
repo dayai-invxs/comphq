@@ -12,9 +12,9 @@ const onMove = vi.fn()
 const onDelete = vi.fn()
 const onAddMany = vi.fn()
 
-const RX = { id: 1, name: 'RX', order: 1 }
-const SCALED = { id: 2, name: 'Scaled', order: 2 }
-const MASTERS = { id: 3, name: 'Masters', order: 5 }
+const RX = { id: 1, name: 'RX', order: 1, teamSize: 1, menCount: null, womenCount: null }
+const SCALED = { id: 2, name: 'Scaled', order: 2, teamSize: 1, menCount: null, womenCount: null }
+const MASTERS = { id: 3, name: 'Masters', order: 5, teamSize: 1, menCount: null, womenCount: null }
 
 function draw(over: Partial<Parameters<typeof DivisionsSection>[0]> = {}) {
   return render(
@@ -69,6 +69,50 @@ describe('the list it draws', () => {
   })
 })
 
+describe('what an entry is', () => {
+  it('says what each division\'s entries are', () => {
+    draw({ rows: [
+      { id: 1, name: 'Women', order: 1, teamSize: 1, menCount: null, womenCount: 1 },
+      { id: 2, name: 'Teams', order: 2, teamSize: 4, menCount: 2, womenCount: 2 },
+    ] })
+    expect(within(row('Women')).getByText('Individual · Women')).toBeInTheDocument()
+    expect(within(row('Teams')).getByText('Team of 4 · 2M / 2F')).toBeInTheDocument()
+  })
+
+  it('adds a team division with its size and split', async () => {
+    draw()
+    fireEvent.click(screen.getByRole('button', { name: 'Add division' }))
+    const form = sheet('Add division')
+    type('Add division', 'Mixed Teams')
+    fireEvent.click(form.getByRole('radio', { name: 'Team' }))
+    fireEvent.change(form.getByRole('spinbutton', { name: 'Athletes per team' }), { target: { value: '4' } })
+    fireEvent.change(form.getByRole('spinbutton', { name: 'Men' }), { target: { value: '2' } })
+    fireEvent.change(form.getByRole('spinbutton', { name: 'Women' }), { target: { value: '2' } })
+    fireEvent.click(form.getByRole('button', { name: 'Add division' }))
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({
+      name: 'Mixed Teams', order: 6, teamSize: 4, menCount: 2, womenCount: 2,
+    }))
+  })
+
+  it('adds an individual division for one gender', async () => {
+    draw()
+    fireEvent.click(screen.getByRole('button', { name: 'Add division' }))
+    const form = sheet('Add division')
+    type('Add division', 'Rx Women')
+    fireEvent.change(form.getByRole('combobox', { name: 'Gender' }), { target: { value: 'female' } })
+    fireEvent.click(form.getByRole('button', { name: 'Add division' }))
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({
+      name: 'Rx Women', order: 6, teamSize: 1, menCount: null, womenCount: 1,
+    }))
+  })
+
+  it('opens an existing team division holding its size', () => {
+    draw({ rows: [{ id: 2, name: 'Teams', order: 1, teamSize: 3, menCount: null, womenCount: null }] })
+    openEditor('Teams')
+    expect(sheet('Teams').getByRole('spinbutton', { name: 'Athletes per team' })).toHaveValue(3)
+  })
+})
+
 describe('adding a division', () => {
   it('opens on the page asking to add, and not before', () => {
     draw()
@@ -82,7 +126,7 @@ describe('adding a division', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add division' }))
     type('Add division', '  Teens  ')
     fireEvent.click(sheet('Add division').getByRole('button', { name: 'Add division' }))
-    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ name: 'Teens', order: 6 }))
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ name: 'Teens', order: 6, teamSize: 1, menCount: null, womenCount: null }))
   })
 
   it('starts the running order at 1 when there is nothing to follow', async () => {
@@ -90,7 +134,7 @@ describe('adding a division', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add division' }))
     type('Add division', 'RX')
     fireEvent.click(sheet('Add division').getByRole('button', { name: 'Add division' }))
-    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ name: 'RX', order: 1 }))
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ name: 'RX', order: 1, teamSize: 1, menCount: null, womenCount: null }))
   })
 
   it('keeps a nameless division to itself', () => {
@@ -114,7 +158,7 @@ describe('changing one division', () => {
     openEditor('RX')
     type('RX', ' Elite ')
     fireEvent.click(sheet('RX').getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, { name: 'Elite', order: 1 }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, { name: 'Elite', order: 1, teamSize: 1, menCount: null, womenCount: null }))
   })
 
   // Defect 25: v1 cleared the box the moment it sent, so a refused write took

@@ -15,6 +15,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const patch: Record<string, unknown> = {}
     if (parsed.data.name !== undefined) patch.name = parsed.data.name
     if (parsed.data.order !== undefined) patch.order = parsed.data.order
+    if (parsed.data.teamSize !== undefined) patch.teamSize = parsed.data.teamSize
+    if (parsed.data.menCount !== undefined) patch.menCount = parsed.data.menCount
+    if (parsed.data.womenCount !== undefined) patch.womenCount = parsed.data.womenCount
 
     const { data, error } = await supabase
       .from('Division')

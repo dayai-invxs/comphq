@@ -10,10 +10,13 @@ vi.mock('@/lib/api', () => ({ apiDel, apiPost, apiPut }))
 
 // v1: the athletes half of src/app/[slug]/admin/people/page.tsx.
 
-const DIVISIONS: Division[] = [{ id: 3, name: 'Rx', order: 1 }, { id: 4, name: 'Scaled', order: 2 }]
+const DIVISIONS: Division[] = [
+  { id: 3, name: 'Rx', order: 1, teamSize: 1, menCount: null, womenCount: null },
+  { id: 4, name: 'Scaled', order: 2, teamSize: 1, menCount: null, womenCount: null },
+]
 const ATHLETES: Athlete[] = [
-  { id: 1, name: 'Ann Adams', bibNumber: '7', divisionId: 3, division: DIVISIONS[0], withdrawn: false },
-  { id: 2, name: 'Bo Barnes', bibNumber: null, divisionId: null, division: null, withdrawn: true },
+  { id: 1, competitionId: 1, name: 'Ann Adams', bibNumber: '7', divisionId: 3, division: DIVISIONS[0], withdrawn: false, userId: null, gender: null, members: [] },
+  { id: 2, competitionId: 1, name: 'Bo Barnes', bibNumber: null, divisionId: null, division: null, withdrawn: true, userId: null, gender: null, members: [] },
 ]
 
 function draw(over: { athletes?: Athlete[]; divisions?: Division[]; adding?: boolean; loading?: boolean } = {}) {
@@ -115,7 +118,7 @@ describe('adding athletes', () => {
     fireEvent.change(form.getByLabelText('Division'), { target: { value: '4' } })
     press('Add athlete')
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', {
-      slug: 'rugged-rumble', name: 'Cy Cole', bibNumber: '9', divisionId: 4,
+      slug: 'rugged-rumble', name: 'Cy Cole', bibNumber: '9', divisionId: 4, gender: null,
     }))
     expect(onCloseAdd).toHaveBeenCalled()
   })
@@ -197,7 +200,7 @@ describe('changing one athlete', () => {
     fireEvent.change(sheet('Ann Adams').getByRole('textbox', { name: 'Name' }), { target: { value: 'Anna Adams' } })
     press('Save')
     await waitFor(() => expect(apiPut).toHaveBeenCalledWith('/api/athletes/1?slug=rugged-rumble', {
-      name: 'Anna Adams', bibNumber: '7', divisionId: 3,
+      name: 'Anna Adams', bibNumber: '7', divisionId: 3, gender: null,
     }))
   })
 
@@ -302,5 +305,111 @@ describe('changing several at once', () => {
   it('offers nothing to do until a row is taken', () => {
     draw()
     expect(screen.queryByRole('button', { name: /Delete .* selected/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('teams', () => {
+  const TEAM_DIVISION: Division = { id: 5, name: 'Teams', order: 3, teamSize: 2, menCount: 1, womenCount: 1 }
+  const WITH_TEAMS = [...DIVISIONS, TEAM_DIVISION]
+  const team = (over: Partial<Athlete> = {}): Athlete => ({
+    id: 9, competitionId: 1, name: 'Java Jams', bibNumber: null, divisionId: 5, division: TEAM_DIVISION,
+    withdrawn: false, userId: null, gender: null, members: [], ...over,
+  })
+
+  it('asks for a team name and members once a team division is picked', () => {
+    draw({ adding: true, divisions: WITH_TEAMS })
+    const form = sheet('Add athlete')
+    expect(form.queryByRole('textbox', { name: 'Team name' })).not.toBeInTheDocument()
+    fireEvent.change(form.getByLabelText('Division'), { target: { value: '5' } })
+    expect(form.getByRole('textbox', { name: 'Team name' })).toBeInTheDocument()
+    expect(form.getByText('Nobody listed yet. The team still competes.')).toBeInTheDocument()
+    expect(form.queryByRole('combobox', { name: 'Gender' })).not.toBeInTheDocument()
+  })
+
+  it('sends a team with its members, blank rows dropped', async () => {
+    draw({ adding: true, divisions: WITH_TEAMS })
+    const form = sheet('Add athlete')
+    fireEvent.change(form.getByLabelText('Division'), { target: { value: '5' } })
+    fireEvent.change(form.getByRole('textbox', { name: 'Team name' }), { target: { value: 'Java Jams' } })
+    press('Add member')
+    press('Add member')
+    press('Add member')
+    fireEvent.change(form.getByRole('textbox', { name: 'Member 1 name' }), { target: { value: ' Sarah ' } })
+    fireEvent.change(form.getByRole('combobox', { name: 'Member 1 gender' }), { target: { value: 'female' } })
+    fireEvent.change(form.getByRole('textbox', { name: 'Member 2 name' }), { target: { value: 'Megan' } })
+    press('Add athlete')
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', {
+      slug: 'rugged-rumble', name: 'Java Jams', bibNumber: null, divisionId: 5, gender: null,
+      members: [{ name: 'Sarah', gender: 'female' }, { name: 'Megan', gender: null }],
+    }))
+  })
+
+  // A team nobody has filled in yet is still a competitor.
+  it('saves a team with no members', async () => {
+    draw({ adding: true, divisions: WITH_TEAMS })
+    const form = sheet('Add athlete')
+    fireEvent.change(form.getByLabelText('Division'), { target: { value: '5' } })
+    fireEvent.change(form.getByRole('textbox', { name: 'Team name' }), { target: { value: 'Empty' } })
+    expect(form.getByRole('status')).toHaveTextContent('0 of 2 members listed. You can still save.')
+    press('Add athlete')
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', expect.objectContaining({
+      name: 'Empty', members: [],
+    })))
+  })
+
+  it('reorders and removes members', async () => {
+    const members = [
+      { id: 1, name: 'A', gender: null, order: 0 },
+      { id: 2, name: 'B', gender: null, order: 1 },
+      { id: 3, name: 'C', gender: null, order: 2 },
+    ]
+    draw({ athletes: [team({ members })], divisions: WITH_TEAMS })
+    openEditor('Java Jams')
+    press('Move member 3 up')
+    press('Remove member 1')
+    press('Save')
+    await waitFor(() => expect(apiPut).toHaveBeenCalledWith('/api/athletes/9?slug=rugged-rumble', expect.objectContaining({
+      members: [{ name: 'C', gender: null }, { name: 'B', gender: null }],
+    })))
+  })
+
+  it('lists members under the team and flags a team that does not match its division', () => {
+    draw({
+      athletes: [team({ members: [{ id: 1, name: 'Sarah', gender: 'female', order: 0 }] })],
+      divisions: WITH_TEAMS,
+    })
+    expect(within(row('Java Jams')).getByText('Sarah')).toBeInTheDocument()
+    expect(within(row('Java Jams')).getByText('Check')).toBeInTheDocument()
+    expect(within(row('Java Jams')).getByText('1 of 2 members listed. 0 of 1 men.')).toBeInTheDocument()
+    expect(screen.getByText('1 entered · 1 to check')).toBeInTheDocument()
+  })
+
+  it('flags a team member who is also entered as an individual', () => {
+    draw({
+      athletes: [...ATHLETES, team({ members: [
+        { id: 1, name: 'Ann Adams', gender: 'female', order: 0 },
+        { id: 2, name: 'Cy', gender: 'male', order: 1 },
+      ] })],
+      divisions: WITH_TEAMS,
+    })
+    expect(within(row('Java Jams')).getByText('Ann Adams is also entered as an individual.')).toBeInTheDocument()
+  })
+
+  it('finds a team by searching for someone on it', () => {
+    draw({ athletes: [...ATHLETES, team({ members: [{ id: 1, name: 'Sarah Dickenson', gender: null, order: 0 }] })], divisions: WITH_TEAMS })
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'dicken' } })
+    expect(row('Java Jams')).toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /Ann Adams/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps an individual\'s gender', async () => {
+    draw({ adding: true })
+    const form = sheet('Add athlete')
+    fireEvent.change(form.getByRole('textbox', { name: 'Name' }), { target: { value: 'Dee' } })
+    fireEvent.change(form.getByRole('combobox', { name: 'Gender' }), { target: { value: 'female' } })
+    press('Add athlete')
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/athletes', expect.objectContaining({
+      name: 'Dee', gender: 'female',
+    })))
   })
 })

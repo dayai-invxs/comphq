@@ -71,10 +71,10 @@ describe('writing a division', () => {
   // it passed up one each, not fling the third to first.
   describe('moving one division to a position', () => {
     const ROWS = [
-      { id: 1, name: 'RX', order: 1 },
-      { id: 2, name: 'Scaled', order: 2 },
-      { id: 3, name: 'Masters', order: 3 },
-      { id: 4, name: 'Teens', order: 4 },
+      { id: 1, name: 'RX', order: 1, teamSize: 1, menCount: null, womenCount: null },
+      { id: 2, name: 'Scaled', order: 2, teamSize: 1, menCount: null, womenCount: null },
+      { id: 3, name: 'Masters', order: 3, teamSize: 1, menCount: null, womenCount: null },
+      { id: 4, name: 'Teens', order: 4, teamSize: 1, menCount: null, womenCount: null },
     ]
 
     /** The list as the next read would return it: every id at its new order. */
@@ -110,9 +110,9 @@ describe('writing a division', () => {
     it('deals back the order values the list already used, gaps and all', async () => {
       const { result } = renderHook(() => useReorderDivisions('summer'), { wrapper })
       const gappy = [
-        { id: 1, name: 'RX', order: 2 },
-        { id: 2, name: 'Scaled', order: 7 },
-        { id: 3, name: 'Masters', order: 9 },
+        { id: 1, name: 'RX', order: 2, teamSize: 1, menCount: null, womenCount: null },
+        { id: 2, name: 'Scaled', order: 7, teamSize: 1, menCount: null, womenCount: null },
+        { id: 3, name: 'Masters', order: 9, teamSize: 1, menCount: null, womenCount: null },
       ]
       await act(() => result.current.mutateAsync({ rows: gappy, from: 2, to: 0 }))
       expect(written()).toEqual([{ id: 3, order: 2 }, { id: 1, order: 7 }, { id: 2, order: 9 }])
@@ -132,10 +132,10 @@ describe('writing a division', () => {
       const { result } = renderHook(() => useReorderDivisions('summer'), { wrapper })
       await act(async () => { result.current.mutate({ rows: ROWS, from: 0, to: 2 }) })
       expect(client.getQueryData(queryKeys.divisions('summer'))).toEqual([
-        { id: 2, name: 'Scaled', order: 1 },
-        { id: 3, name: 'Masters', order: 2 },
-        { id: 1, name: 'RX', order: 3 },
-        { id: 4, name: 'Teens', order: 4 },
+        { id: 2, name: 'Scaled', order: 1, teamSize: 1, menCount: null, womenCount: null },
+        { id: 3, name: 'Masters', order: 2, teamSize: 1, menCount: null, womenCount: null },
+        { id: 1, name: 'RX', order: 3, teamSize: 1, menCount: null, womenCount: null },
+        { id: 4, name: 'Teens', order: 4, teamSize: 1, menCount: null, womenCount: null },
       ])
       await act(async () => { land({}) })
     })

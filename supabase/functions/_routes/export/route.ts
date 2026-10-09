@@ -1,5 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
@@ -58,6 +59,9 @@ export async function GET(req: Request) {
       : Promise.resolve([]),
   ])
 
+  const members = await memberNamesByAthlete(athletes.map((a) => a.id))
+  const memberList = (id: number) => members.get(id)?.join('; ') ?? ''
+
   const divMap = new Map(divisions.map((d) => [d.id, d.name]))
   const scoreKey = (athleteId: number, workoutId: number) => `${athleteId}-${workoutId}`
   const scoreMap = new Map(scores.map((s) => [scoreKey(s.athleteId, s.workoutId), s]))
@@ -96,7 +100,7 @@ export async function GET(req: Request) {
   // ── ATHLETES & SCORES ────────────────────────────────────────────────────
   lines.push(section('ATHLETES & SCORES'))
   const scoreHeaders = workouts.map((w) => `WOD ${w.number}${w.halfWeight ? ' (½)' : ''}`)
-  lines.push(row('Name', 'Division', 'Bib #', ...scoreHeaders, 'Total Points'))
+  lines.push(row('Name', 'Division', 'Bib #', 'Gender', 'Team Members', ...scoreHeaders, 'Total Points'))
 
   const byDivision = new Map<string, typeof athletes>()
   for (const a of athletes) {
@@ -120,6 +124,8 @@ export async function GET(req: Request) {
         a.name,
         a.divisionId ? (divMap.get(a.divisionId) ?? '—') : '—',
         a.bibNumber ?? '—',
+        a.gender ?? '',
+        memberList(a.id),
         ...workoutCols,
         total > 0 ? total : '—',
       ))

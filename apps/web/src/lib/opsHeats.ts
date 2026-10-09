@@ -8,6 +8,8 @@ import { calcHeatStartMs } from './heatTime'
 export type HeatEntry = {
   athleteId: number
   athleteName: string
+  /** A team's members; empty or absent for an individual. */
+  members?: string[]
   bibNumber: string | null
   divisionName: string | null
   lane: number

@@ -7,7 +7,11 @@ import { queryKeys } from './queryKeys'
 // everywhere else — the roster assigns athletes to one, equipment can be
 // scoped to one, and the heat running order is division order, lowest first.
 
-export type Division = { id: number; name: string; order: number }
+/** `teamSize` is athletes per entry; 1 is an individual division. The two
+    counts are optional — null means no requirement — and only warned about. */
+export type DivisionShape = { teamSize: number; menCount: number | null; womenCount: number | null }
+export type Division = { id: number; name: string; order: number } & DivisionShape
+export type DivisionInput = { name: string; order: number } & Partial<DivisionShape>
 
 export function useDivisions(slug: string) {
   return useQuery({
@@ -34,12 +38,12 @@ function useDivisionWriter<T>(slug: string, success: string, send: (input: T) =>
 }
 
 export function useAddDivision(slug: string) {
-  return useDivisionWriter(slug, 'Division added', (input: { name: string; order: number }) =>
+  return useDivisionWriter(slug, 'Division added', (input: DivisionInput) =>
     apiPost('/api/divisions', { slug, ...input }))
 }
 
 export function useSaveDivision(slug: string) {
-  return useDivisionWriter(slug, 'Division saved', ({ id, ...body }: { id: number; name: string; order: number }) =>
+  return useDivisionWriter(slug, 'Division saved', ({ id, ...body }: { id: number } & DivisionInput) =>
     apiPut(`/api/divisions/${id}?slug=${slug}`, body))
 }
 

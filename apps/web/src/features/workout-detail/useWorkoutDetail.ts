@@ -8,7 +8,11 @@ import { buildWorkoutMutations } from './useWorkoutDetail.mutations'
 import { computeAssignmentUpdates, getAffectedHeats } from '@/lib/heat-reorder'
 
 type Division = { id: number; name: string; order: number }
-type Athlete = { id: number; name: string; bibNumber: string | null; division: Division | null }
+type Athlete = {
+  id: number; name: string; bibNumber: string | null; division: Division | null
+  /** A team's members; empty or absent for an individual. */
+  members?: string[]
+}
 export type Assignment = { id: number; heatNumber: number; lane: number; athlete: Athlete }
 export type Score = {
   id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null

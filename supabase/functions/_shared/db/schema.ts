@@ -64,6 +64,11 @@ export const division = pgTable('Division', {
   name: text('name').notNull(),
   order: integer('order').notNull(),
   externalId: text('externalId'),
+  // Athletes per entry; 1 is an individual division. The counts are optional
+  // and only ever warned about.
+  teamSize: integer('teamSize').notNull().default(1),
+  menCount: integer('menCount'),
+  womenCount: integer('womenCount'),
 }, (t) => [
   uniqueIndex('Division_competitionId_name_key').on(t.competitionId, t.name),
   uniqueIndex('Division_competitionId_externalId_key').on(t.competitionId, t.externalId).where(sql`"externalId" IS NOT NULL`),
@@ -79,9 +84,24 @@ export const athlete = pgTable('Athlete', {
   userId: uuid('userId').references(() => authUsers.id, { onDelete: 'set null' }),
   withdrawn: boolean('withdrawn').notNull().default(false),
   externalId: text('externalId'),
+  /** 'male' | 'female'. An individual's; a team leaves it blank. */
+  gender: text('gender'),
 }, (t) => [
   index('Athlete_competitionId_idx').on(t.competitionId),
   uniqueIndex('Athlete_competitionId_externalId_key').on(t.competitionId, t.externalId).where(sql`"externalId" IS NOT NULL`),
+])
+
+// A person on a team. The team is the Athlete row that competes; members are
+// only listed under it, never placed in heats or scored on their own.
+export const teamMember = pgTable('TeamMember', {
+  id: serial('id').primaryKey(),
+  athleteId: integer('athleteId').notNull().references(() => athlete.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  name: text('name').notNull(),
+  gender: text('gender'),
+  order: integer('order').notNull().default(0),
+  externalId: text('externalId'),
+}, (t) => [
+  index('TeamMember_athleteId_idx').on(t.athleteId),
 ])
 
 export const workoutLocation = pgTable('WorkoutLocation', {
@@ -222,6 +242,8 @@ export type Division = typeof division.$inferSelect
 export type NewDivision = typeof division.$inferInsert
 export type Athlete = typeof athlete.$inferSelect
 export type NewAthlete = typeof athlete.$inferInsert
+export type TeamMember = typeof teamMember.$inferSelect
+export type NewTeamMember = typeof teamMember.$inferInsert
 export type WorkoutLocation = typeof workoutLocation.$inferSelect
 export type NewWorkoutLocation = typeof workoutLocation.$inferInsert
 export type Workout = typeof workout.$inferSelect

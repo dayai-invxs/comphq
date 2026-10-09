@@ -6,6 +6,7 @@ import { useSetScorePoints } from '@/api/scores'
 import { ScoreCell } from '@/components/ScoreCell/ScoreCell'
 import { divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
 import styles from './AdminLeaderboardPage.module.css'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: src/app/[slug]/admin/leaderboard/page.tsx. The public board plus one
 // power: an organiser can overwrite a placing in place, which is how a judging
@@ -105,7 +106,16 @@ export function AdminLeaderboardPage() {
 
   const columns: DataColumn<{ entry: Entry; rank: number | '—' }>[] = [
     { key: 'rank', header: 'Rank', width: '4rem', cell: (r) => <Text as="span" variant="label" tone="muted">{r.rank}</Text> },
-    { key: 'athlete', header: 'Athlete', cell: (r) => <Text as="span" variant="label">{r.entry.athleteName}</Text> },
+    {
+      key: 'athlete',
+      header: 'Athlete',
+      cell: (r) => (
+        <Stack gap="hairline">
+          <Text as="span" variant="label">{r.entry.athleteName}</Text>
+          <MemberNames members={r.entry.members} />
+        </Stack>
+      ),
+    },
     ...workouts.map((w) => ({
       key: `workout-${w.id}`,
       header: (

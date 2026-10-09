@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CcEvent, CcHeat, CcWorkout } from './event'
-import { htmlToText, mapEvent, mapScoreType } from './mapper'
+import { htmlToText, mapEvent, mapScoreType, parseTeammates } from './mapper'
 import { loadEvent19948 } from './__fixtures__/event19948'
 
 const LA = 'America/Los_Angeles'
@@ -40,6 +40,63 @@ describe('htmlToText', () => {
   })
 })
 
+describe('parseTeammates', () => {
+  // The shape event 19935's team heats arrive in.
+  it('splits the list and drops the captain mark', () => {
+    expect(parseTeammates('(C) Kami Irlmeier, Lyra Lebron-Brown')).toEqual(['Kami Irlmeier', 'Lyra Lebron-Brown'])
+  })
+
+  it('reads a missing or blank list as no members', () => {
+    expect(parseTeammates(null)).toEqual([])
+    expect(parseTeammates(undefined)).toEqual([])
+    expect(parseTeammates(' , ')).toEqual([])
+  })
+})
+
+describe('mapEvent with a team division', () => {
+  const station = (participantId: number, participantName: string, divisionId: number, teammates: string | null) => ({
+    station: 1, participantId, participantName, divisionId, affiliate: null, teammates,
+  })
+  const ev = {
+    id: 1, name: 'Teams',
+    divisions: [
+      { id: 10, title: 'Rx Individual', format: 'individual' },
+      { id: 20, title: 'Rx Team', format: 'team' },
+      { id: 30, title: 'BAM Team', format: 'team' },
+    ],
+    workouts: [],
+    heats: [{
+      id: 1, title: 'Heat 1', time: '09:00', size: 4, workoutId: 99,
+      stations: [
+        station(1, 'Solo', 10, 'Solo'),
+        station(2, 'Java Jams!', 20, '(C) Sarah Dickenson, Megan Tucker, Amy Young'),
+        station(3, 'WODever', 20, '(C) Christina Ernest, Cheyenne Frazier, Kya Range'),
+        station(4, 'Late Entry', 20, null),
+        station(5, 'Nobody Listed', 30, null),
+      ],
+    }],
+  } as unknown as CcEvent
+
+  it('lists members for team entries only', () => {
+    const { athletes } = mapEvent(ev, { tz: LA, mergePartB: true })
+    const members = Object.fromEntries(athletes.map((a) => [a.name, a.members]))
+
+    expect(members).toEqual({
+      'Solo': [],
+      'Java Jams!': ['Sarah Dickenson', 'Megan Tucker', 'Amy Young'],
+      'WODever': ['Christina Ernest', 'Cheyenne Frazier', 'Kya Range'],
+      'Late Entry': [],
+      'Nobody Listed': [],
+    })
+  })
+
+  it('sizes a team division by the member count most of its teams list, and guesses 2 with none', () => {
+    const { divisions } = mapEvent(ev, { tz: LA, mergePartB: true })
+
+    expect(divisions.map((d) => [d.name, d.teamSize])).toEqual([['Rx Individual', 1], ['Rx Team', 3], ['BAM Team', 2]])
+  })
+})
+
 describe('mapEvent on event 19948', () => {
   const plan = async (mergePartB = true) => mapEvent(await loadEvent19948(), { tz: LA, mergePartB })
 
@@ -50,7 +107,7 @@ describe('mapEvent on event 19948', () => {
       'Rx - Individual Women', 'Scaled - Individual Women', 'Rx - Individual Men',
       'Scaled - Individual Men', 'Intermediate - Individual Women', 'Intermediate - Individual Men',
     ])
-    expect(divisions[0]).toEqual({ externalId: '131045', name: 'Rx - Individual Women', order: 1 })
+    expect(divisions[0]).toEqual({ externalId: '131045', name: 'Rx - Individual Women', order: 1, teamSize: 1 })
   })
 
   it('takes every athlete who holds a lane, once, with their division', async () => {
@@ -58,7 +115,7 @@ describe('mapEvent on event 19948', () => {
 
     expect(athletes).toHaveLength(74)
     expect(athletes.find((a) => a.externalId === '1430644')).toEqual({
-      externalId: '1430644', name: 'Maddie Clark', divisionExternalId: '131085',
+      externalId: '1430644', name: 'Maddie Clark', divisionExternalId: '131085', members: [],
     })
   })
 

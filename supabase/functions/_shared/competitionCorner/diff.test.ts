@@ -23,7 +23,7 @@ const plan = (over: Partial<ImportPlan> = {}): ImportPlan => ({ divisions: [], w
 
 describe('diffPlan — divisions', () => {
   it('adds a division the competition lacks', () => {
-    const changes = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx', order: 1 }] }), empty)
+    const changes = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx', order: 1, teamSize: 1 }] }), empty)
 
     expect(changes).toEqual([expect.objectContaining({
       key: 'division:1', entity: 'division', kind: 'add', id: null, label: 'Rx',
@@ -31,29 +31,38 @@ describe('diffPlan — divisions', () => {
   })
 
   it('links a hand-made division with the same name instead of adding one', () => {
-    const current = { ...empty, divisions: [{ id: 3, name: ' rx ', order: 1, externalId: null }] }
-    const [c] = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx', order: 1 }] }), current)
+    const current = { ...empty, divisions: [{ id: 3, name: ' rx ', order: 1, externalId: null, teamSize: 1 }] }
+    const [c] = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx', order: 1, teamSize: 1 }] }), current)
 
     expect(c).toMatchObject({ kind: 'link', id: 3, fields: [{ field: 'name', before: ' rx ', after: 'Rx' }] })
   })
 
   it('updates a renamed division matched by id', () => {
-    const current = { ...empty, divisions: [{ id: 3, name: 'RX', order: 1, externalId: '1' }] }
-    const [c] = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx Women', order: 1 }] }), current)
+    const current = { ...empty, divisions: [{ id: 3, name: 'RX', order: 1, externalId: '1', teamSize: 1 }] }
+    const [c] = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx Women', order: 1, teamSize: 1 }] }), current)
 
     expect(c).toMatchObject({ kind: 'update', id: 3, fields: [{ field: 'name', before: 'RX', after: 'Rx Women' }] })
   })
 
-  it('reports nothing when a matched division is unchanged', () => {
-    const current = { ...empty, divisions: [{ id: 3, name: 'Rx', order: 9, externalId: '1' }] }
+  it('updates a division whose team size changed', () => {
+    const current = { ...empty, divisions: [{ id: 3, name: 'Team', order: 1, externalId: '1', teamSize: 1 }] }
+    const changes = diffPlan(plan({ divisions: [{ externalId: '1', name: 'Team', order: 1, teamSize: 3 }] }), current)
 
-    expect(diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx', order: 1 }] }), current)).toEqual([])
+    expect(changes).toEqual([expect.objectContaining({
+      key: 'division:1', kind: 'update', fields: [{ field: 'teamSize', before: 1, after: 3 }],
+    })])
+  })
+
+  it('reports nothing when a matched division is unchanged', () => {
+    const current = { ...empty, divisions: [{ id: 3, name: 'Rx', order: 9, externalId: '1', teamSize: 1 }] }
+
+    expect(diffPlan(plan({ divisions: [{ externalId: '1', name: 'Rx', order: 1, teamSize: 1 }] }), current)).toEqual([])
   })
 
   it('offers to remove an imported division the source dropped, but never a hand-made one', () => {
     const current = { ...empty, divisions: [
-      { id: 3, name: 'Gone', order: 1, externalId: '9' },
-      { id: 4, name: 'Mine', order: 2, externalId: null },
+      { id: 3, name: 'Gone', order: 1, externalId: '9', teamSize: 1 },
+      { id: 4, name: 'Mine', order: 2, externalId: null, teamSize: 1 },
     ] }
 
     expect(diffPlan(plan(), current)).toEqual([
@@ -63,13 +72,13 @@ describe('diffPlan — divisions', () => {
 })
 
 describe('diffPlan — athletes', () => {
-  const divisions = [{ id: 3, name: 'Rx', order: 1, externalId: '1' }, { id: 4, name: 'Sc', order: 2, externalId: '2' }]
+  const divisions = [{ id: 3, name: 'Rx', order: 1, externalId: '1', teamSize: 1 }, { id: 4, name: 'Sc', order: 2, externalId: '2', teamSize: 1 }]
 
   it('updates an athlete who moved division', () => {
-    const current = { ...empty, divisions, athletes: [{ id: 5, name: 'Ann', divisionId: 3, externalId: '100' }] }
+    const current = { ...empty, divisions, athletes: [{ id: 5, name: 'Ann', divisionId: 3, externalId: '100', members: [] }] }
     const changes = diffPlan(plan({
-      divisions: [{ externalId: '1', name: 'Rx', order: 1 }, { externalId: '2', name: 'Sc', order: 2 }],
-      athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: '2' }],
+      divisions: [{ externalId: '1', name: 'Rx', order: 1, teamSize: 1 }, { externalId: '2', name: 'Sc', order: 2, teamSize: 1 }],
+      athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: '2', members: [] }],
     }), current)
 
     expect(changes).toEqual([expect.objectContaining({
@@ -77,15 +86,35 @@ describe('diffPlan — athletes', () => {
     })])
   })
 
+  it('updates a team whose member list changed', () => {
+    const current = { ...empty, athletes: [{ id: 5, name: 'Team A', divisionId: null, externalId: '100', members: ['Kami'] }] }
+    const changes = diffPlan(plan({
+      athletes: [{ externalId: '100', name: 'Team A', divisionExternalId: null, members: ['Kami', 'Lyra'] }],
+    }), current)
+
+    expect(changes).toEqual([expect.objectContaining({
+      key: 'athlete:100', kind: 'update', fields: [{ field: 'members', before: 'Kami', after: 'Kami, Lyra' }],
+    })])
+  })
+
+  it('never clears members typed in by hand when the source lists none', () => {
+    const current = { ...empty, athletes: [{ id: 5, name: 'Team A', divisionId: null, externalId: '100', members: ['Kami'] }] }
+    const changes = diffPlan(plan({
+      athletes: [{ externalId: '100', name: 'Team A', divisionExternalId: null, members: [] }],
+    }), current)
+
+    expect(changes).toEqual([])
+  })
+
   it('links a hand-entered athlete by name only when the name is unambiguous', () => {
     const current = { ...empty, athletes: [
-      { id: 5, name: 'Ann', divisionId: null, externalId: null },
-      { id: 6, name: 'Bo', divisionId: null, externalId: null },
-      { id: 7, name: 'Bo', divisionId: null, externalId: null },
+      { id: 5, name: 'Ann', divisionId: null, externalId: null, members: [] },
+      { id: 6, name: 'Bo', divisionId: null, externalId: null, members: [] },
+      { id: 7, name: 'Bo', divisionId: null, externalId: null, members: [] },
     ] }
     const changes = diffPlan(plan({ athletes: [
-      { externalId: '100', name: 'Ann', divisionExternalId: null },
-      { externalId: '101', name: 'Bo', divisionExternalId: null },
+      { externalId: '100', name: 'Ann', divisionExternalId: null, members: [] },
+      { externalId: '101', name: 'Bo', divisionExternalId: null, members: [] },
     ] }), current)
 
     expect(changes.map((c) => [c.key, c.kind, c.id])).toEqual([
@@ -145,16 +174,16 @@ describe('diffPlan — workouts', () => {
 
 describe('diffPlan — heats', () => {
   const athletes = [
-    { id: 5, name: 'Ann', divisionId: null, externalId: '100' },
-    { id: 6, name: 'Bo', divisionId: null, externalId: '101' },
-    { id: 8, name: 'Walk-in', divisionId: null, externalId: null },
+    { id: 5, name: 'Ann', divisionId: null, externalId: '100', members: [] },
+    { id: 6, name: 'Bo', divisionId: null, externalId: '101', members: [] },
+    { id: 8, name: 'Walk-in', divisionId: null, externalId: null, members: [] },
   ]
   const heats = [{ workoutExternalId: '10', heatNumber: 1, startTime: null, lanes: [
     { lane: 1, athleteExternalId: '100' }, { lane: 2, athleteExternalId: '101' },
   ] }]
   const planAthletes = [
-    { externalId: '100', name: 'Ann', divisionExternalId: null },
-    { externalId: '101', name: 'Bo', divisionExternalId: null },
+    { externalId: '100', name: 'Ann', divisionExternalId: null, members: [] },
+    { externalId: '101', name: 'Bo', divisionExternalId: null, members: [] },
   ]
 
   it('adds lanes for a workout with none', () => {
@@ -187,9 +216,9 @@ describe('diffPlan — heats', () => {
 describe('diffPlan — dependencies', () => {
   it('ties new heats to the new workout and athletes they place', () => {
     const changes = diffPlan(plan({
-      divisions: [{ externalId: '1', name: 'Rx', order: 1 }],
+      divisions: [{ externalId: '1', name: 'Rx', order: 1, teamSize: 1 }],
       workouts: [planWorkout()],
-      athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: '1' }],
+      athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: '1', members: [] }],
       heats: [{ workoutExternalId: '10', heatNumber: 1, startTime: null, lanes: [{ lane: 1, athleteExternalId: '100' }] }],
     }), empty)
     const byKey = Object.fromEntries(changes.map((c) => [c.key, c.requires]))
@@ -201,12 +230,12 @@ describe('diffPlan — dependencies', () => {
   it('needs nothing extra for rows that already exist', () => {
     const current: Current = {
       ...empty,
-      athletes: [{ id: 5, name: 'Ann', divisionId: null, externalId: '100' }],
+      athletes: [{ id: 5, name: 'Ann', divisionId: null, externalId: '100', members: [] }],
       workouts: [currentWorkout()],
     }
     const [c] = diffPlan(plan({
       workouts: [planWorkout()],
-      athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: null }],
+      athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: null, members: [] }],
       heats: [{ workoutExternalId: '10', heatNumber: 1, startTime: null, lanes: [{ lane: 1, athleteExternalId: '100' }] }],
     }), current)
 

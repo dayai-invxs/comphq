@@ -8,6 +8,7 @@ import {
   Input,
   Select,
   Skeleton,
+  Stack,
   Text,
   VisuallyHidden,
 } from '@mond-design-system/react'
@@ -23,6 +24,7 @@ import type { Assignment, Workout } from '../../useWorkoutDetail'
 import { useHeatDnd } from '../heat-dnd-context'
 import { PartAInputCell, PartBInputCell } from '../ScoreInputCells/ScoreInputCells'
 import styles from './HeatCard.module.css'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: src/components/workout-detail/HeatCard.tsx. The registry and the
 // Draggable setup are v1's, line for line, because the lane a drop lands in is
@@ -319,7 +321,12 @@ export function HeatCard({
                   )}
                   <td><Text as="span" variant="label" tone="accent">{a.lane}</Text></td>
                   <td><Text as="span" variant="meta" tone="muted">{a.heatNumber}</Text></td>
-                  <td><Text as="span" variant="label">{a.athlete.name}</Text></td>
+                  <td>
+                    <Stack gap="hairline">
+                      <Text as="span" variant="label">{a.athlete.name}</Text>
+                      <MemberNames members={a.athlete.members} />
+                    </Stack>
+                  </td>
                   <td><Text as="span" variant="meta" tone="muted">{a.athlete.division?.name ?? '—'}</Text></td>
                   {showJudges && (
                     <td>

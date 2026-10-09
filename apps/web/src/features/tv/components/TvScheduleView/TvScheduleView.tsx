@@ -4,6 +4,7 @@ import { fmtHeatTime } from '@/lib/heatTime'
 import { pendingHeats, type AthleteChecks } from '@/lib/nowHeat'
 import type { OpsData } from '@/lib/opsHeats'
 import styles from './TvScheduleView.module.css'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: ScheduleView in src/app/[slug]/TV/page.tsx. The next three heats across
 // every active workout, ordered by the clock rather than by workout — a floor
@@ -103,6 +104,7 @@ export function TvScheduleView({ data, error, checks }: Props) {
                     className={styles.lane}
                     leading={<span className={styles.laneNumber}>L{e.lane}</span>}
                     title={<span className={styles.athlete}>{e.athleteName}</span>}
+                    description={e.members?.length ? <MemberNames members={e.members} /> : undefined}
                     trailing={
                       e.divisionName
                         ? <Text as="span" tone="muted" className={styles.division}>{e.divisionName}</Text>

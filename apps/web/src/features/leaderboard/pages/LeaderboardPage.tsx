@@ -22,6 +22,7 @@ import { divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from 
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import styles from './LeaderboardPage.module.css'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: src/app/[slug]/leaderboard/page.tsx. The standings, lowest total winning.
 // Ranking, tiebreaks and half-weighting are the API's — this screen reads what
@@ -130,7 +131,16 @@ export function LeaderboardPage() {
         </Text>
       ),
     },
-    { key: 'athlete', header: 'Athlete', cell: (r) => <Text as="span" variant="label">{r.entry.athleteName}</Text> },
+    {
+      key: 'athlete',
+      header: 'Athlete',
+      cell: (r) => (
+        <Stack gap="hairline">
+          <Text as="span" variant="label">{r.entry.athleteName}</Text>
+          <MemberNames members={r.entry.members} />
+        </Stack>
+      ),
+    },
     ...visibleWorkouts.map((w) => ({
       key: `workout-${w.id}`,
       header: (
@@ -148,7 +158,11 @@ export function LeaderboardPage() {
 
   function rowsFor(divisionName: string | null) {
     let rows = sortedEntries.filter((e) => e.divisionName === divisionName)
-    if (searchTerm) rows = rows.filter((e) => e.athleteName.toLowerCase().includes(searchTerm))
+    // A search for a person finds the team they are on.
+    if (searchTerm) {
+      rows = rows.filter((e) => e.athleteName.toLowerCase().includes(searchTerm)
+        || (e.members ?? []).some((m) => m.toLowerCase().includes(searchTerm)))
+    }
     return rows
   }
 

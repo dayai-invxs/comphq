@@ -2,6 +2,7 @@ import { Card, CardBody, CardHeader, EmptyState, Heading, Skeleton, Text, Visual
 import type { LeaderboardData } from '@/api/liveReads'
 import { formatTotal, tvDivisionsOf } from '@/lib/standings'
 import styles from './TvLeaderboardView.module.css'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: LeaderboardView in src/app/[slug]/TV/page.tsx. One panel per division,
 // in the order the setup screen set, each showing the share of its division
@@ -82,6 +83,7 @@ export function TvLeaderboardView({ data, error }: Props) {
                         {row.athleteName}
                         {i === 0 && <VisuallyHidden>, leading</VisuallyHidden>}
                       </span>
+                      <MemberNames members={row.members} className={styles.members} />
                       <Text as="span" tone="muted" className={styles.points}>{formatTotal(row.totalPoints)} pts</Text>
                     </span>
                   </li>

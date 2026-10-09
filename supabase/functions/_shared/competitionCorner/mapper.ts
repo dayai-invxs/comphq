@@ -11,9 +11,12 @@ import type { CcEvent, CcHeat, CcWorkout } from '@/lib/competitionCorner/event'
  * rows that were renamed.
  */
 
-export type PlanDivision = { externalId: string; name: string; order: number }
+/** `teamSize` is 1 for an individual division; for a team division, the
+    member count most of its teams list. */
+export type PlanDivision = { externalId: string; name: string; order: number; teamSize: number }
 
-export type PlanAthlete = { externalId: string; name: string; divisionExternalId: string | null }
+/** `members` is empty for an individual, and for a team whose list is blank. */
+export type PlanAthlete = { externalId: string; name: string; divisionExternalId: string | null; members: string[] }
 
 export type PlanWorkout = {
   externalId: string
@@ -185,14 +188,46 @@ function pairParts(workouts: CcWorkout[], firstHeat: Map<number, string>): Map<n
   return pairs
 }
 
-export function mapEvent(ev: CcEvent, { tz, mergePartB }: MapOptions): ImportPlan {
-  const divisions = ev.divisions.map((d, i) => ({ externalId: String(d.id), name: d.title, order: i + 1 }))
+/** "(C) Kami Irlmeier, Lyra Lebron-Brown" → both names, captain mark dropped. */
+export function parseTeammates(teammates: string | null | undefined): string[] {
+  return (teammates ?? '')
+    .split(',')
+    .map((n) => n.replace(/^\s*\(c\)\s*/i, '').trim().replace(/\s+/g, ' ').slice(0, MAX_NAME))
+    .filter(Boolean)
+}
 
+/** The most common count; ties go to the larger. */
+function commonCount(counts: number[]): number | null {
+  const tally = new Map<number, number>()
+  for (const n of counts) tally.set(n, (tally.get(n) ?? 0) + 1)
+  let best: number | null = null
+  for (const [n, k] of tally) {
+    const bestK = best == null ? 0 : tally.get(best)!
+    if (k > bestK || (k === bestK && n > best!)) best = n
+  }
+  return best
+}
+
+export function mapEvent(ev: CcEvent, { tz, mergePartB }: MapOptions): ImportPlan {
+  const teamDivisions = new Set(ev.divisions.filter((d) => d.format !== 'individual').map((d) => d.id))
+
+  // Only a team division's entries have members. An individual's "teammates"
+  // is their own name, which is not a member list.
   const athletes = new Map<string, PlanAthlete>()
   for (const s of ev.heats.flatMap((h) => h.stations)) {
     const id = String(s.participantId)
-    if (!athletes.has(id)) athletes.set(id, { externalId: id, name: s.participantName, divisionExternalId: String(s.divisionId) })
+    if (athletes.has(id)) continue
+    const members = teamDivisions.has(s.divisionId) ? parseTeammates(s.teammates) : []
+    athletes.set(id, { externalId: id, name: s.participantName, divisionExternalId: String(s.divisionId), members })
   }
+
+  const divisions = ev.divisions.map((d, i) => {
+    const sizes = [...athletes.values()]
+      .filter((a) => a.divisionExternalId === String(d.id) && a.members.length > 0)
+      .map((a) => a.members.length)
+    const teamSize = teamDivisions.has(d.id) ? Math.max(2, commonCount(sizes) ?? 2) : 1
+    return { externalId: String(d.id), name: d.title, order: i + 1, teamSize }
+  })
 
   const heatsByWorkout = new Map<number, CcHeat[]>()
   for (const h of ev.heats) heatsByWorkout.set(h.workoutId, [...(heatsByWorkout.get(h.workoutId) ?? []), h])

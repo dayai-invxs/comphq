@@ -1,0 +1,10 @@
+/* One member per line: the name takes the room the controls leave, and the
+   line wraps on a phone rather than squeezing the name to nothing. */
+.row {
+  flex-wrap: wrap;
+}
+
+.name {
+  flex: 1;
+  min-width: 14ch;
+}

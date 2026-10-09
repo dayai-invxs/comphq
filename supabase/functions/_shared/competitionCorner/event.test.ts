@@ -50,6 +50,7 @@ describe('parseEvent', () => {
       participantName: 'Maddie Clark',
       divisionId: 131085,
       affiliate: 'CROSSFIT PSYCHED',
+      teammates: 'Maddie Clark',
     })
   })
 

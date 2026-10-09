@@ -34,6 +34,9 @@ export async function POST(req: Request) {
         competitionId: competition.id,
         name: parsed.data.name,
         order: parsed.data.order,
+        teamSize: parsed.data.teamSize ?? 1,
+        menCount: parsed.data.menCount ?? null,
+        womenCount: parsed.data.womenCount ?? null,
       })
       .select('*')
       .single()

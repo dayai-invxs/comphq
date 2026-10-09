@@ -78,3 +78,9 @@
 .points {
   font-size: var(--tv-text-points);
 }
+
+/* A team's members, under its name: readable from the back of the room but
+   no louder than the points. */
+.members {
+  font-size: var(--tv-text-points);
+}

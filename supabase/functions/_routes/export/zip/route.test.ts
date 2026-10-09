@@ -42,7 +42,7 @@ describe('GET /api/export/zip', () => {
     const names = Object.keys(files).sort()
     expect(names).toEqual([
       'athletes.csv', 'divisions.csv', 'heat_assignments.csv',
-      'manifest.json', 'scores.csv', 'workouts.csv',
+      'manifest.json', 'scores.csv', 'team_members.csv', 'workouts.csv',
     ])
 
     const manifest = JSON.parse(strFromU8(files['manifest.json']))

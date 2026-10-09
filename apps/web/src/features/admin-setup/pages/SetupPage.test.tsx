@@ -123,7 +123,7 @@ it('adds a division after the last one in the running order', async () => {
   await screen.findAllByText('RX')  // divisions table and TV table both name it
   await add('division', 'Teens')
   await waitFor(() =>
-    expect(apiPost).toHaveBeenCalledWith('/api/divisions', { slug: 'summer', name: 'Teens', order: 6 }))
+    expect(apiPost).toHaveBeenCalledWith('/api/divisions', { slug: 'summer', name: 'Teens', order: 6, teamSize: 1, menCount: null, womenCount: null }))
 })
 
 // Defect 23: v1 moved a division by trading order values with whoever held the

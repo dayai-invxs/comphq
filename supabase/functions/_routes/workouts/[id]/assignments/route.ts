@@ -1,5 +1,6 @@
 import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, heatAssignment, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
@@ -30,6 +31,9 @@ async function fetchAssignmentsWithEmbeds(workoutId: number) {
     .where(eq(heatAssignment.workoutId, workoutId))
     .orderBy(asc(heatAssignment.heatNumber), asc(heatAssignment.lane))
 
+  // A team shows its members under its name; an individual has none.
+  const members = await memberNamesByAthlete(rows.map((r) => r.athleteId))
+
   // Reshape to match the previous ASSIGNMENT_EMBED response contract.
   return rows.map((r) => ({
     id: r.id,
@@ -42,6 +46,7 @@ async function fetchAssignmentsWithEmbeds(workoutId: number) {
       name: r.athleteName,
       bibNumber: r.bibNumber,
       divisionId: r.divisionId,
+      members: members.get(r.athleteId) ?? [],
       division: r.divisionId != null
         ? { id: r.divisionId, name: r.divisionName ?? '', order: r.divisionOrder ?? 0 }
         : null,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { supabaseMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock, supabaseMock as mock, setAuthUser } from '@/test/setup'
 import { PUT, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -28,7 +28,7 @@ describe('PUT /api/athletes/[id]', () => {
     const res = await PUT(putReq({ name: 'New', bibNumber: '7', divisionId: 2 }), params('1'))
 
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual(updated)
+    expect(await res.json()).toEqual({ ...updated, members: [] })
 
     const call = mock.lastCall!
     expect(call.table).toBe('Athlete')
@@ -38,6 +38,44 @@ describe('PUT /api/athletes/[id]', () => {
     const eqArgs = call.ops.filter(o => o.op === 'eq').map(o => o.args[0])
     expect(eqArgs).toContain('id')
     expect(eqArgs).toContain('competitionId')
+  })
+
+  it('replaces the team\'s members when the list is sent', async () => {
+    mock.queueResult({ data: { id: 1, name: 'Team', members: [{ id: 3, name: 'Old', order: 0 }] }, error: null })
+    drizzleMock.queueResults(undefined, [{ id: 4, name: 'New', gender: 'male', order: 0 }])
+
+    const res = await PUT(putReq({ name: 'Team', members: [{ name: 'New', gender: 'male' }] }), params('1'))
+
+    expect((await res.json()).members).toEqual([{ id: 4, name: 'New', gender: 'male', order: 0 }])
+    expect(drizzleMock.calls.map(c => c.method)).toEqual(expect.arrayContaining(['transaction', 'delete', 'insert']))
+  })
+
+  it('clears every member when an empty list is sent', async () => {
+    mock.queueResult({ data: { id: 1, name: 'Team', members: [{ id: 3, name: 'Old', order: 0 }] }, error: null })
+
+    const res = await PUT(putReq({ name: 'Team', members: [] }), params('1'))
+
+    expect((await res.json()).members).toEqual([])
+    expect(drizzleMock.calls.map(c => c.method)).toContain('delete')
+    expect(drizzleMock.calls.map(c => c.method)).not.toContain('insert')
+  })
+
+  it('leaves members alone when the list is left out', async () => {
+    mock.queueResult({ data: { id: 1, name: 'Team', members: [{ id: 3, name: 'Kept', order: 0 }] }, error: null })
+
+    const res = await PUT(putReq({ name: 'Team' }), params('1'))
+
+    expect((await res.json()).members).toEqual([{ id: 3, name: 'Kept', order: 0 }])
+    expect(drizzleMock.calls).toEqual([])
+  })
+
+  it('writes no members for an athlete in another competition', async () => {
+    mock.queueResult({ data: null, error: null })
+
+    const res = await PUT(putReq({ name: 'Team', members: [{ name: 'X' }] }), params('1'))
+
+    expect(res.status).toBe(404)
+    expect(drizzleMock.calls).toEqual([])
   })
 
   it('does not set divisionId when omitted (partial update)', async () => {

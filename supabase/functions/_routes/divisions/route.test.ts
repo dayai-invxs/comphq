@@ -52,4 +52,23 @@ describe('POST /api/divisions', () => {
     expect(insert.args[0]).toMatchObject({ name: 'Rx', order: 0 })
     expect(call.ops.find(o => o.op === 'single')).toBeTruthy()
   })
+
+  it('makes an individual division with no gender requirement by default', async () => {
+    mock.queueResult({ data: { id: 1 }, error: null })
+    await POST(postReq({ name: 'Rx', order: 0 }))
+    const insert = mock.lastCall!.ops.find(o => o.op === 'insert')!
+    expect(insert.args[0]).toMatchObject({ teamSize: 1, menCount: null, womenCount: null })
+  })
+
+  it('saves a team division\'s size and gender split', async () => {
+    mock.queueResult({ data: { id: 1 }, error: null })
+    await POST(postReq({ name: 'Team', order: 1, teamSize: 4, menCount: 2, womenCount: 2 }))
+    const insert = mock.lastCall!.ops.find(o => o.op === 'insert')!
+    expect(insert.args[0]).toMatchObject({ teamSize: 4, menCount: 2, womenCount: 2 })
+  })
+
+  it('rejects a team size below 1', async () => {
+    const res = await POST(postReq({ name: 'Team', order: 1, teamSize: 0 }))
+    expect(res.status).toBe(400)
+  })
 })

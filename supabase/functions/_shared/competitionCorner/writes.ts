@@ -18,8 +18,8 @@ type WorkoutColumns = Omit<PlanWorkout, 'warnings' | 'location' | 'scoreType'> &
 
 export type Writes = {
   divisions: {
-    insert: Array<{ name: string; order: number; externalId: string }>
-    update: Array<{ id: number; set: { name?: string; externalId: string } }>
+    insert: Array<{ name: string; order: number; externalId: string; teamSize: number }>
+    update: Array<{ id: number; set: { name?: string; teamSize?: number; externalId: string } }>
     remove: number[]
   }
   /** Location names the accepted workouts use; created when missing. */
@@ -31,9 +31,9 @@ export type Writes = {
     remove: number[]
   }
   athletes: {
-    insert: Array<{ name: string; externalId: string; divisionExternalId: string | null }>
-    /** `divisionExternalId` is present only when the division changes. */
-    update: Array<{ id: number; set: { name?: string; externalId: string }; divisionExternalId?: string | null }>
+    insert: Array<{ name: string; externalId: string; divisionExternalId: string | null; members: string[] }>
+    /** `divisionExternalId` and `members` are present only when they change. */
+    update: Array<{ id: number; set: { name?: string; externalId: string }; divisionExternalId?: string | null; members?: string[] }>
     remove: number[]
   }
   /** Placing lanes clears a workout's start overrides, since they timed the old
@@ -92,10 +92,18 @@ export function planWrites(plan: ImportPlan, current: Current, changes: Change[]
 
   let order = Math.max(0, ...current.divisions.map((d) => d.order))
   const divisions: Writes['divisions'] = {
-    insert: of('division', 'add').map((c) => ({ name: divisionByExt.get(externalIdOf(c.key))!.name, order: ++order, externalId: externalIdOf(c.key) })),
+    insert: of('division', 'add').map((c) => {
+      const d = divisionByExt.get(externalIdOf(c.key))!
+      return { name: d.name, order: ++order, externalId: externalIdOf(c.key), teamSize: d.teamSize }
+    }),
     update: of('division', 'update', 'link').map((c) => {
-      const name = fieldsOf(c).get('name') as string | undefined
-      return { id: c.id!, set: { ...(name !== undefined && { name }), externalId: externalIdOf(c.key) } }
+      const fields = fieldsOf(c)
+      const name = fields.get('name') as string | undefined
+      const teamSize = fields.get('teamSize') as number | undefined
+      return {
+        id: c.id!,
+        set: { ...(name !== undefined && { name }), ...(teamSize !== undefined && { teamSize }), externalId: externalIdOf(c.key) },
+      }
     }),
     remove: of('division', 'remove').map((c) => c.id!),
   }
@@ -132,7 +140,7 @@ export function planWrites(plan: ImportPlan, current: Current, changes: Change[]
   const athletes: Writes['athletes'] = {
     insert: of('athlete', 'add').map((c) => {
       const a = athleteByExt.get(externalIdOf(c.key))!
-      return { name: a.name, externalId: a.externalId, divisionExternalId: a.divisionExternalId }
+      return { name: a.name, externalId: a.externalId, divisionExternalId: a.divisionExternalId, members: a.members }
     }),
     update: of('athlete', 'update', 'link').map((c) => {
       const a = athleteByExt.get(externalIdOf(c.key))!
@@ -141,6 +149,7 @@ export function planWrites(plan: ImportPlan, current: Current, changes: Change[]
         id: c.id!,
         set: { ...(fields.has('name') && { name: a.name }), externalId: a.externalId },
         ...(fields.has('division') && { divisionExternalId: a.divisionExternalId }),
+        ...(fields.has('members') && { members: a.members }),
       }
     }),
     remove: of('athlete', 'remove').map((c) => c.id!),

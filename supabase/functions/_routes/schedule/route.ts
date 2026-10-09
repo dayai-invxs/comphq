@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, heatAssignment, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
@@ -55,6 +56,8 @@ export async function GET(req: Request) {
       : Promise.resolve([]),
     getCompletedHeatsByWorkout(workoutIds),
   ])
+  // A team shows its members under its name; an individual has none.
+  const members = await memberNamesByAthlete([...new Set(assignments.map((a) => a.athleteId))])
 
   const result = workouts.map((wk) => {
     const completedHeats = completedByWorkout.get(wk.id) ?? []
@@ -73,6 +76,7 @@ export async function GET(req: Request) {
         return {
           athleteId: a.athleteId,
           athleteName: a.athleteName,
+          members: members.get(a.athleteId) ?? [],
           bibNumber: a.bibNumber,
           divisionName: a.divisionName ?? null,
           heatNumber: a.heatNumber,

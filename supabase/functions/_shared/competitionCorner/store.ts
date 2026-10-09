@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { getDb } from '@/lib/db'
-import { athlete, competition, division, heatAssignment, workout, workoutLocation } from '@/db/schema'
+import { athlete, competition, division, heatAssignment, teamMember, workout, workoutLocation } from '@/db/schema'
 import type { Current } from '@/lib/competitionCorner/diff'
 import type { Writes } from '@/lib/competitionCorner/writes'
 
@@ -14,8 +14,8 @@ export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 type Queryable = Pick<Tx, 'select'>
 
 export async function loadCurrent(q: Queryable, competitionId: number): Promise<Current> {
-  const [divisions, workouts, athletes, heatAssignments] = await Promise.all([
-    q.select({ id: division.id, name: division.name, order: division.order, externalId: division.externalId })
+  const [divisions, workouts, athleteRows, heatAssignments, memberRows] = await Promise.all([
+    q.select({ id: division.id, name: division.name, order: division.order, externalId: division.externalId, teamSize: division.teamSize })
       .from(division).where(eq(division.competitionId, competitionId)),
     q.select({
       id: workout.id, number: workout.number, name: workout.name, description: workout.description,
@@ -32,7 +32,14 @@ export async function loadCurrent(q: Queryable, competitionId: number): Promise<
     q.select({ workoutId: heatAssignment.workoutId, athleteId: heatAssignment.athleteId, heatNumber: heatAssignment.heatNumber, lane: heatAssignment.lane })
       .from(heatAssignment).innerJoin(workout, eq(heatAssignment.workoutId, workout.id))
       .where(eq(workout.competitionId, competitionId)),
+    q.select({ athleteId: teamMember.athleteId, name: teamMember.name })
+      .from(teamMember).innerJoin(athlete, eq(teamMember.athleteId, athlete.id))
+      .where(eq(athlete.competitionId, competitionId))
+      .orderBy(asc(teamMember.athleteId), asc(teamMember.order), asc(teamMember.id)),
   ])
+  const members = new Map<number, string[]>()
+  for (const m of memberRows) members.set(m.athleteId, [...(members.get(m.athleteId) ?? []), m.name])
+  const athletes = athleteRows.map((a) => ({ ...a, members: members.get(a.id) ?? [] }))
   return { divisions, workouts, athletes, heatAssignments }
 }
 
@@ -90,10 +97,22 @@ export async function executeWrites(tx: Tx, competitionId: number, eventId: numb
     const set = u.divisionExternalId === undefined ? u.set : { ...u.set, divisionId: divisionId(u.divisionExternalId) }
     await tx.update(athlete).set(set).where(byId(athlete, u.id))
   }
-  if (w.athletes.insert.length) {
-    await tx.insert(athlete).values(w.athletes.insert.map((a) => ({
+  const inserted = w.athletes.insert.length
+    ? await tx.insert(athlete).values(w.athletes.insert.map((a) => ({
       competitionId, name: a.name, externalId: a.externalId, divisionId: divisionId(a.divisionExternalId),
-    })))
+    }))).returning({ id: athlete.id, externalId: athlete.externalId })
+    : []
+
+  // A team's member list is replaced whole. Updated rows were checked to be
+  // this competition's by the update above; inserted ones were just made here.
+  const insertedIds = idsByExternalId(inserted)
+  const memberLists = [
+    ...w.athletes.update.filter((u) => u.members !== undefined).map((u) => ({ id: u.id, members: u.members! })),
+    ...w.athletes.insert.filter((a) => a.members.length > 0).map((a) => ({ id: insertedIds.get(a.externalId)!, members: a.members })),
+  ]
+  for (const { id, members } of memberLists) {
+    await tx.delete(teamMember).where(eq(teamMember.athleteId, id))
+    if (members.length) await tx.insert(teamMember).values(members.map((name, order) => ({ athleteId: id, name, order })))
   }
 
   if (w.heats.length) {

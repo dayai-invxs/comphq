@@ -8,8 +8,8 @@ import { TvLeaderboardSection } from './TvLeaderboardSection'
 const onSaveOrder = vi.fn()
 const onSavePercentages = vi.fn()
 
-const RX = { id: 1, name: 'RX', order: 1 }
-const SCALED = { id: 2, name: 'Scaled', order: 2 }
+const RX = { id: 1, name: 'RX', order: 1, teamSize: 1, menCount: null, womenCount: null }
+const SCALED = { id: 2, name: 'Scaled', order: 2, teamSize: 1, menCount: null, womenCount: null }
 
 function draw(over: Partial<Parameters<typeof TvLeaderboardSection>[0]> = {}) {
   return render(

@@ -61,4 +61,21 @@ describe('GET /api/leaderboard', () => {
     expect(body.entries[1].totalPoints).toBe(4)
     expect(res.headers.get('cache-control')).toMatch(/s-maxage=5/)
   })
+
+  // A team is ranked as one entry; its members only ride along by name.
+  it('lists a team\'s members on its one entry', async () => {
+    const athletes = [
+      { id: 1, name: 'Team A', divisionName: 'Teams' },
+      { id: 2, name: 'Empty Team', divisionName: 'Teams' },
+    ]
+    //   9. team members (after scores; no workouts are visible, so no scores read)
+    mock.queueResults([], [], [], [], [], athletes, [], [{ id: 7, athleteId: 1, name: 'Kami', gender: null, order: 0 }])
+
+    const body = await (await GET(getReq())).json()
+
+    expect(body.entries.map((e: { athleteName: string; members: string[] }) => [e.athleteName, e.members])).toEqual([
+      ['Empty Team', []],
+      ['Team A', ['Kami']],
+    ])
+  })
 })

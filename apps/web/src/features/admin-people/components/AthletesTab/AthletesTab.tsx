@@ -13,12 +13,15 @@ import {
   Text,
 } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { apiDel, apiPost } from '@/lib/api'
+import type { Gender } from '@/api/athletes'
+import { doubleEntries, entryWarnings, isTeam } from '@/lib/teams'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { useRoster } from '../../useRoster'
 import type { Athlete, Division, RunFn } from '../../usePeople'
 import { RosterSheet, type AddMode } from '../RosterSheet/RosterSheet'
+import { TeamMembersField, membersBody, type MemberDraft } from '../TeamMembersField/TeamMembersField'
 import { CsvImport } from '@/components/CsvImport/CsvImport'
 import { parseLookupCsv } from '@/lib/lookupCsv'
 import styles from './AthletesTab.module.css'
@@ -34,6 +37,12 @@ import styles from './AthletesTab.module.css'
 // narrowing the list lets go of anything the search is hiding. v1 kept those
 // hidden rows selected, which meant "Delete 3 selected" could delete a row
 // nobody could see.
+//
+// A row in a team division is a team: it takes one lane and gets one score,
+// and the people on it are listed under its name. Whether a row is a team is
+// its division's say, so the form changes with the division picked. Entries
+// that do not match their division are flagged, never refused — a team with
+// nobody listed still competes.
 
 interface Props {
   slug: string
@@ -49,7 +58,8 @@ interface Props {
   onCloseAdd: () => void
 }
 
-const BLANK = { name: '', bib: '', divisionId: '' }
+type Form = { name: string; bib: string; divisionId: string; gender: Gender | ''; members: MemberDraft[] }
+const BLANK: Form = { name: '', bib: '', divisionId: '', gender: '', members: [] }
 
 export function AthletesTab({
   slug, athletes, divisions, loading, setLoading, run, reload, setAthletes, adding, onCloseAdd,
@@ -59,7 +69,7 @@ export function AthletesTab({
     rows: athletes, setRows: setAthletes, run, reload, setLoading,
   })
 
-  const [form, setForm] = useState(BLANK)
+  const [form, setForm] = useState<Form>(BLANK)
   const [bulkText, setBulkText] = useState('')
   const [bulkDivisionId, setBulkDivisionId] = useState('')
   const [deleting, setDeleting] = useState<Athlete | null>(null)
@@ -75,6 +85,8 @@ export function AthletesTab({
         name: editing.name,
         bib: editing.bibNumber ?? '',
         divisionId: editing.divisionId ? String(editing.divisionId) : '',
+        gender: editing.gender ?? '',
+        members: editing.members.map((m) => ({ name: m.name, gender: m.gender ?? '' })),
       })
     }
   }, [editing])
@@ -86,13 +98,37 @@ export function AthletesTab({
     setForm(BLANK)
   }
 
+  const formDivision = divisions.find((d) => String(d.id) === form.divisionId) ?? null
+  const formIsTeam = isTeam(formDivision)
+
+  // A team sends its member list, which replaces the one it had. An individual
+  // sends a gender and leaves any member list alone, so moving a team into an
+  // individual division by mistake and back again loses nobody.
   function body() {
     return {
       name: form.name.trim(),
       bibNumber: form.bib.trim() || null,
       divisionId: form.divisionId ? Number(form.divisionId) : null,
+      ...(formIsTeam
+        ? { gender: null, members: membersBody(form.members) }
+        : { gender: form.gender || null }),
     }
   }
+
+  const formWarnings = entryWarnings(
+    { gender: formIsTeam ? null : form.gender || null, members: formIsTeam ? membersBody(form.members) : [] },
+    formDivision,
+  )
+
+  // Every row's warnings, worked out once per roster rather than per draw.
+  const warnings = useMemo(() => {
+    const doubled = doubleEntries(athletes)
+    return new Map(athletes.map((a) => [a.id, [
+      ...entryWarnings(a, a.division),
+      ...(doubled.get(a.id) ?? []).map((n) => `${n} is also entered as an individual.`),
+    ]]))
+  }, [athletes])
+  const flagged = [...warnings.values()].filter((w) => w.length > 0).length
 
   function submit(mode: AddMode) {
     if (mode === 'bulk') return importMany()
@@ -141,18 +177,31 @@ export function AthletesTab({
     </Select>
   )
 
-  const visible = athletes.filter((a) => roster.matches(a.name))
+  // A search for a person finds the team they are on.
+  const visible = athletes.filter((a) => roster.matches(a.name) || a.members.some((m) => roster.matches(m.name)))
 
   const columns: DataColumn<Athlete>[] = [
     {
       key: 'name',
       header: 'Name',
-      cell: (a) => (
-        <Inline gap="hairline" align="center" wrap>
-          <Text as="span" variant="label">{a.name}</Text>
-          {a.withdrawn && <Badge tone="warning">Withdrawn</Badge>}
-        </Inline>
-      ),
+      cell: (a) => {
+        const issues = warnings.get(a.id) ?? []
+        return (
+          <Stack gap="hairline">
+            <Inline gap="hairline" align="center" wrap>
+              <Text as="span" variant="label">{a.name}</Text>
+              {a.withdrawn && <Badge tone="warning">Withdrawn</Badge>}
+              {issues.length > 0 && <Badge tone="warning" title={issues.join(' ')}>Check</Badge>}
+            </Inline>
+            {a.members.length > 0 && (
+              <Text as="span" variant="meta" tone="muted">{a.members.map((m) => m.name).join(' · ')}</Text>
+            )}
+            {issues.length > 0 && (
+              <Text as="span" variant="meta" tone="warning">{issues.join(' ')}</Text>
+            )}
+          </Stack>
+        )
+      },
     },
     {
       key: 'bib',
@@ -182,13 +231,13 @@ export function AthletesTab({
       ) : (
         <DataPanel
           title="Athletes"
-          description={`${athletes.length} entered`}
+          description={`${athletes.length} entered${flagged ? ` · ${flagged} to check` : ''}`}
           flush
         >
           <Stack gap="base" className={styles.search}>
             <Input
               type="search"
-              aria-label="Search athletes by name"
+              aria-label="Search athletes and team members by name"
               placeholder="Search by name…"
               value={roster.search}
               onChange={(e) => roster.setSearch(e.target.value)}
@@ -241,7 +290,7 @@ export function AthletesTab({
         optionLabel={(a) => `${a.name}${a.bibNumber ? ` (${a.bibNumber})` : ''}`}
         fields={
           <>
-            <Field label="Name" required>
+            <Field label={formIsTeam ? 'Team name' : 'Name'} required>
               <Input
                 required
                 autoFocus
@@ -259,6 +308,27 @@ export function AthletesTab({
               <Field label="Division">
                 {divisionSelect(form.divisionId, (v) => setForm((f) => ({ ...f, divisionId: v })))}
               </Field>
+            )}
+            {formIsTeam ? (
+              <TeamMembersField
+                members={form.members}
+                onChange={(members) => setForm((f) => ({ ...f, members }))}
+                teamSize={formDivision!.teamSize}
+              />
+            ) : (
+              <Field label="Gender">
+                <Select
+                  value={form.gender}
+                  onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value as Form['gender'] }))}
+                >
+                  <option value="">Not set</option>
+                  <option value="female">Woman</option>
+                  <option value="male">Man</option>
+                </Select>
+              </Field>
+            )}
+            {formWarnings.length > 0 && (
+              <Text variant="meta" tone="warning" role="status">{formWarnings.join(' ')} You can still save.</Text>
             )}
           </>
         }

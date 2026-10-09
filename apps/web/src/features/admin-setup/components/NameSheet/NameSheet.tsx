@@ -2,7 +2,7 @@ import {
   Button, Field, FileDrop, Input, SegmentedControl, Sheet, SheetBody, SheetFooter, SheetHeader, Stack, Textarea,
 } from '@mond-design-system/react'
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { parseNameList } from '@/lib/csv'
 
 // One name, typed beside the list it belongs to.
@@ -47,11 +47,14 @@ export interface NameSheetProps {
   onSubmitMany?: (names: string[]) => Promise<unknown>
   /** Plural and lower-case, for the import: "locations". */
   plural?: string
+  /** More fields under the name, for a list whose rows keep more than one.
+      The caller holds their state. Not shown on the import form. */
+  children?: ReactNode
 }
 
 export function NameSheet({
   open, title, fieldLabel, placeholder, initial, submitLabel, busy, onClose, onSubmit, onSubmitMany,
-  plural = `${fieldLabel.toLowerCase()}s`,
+  plural = `${fieldLabel.toLowerCase()}s`, children,
 }: NameSheetProps) {
   const [name, setName] = useState(initial)
   const [mode, setMode] = useState<'single' | 'bulk'>('single')
@@ -119,15 +122,18 @@ export function NameSheet({
                 />
               </Stack>
             ) : (
-              <Field label={fieldLabel} required>
-                <Input
-                  required
-                  autoFocus
-                  placeholder={placeholder}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </Field>
+              <Stack gap="base">
+                <Field label={fieldLabel} required>
+                  <Input
+                    required
+                    autoFocus
+                    placeholder={placeholder}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </Field>
+                {children}
+              </Stack>
             )}
           </form>
         </Stack>

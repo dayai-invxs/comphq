@@ -12,6 +12,7 @@ import type { OpsData } from '@/lib/opsHeats'
 import { pendingHeats, type PendingHeat } from '@/lib/nowHeat'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import styles from './SchedulePage.module.css'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: src/components/PublicSchedule.tsx, served at /[slug]. The board a
 // spectator reads: what is running, which heat is next, and when it walks out.
@@ -31,7 +32,10 @@ function Lanes({ now, showBib }: { now: PendingHeat; showBib: boolean }) {
           <Text as="span" variant="label" className={styles.laneNumber}>
             <VisuallyHidden>Lane </VisuallyHidden>{e.lane}
           </Text>
-          <Text as="span">{e.athleteName}</Text>
+          <span className={styles.who}>
+            <Text as="span">{e.athleteName}</Text>
+            <MemberNames members={e.members} />
+          </span>
           {showBib && <Text as="span" variant="meta" tone="muted">Bib {e.bibNumber ?? '—'}</Text>}
         </li>
       ))}

@@ -2,8 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AthleteUpdate } from '@/lib/schemas'
-
-const ATHLETE_WITH_DIVISION = '*, division:Division(id, name, order)'
+import { replaceTeamMembers } from '@/lib/teamMembers'
+import { ATHLETE_WITH_DIVISION, withSortedMembers } from '@/lib/embeds'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -19,6 +19,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       bibNumber: parsed.data.bibNumber?.trim() || null,
     }
     if (parsed.data.divisionId !== undefined) patch.divisionId = parsed.data.divisionId ?? null
+    if (parsed.data.gender !== undefined) patch.gender = parsed.data.gender ?? null
 
     const { data, error } = await supabase
       .from('Athlete')
@@ -30,7 +31,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     if (error) return new Response(error.message, { status: 500 })
     if (!data) return new Response('Athlete not found', { status: 404 })
-    return Response.json(data)
+    // Members are written only once the athlete is known to be this
+    // competition's; a list left out of the body leaves the team's alone.
+    if (parsed.data.members !== undefined) {
+      return Response.json({ ...data, members: await replaceTeamMembers(data.id, parsed.data.members) })
+    }
+    return Response.json(withSortedMembers(data))
   } catch (e) {
     return authErrorResponse(e)
   }

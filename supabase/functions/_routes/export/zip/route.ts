@@ -1,6 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import { zipSync, strToU8 } from 'fflate'
 import { db } from '@/lib/db'
+import { membersByAthlete } from '@/lib/teamMembers'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
@@ -54,17 +55,23 @@ export async function GET(req: Request) {
       : Promise.resolve([]),
   ])
 
+  const members = await membersByAthlete(athletes.map((a) => a.id))
   const divName = new Map(divisions.map((d) => [d.id, d.name]))
   const exportedAt = new Date().toISOString()
 
   const files: Record<string, string> = {
     'athletes.csv': rows(
-      ['id', 'name', 'bibNumber', 'divisionId', 'divisionName'],
-      athletes.map((a) => [a.id, a.name, a.bibNumber ?? '', a.divisionId ?? '', a.divisionId ? (divName.get(a.divisionId) ?? '') : '']),
+      ['id', 'name', 'bibNumber', 'divisionId', 'divisionName', 'gender'],
+      athletes.map((a) => [a.id, a.name, a.bibNumber ?? '', a.divisionId ?? '', a.divisionId ? (divName.get(a.divisionId) ?? '') : '', a.gender ?? '']),
+    ),
+    // One line per person on a team, under the athlete row that competes.
+    'team_members.csv': rows(
+      ['athleteId', 'athleteName', 'order', 'name', 'gender'],
+      athletes.flatMap((a) => (members.get(a.id) ?? []).map((m) => [a.id, a.name, m.order, m.name, m.gender ?? ''])),
     ),
     'divisions.csv': rows(
-      ['id', 'name', 'order'],
-      divisions.map((d) => [d.id, d.name, d.order]),
+      ['id', 'name', 'order', 'teamSize', 'menCount', 'womenCount'],
+      divisions.map((d) => [d.id, d.name, d.order, d.teamSize, d.menCount ?? '', d.womenCount ?? '']),
     ),
     'workouts.csv': rows(
       ['id', 'number', 'name', 'scoreType', 'status', 'lanes', 'halfWeight'],

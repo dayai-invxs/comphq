@@ -13,9 +13,9 @@ const planWorkout = (over: Partial<PlanWorkout> = {}): PlanWorkout => ({
 })
 
 const fullPlan: ImportPlan = {
-  divisions: [{ externalId: '1', name: 'Rx', order: 1 }],
+  divisions: [{ externalId: '1', name: 'Rx', order: 1, teamSize: 1 }],
   workouts: [planWorkout()],
-  athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: '1' }],
+  athletes: [{ externalId: '100', name: 'Ann', divisionExternalId: '1', members: [] }],
   heats: [{ workoutExternalId: '10', heatNumber: 1, startTime: null, lanes: [{ lane: 3, athleteExternalId: '100' }] }],
 }
 
@@ -52,7 +52,7 @@ describe('planWrites — adds', () => {
     if (!result.ok) throw new Error(result.errors.join())
     const { writes } = result
 
-    expect(writes.divisions.insert).toEqual([{ name: 'Rx', order: 1, externalId: '1' }])
+    expect(writes.divisions.insert).toEqual([{ name: 'Rx', order: 1, externalId: '1', teamSize: 1 }])
     expect(writes.locations).toEqual(['Floor'])
     expect(writes.workouts.insert).toEqual([{
       number: 1, name: 'WOD 1', description: 'Row', scoreType: 'time',
@@ -61,7 +61,7 @@ describe('planWrites — adds', () => {
       heatStartOverrides: {}, callTimeSecs: 600, walkoutTimeSecs: 120,
       externalId: '10', externalPartBId: null, location: 'Floor',
     }])
-    expect(writes.athletes.insert).toEqual([{ name: 'Ann', externalId: '100', divisionExternalId: '1' }])
+    expect(writes.athletes.insert).toEqual([{ name: 'Ann', externalId: '100', divisionExternalId: '1', members: [] }])
     expect(writes.heats).toEqual([{
       workoutExternalId: '10', assignments: [{ athleteExternalId: '100', heatNumber: 1, lane: 3 }], heatStartOverrides: {},
     }])
@@ -77,10 +77,10 @@ describe('planWrites — adds', () => {
   })
 
   it('appends new divisions after the existing ones', () => {
-    const current = { ...empty, divisions: [{ id: 1, name: 'Mine', order: 4, externalId: null }] }
+    const current = { ...empty, divisions: [{ id: 1, name: 'Mine', order: 4, externalId: null, teamSize: 1 }] }
     const result = run(fullPlan, current, ['division:1'])
 
-    expect(result).toMatchObject({ ok: true, writes: { divisions: { insert: [{ name: 'Rx', order: 5, externalId: '1' }] } } })
+    expect(result).toMatchObject({ ok: true, writes: { divisions: { insert: [{ name: 'Rx', order: 5, externalId: '1', teamSize: 1 }] } } })
   })
 
   it('uses the number the diff chose and the score type the admin picked', () => {
@@ -108,8 +108,8 @@ describe('planWrites — updates, links and removals', () => {
   it('links a hand-made athlete and moves them to the source division', () => {
     const current: Current = {
       ...empty,
-      divisions: [{ id: 3, name: 'Rx', order: 1, externalId: '1' }],
-      athletes: [{ id: 5, name: 'ann', divisionId: null, externalId: null }],
+      divisions: [{ id: 3, name: 'Rx', order: 1, externalId: '1', teamSize: 1 }],
+      athletes: [{ id: 5, name: 'ann', divisionId: null, externalId: null, members: [] }],
     }
     const result = run({ ...fullPlan, workouts: [], heats: [] }, current, 'all')
 
@@ -118,11 +118,48 @@ describe('planWrites — updates, links and removals', () => {
     }] } } })
   })
 
+  it('carries a new team\'s members and its division\'s size', () => {
+    const teamPlan: ImportPlan = {
+      ...fullPlan,
+      divisions: [{ externalId: '1', name: 'Team', order: 1, teamSize: 3 }],
+      athletes: [{ externalId: '100', name: 'Team A', divisionExternalId: '1', members: ['Kami', 'Lyra'] }],
+      workouts: [], heats: [],
+    }
+    const result = run(teamPlan, empty, 'all')
+
+    expect(result).toMatchObject({ ok: true, writes: {
+      divisions: { insert: [{ name: 'Team', teamSize: 3 }] },
+      athletes: { insert: [{ name: 'Team A', members: ['Kami', 'Lyra'] }] },
+    } })
+  })
+
+  it('replaces an existing team\'s members only when they changed', () => {
+    const current: Current = {
+      ...empty,
+      athletes: [
+        { id: 5, name: 'Team A', divisionId: null, externalId: '100', members: ['Kami'] },
+        { id: 6, name: 'Team B', divisionId: null, externalId: '101', members: ['Same'] },
+      ],
+    }
+    const result = run({
+      divisions: [], workouts: [], heats: [],
+      athletes: [
+        { externalId: '100', name: 'Team A', divisionExternalId: null, members: ['Kami', 'Lyra'] },
+        { externalId: '101', name: 'Team B renamed', divisionExternalId: null, members: ['Same'] },
+      ],
+    }, current, 'all')
+
+    expect(result.ok && result.writes.athletes.update).toEqual([
+      { id: 5, set: { externalId: '100' }, members: ['Kami', 'Lyra'] },
+      { id: 6, set: { name: 'Team B renamed', externalId: '101' } },
+    ])
+  })
+
   it('removes only what was accepted', () => {
     const current: Current = {
       ...empty,
-      divisions: [{ id: 3, name: 'Gone', order: 1, externalId: '9' }],
-      athletes: [{ id: 5, name: 'Old', divisionId: null, externalId: '500' }],
+      divisions: [{ id: 3, name: 'Gone', order: 1, externalId: '9', teamSize: 1 }],
+      athletes: [{ id: 5, name: 'Old', divisionId: null, externalId: '500', members: [] }],
     }
     const result = run({ divisions: [], workouts: [], athletes: [], heats: [] }, current, ['athlete:500'])
 

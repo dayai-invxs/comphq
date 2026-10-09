@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, score, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
@@ -68,6 +69,9 @@ export async function GET(req: Request) {
         .where(inArray(score.workoutId, workoutIds))
     : []
 
+  // A team shows its members under its name; an individual has none.
+  const members = await memberNamesByAthlete(athletes.map((a) => a.id))
+
   const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null }>()
   for (const s of scores) {
     if (s.points != null) {
@@ -103,7 +107,7 @@ export async function GET(req: Request) {
         workoutScores[wo.id] = null
       }
     }
-    return { athleteId: a.id, athleteName: a.name, divisionName: a.divisionName ?? null, totalPoints, workoutScores }
+    return { athleteId: a.id, athleteName: a.name, members: members.get(a.id) ?? [], divisionName: a.divisionName ?? null, totalPoints, workoutScores }
   })
 
   const tiebreakWorkout = tiebreakWorkoutId

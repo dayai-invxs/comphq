@@ -39,6 +39,9 @@ const Station = z.object({
   participantName: z.string(),
   divisionId: z.number(),
   affiliate: z.string().nullable(),
+  /** A team's members, comma-separated, the captain marked "(C) ". An
+      individual's own name. Not every event sends it. */
+  teammates: z.string().nullable().optional(),
 })
 
 const Heat = z.object({

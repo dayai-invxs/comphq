@@ -40,16 +40,31 @@ export const CompetitionUpdate = z.object({
 
 // ─── Athletes ─────────────────────────────────────────────────────────────
 
+export const Gender = z.enum(['male', 'female'])
+
+// A team's members, in the order they are listed. Sending the list replaces
+// whatever the team had; leaving it out keeps it. An empty list is a team
+// with no members, which is allowed.
+export const TeamMemberInput = z.object({
+  name: NonEmptyString.max(120),
+  gender: Gender.nullable().optional(),
+})
+const TeamMembers = z.array(TeamMemberInput).max(50)
+
 export const AthleteCreate = z.object({
   slug: Slug,
   name: NonEmptyString.max(120),
   bibNumber: z.string().trim().max(32).nullable().optional(),
   divisionId: Id.nullable().optional(),
+  gender: Gender.nullable().optional(),
+  members: TeamMembers.optional(),
 })
 export const AthleteUpdate = z.object({
   name: NonEmptyString.max(120),
   bibNumber: z.string().trim().max(32).nullable().optional(),
   divisionId: Id.nullable().optional(),
+  gender: Gender.nullable().optional(),
+  members: TeamMembers.optional(),
 })
 export const AthleteBulkDelete = z.object({
   slug: Slug,
@@ -75,14 +90,24 @@ export const VolunteerBulkDelete = z.object({
 
 // ─── Divisions ────────────────────────────────────────────────────────────
 
+// Athletes per entry (1 is an individual division), and optionally how many
+// of them should be men and women. Blank counts mean no requirement.
+const DivisionShape = {
+  teamSize: NumericInt.pipe(z.number().int().min(1).max(50)).optional(),
+  menCount: NumericInt.pipe(z.number().int().nonnegative().max(50)).nullable().optional(),
+  womenCount: NumericInt.pipe(z.number().int().nonnegative().max(50)).nullable().optional(),
+}
+
 export const DivisionCreate = z.object({
   slug: Slug,
   name: NonEmptyString.max(60),
   order: NumericInt.pipe(z.number().int().nonnegative()),
+  ...DivisionShape,
 })
 export const DivisionUpdate = z.object({
   name: NonEmptyString.max(60).optional(),
   order: NumericInt.pipe(z.number().int().nonnegative()).optional(),
+  ...DivisionShape,
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
 
 // ─── Workout Locations ────────────────────────────────────────────────────
