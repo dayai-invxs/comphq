@@ -84,6 +84,8 @@ export function usePeople(slug: string) {
 
   return {
     athletes: athletesQuery.data ?? [],
+    /** False until the roster has been read, so empty is not the same as none. */
+    athletesLoaded: athletesQuery.data !== undefined,
     divisions: divisionsQuery.data ?? [],
     volunteers: volunteersQuery.data ?? [],
     roles: rolesQuery.data ?? [],

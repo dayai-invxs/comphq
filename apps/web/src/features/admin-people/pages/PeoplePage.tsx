@@ -63,6 +63,7 @@ export function PeoplePage() {
               <AthletesTab
                 slug={slug}
                 athletes={people.athletes}
+                athletesLoaded={people.athletesLoaded}
                 divisions={people.divisions}
                 loading={people.loading}
                 setLoading={people.setLoading}

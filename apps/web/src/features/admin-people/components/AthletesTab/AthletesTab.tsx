@@ -23,7 +23,7 @@ import type { Athlete, Division, RunFn } from '../../usePeople'
 import { RosterSheet, type AddMode } from '../RosterSheet/RosterSheet'
 import { TeamMembersField, membersBody, type MemberDraft } from '../TeamMembersField/TeamMembersField'
 import { CsvImport } from '@/components/CsvImport/CsvImport'
-import { parseLookupCsv } from '@/lib/lookupCsv'
+import { parseRosterCsv, type RosterLine } from '@/lib/rosterCsv'
 import styles from './AthletesTab.module.css'
 
 // v1: the athletes half of src/app/[slug]/admin/people/page.tsx. The writes are
@@ -47,6 +47,9 @@ import styles from './AthletesTab.module.css'
 interface Props {
   slug: string
   athletes: Athlete[]
+  /** False until the roster has been read. An import matches against it, so it
+      must not mistake a failed read for an empty roster and create everyone again. */
+  athletesLoaded: boolean
   divisions: Division[]
   loading: boolean
   setLoading: (v: boolean) => void
@@ -61,8 +64,21 @@ interface Props {
 type Form = { name: string; bib: string; divisionId: string; gender: Gender | ''; members: MemberDraft[] }
 const BLANK: Form = { name: '', bib: '', divisionId: '', gender: '', members: [] }
 
+/** What the import will do, in the words of the person about to press the button. */
+function importSummary(lines: RosterLine[], blocked: boolean): string | undefined {
+  if (blocked || lines.length === 0) return undefined
+  const count = (action: RosterLine['action']) => lines.filter((l) => l.action === action).length
+  const [creates, updates, same] = [count('create'), count('update'), count('unchanged')]
+  if (creates + updates === 0) return 'Everything in this list is already on the roster. Nothing to change.'
+  return [
+    creates && `Will add ${creates}`,
+    updates && `${creates ? 'update' : 'Will update'} ${updates}`,
+    same && `leave ${same} unchanged`,
+  ].filter(Boolean).join(', ') + '.'
+}
+
 export function AthletesTab({
-  slug, athletes, divisions, loading, setLoading, run, reload, setAthletes, adding, onCloseAdd,
+  slug, athletes, athletesLoaded, divisions, loading, setLoading, run, reload, setAthletes, adding, onCloseAdd,
 }: Props) {
   const roster = useRoster<Athlete>({
     slug, resource: 'athletes', noun: 'athlete/team', swapField: 'newAthleteId',
@@ -75,7 +91,10 @@ export function AthletesTab({
   const [deleting, setDeleting] = useState<Athlete | null>(null)
 
   const editing = athletes.find((a) => a.id === roster.editingId) ?? null
-  const imported = parseLookupCsv(bulkText, divisions, 2, bulkDivisionId ? Number(bulkDivisionId) : null)
+  const imported = parseRosterCsv(bulkText, divisions, bulkDivisionId ? Number(bulkDivisionId) : null, athletes)
+  const importProblems = bulkText.trim() && !loading && !athletesLoaded
+    ? ['The current roster did not load, so this list cannot be matched against it. Reload the page and try again.', ...imported.problems]
+    : imported.problems
 
   // The editor opens on whoever was tapped, so it opens holding what that
   // athlete already is rather than what the last one was.
@@ -140,14 +159,23 @@ export function AthletesTab({
     void roster.add(body(), close)
   }
 
-  // COM-108: Name, Bib, Division. A division is matched by name, never
-  // created, so a list naming one that is not there sends nothing.
+  // COM-108: a division is matched by name, never created, so a list naming one
+  // that is not there sends nothing. Nor does a list with any other problem.
+  // A row the roster already agrees with sends nothing either.
   function importMany() {
     const { lines, unknown } = imported
-    if (!lines.length || unknown.length) return
-    const entries = lines.map(({ name, cells, refId }) => ({
-      name,
-      body: { name, bibNumber: cells[1] || null, divisionId: refId },
+    if (!athletesLoaded || !lines.length || unknown.length || importProblems.length) return
+    const entries = lines.filter((l) => l.action !== 'unchanged').map((l) => ({
+      id: l.id ?? undefined,
+      name: l.name,
+      body: {
+        name: l.name,
+        bibNumber: l.bibNumber,
+        divisionId: l.divisionId,
+        // An update states the gender, so a move into a team division clears it.
+        ...(l.id != null || l.gender ? { gender: l.gender } : {}),
+        ...(l.members ? { members: l.members } : {}),
+      },
     }))
     void roster.bulk(entries, () => { setBulkText(''); close() })
   }
@@ -334,12 +362,15 @@ export function AthletesTab({
         }
         bulk={
           <CsvImport
-            format="Name, Bib, Division (bib and division optional)"
-            example={['Jane Doe, 42, RX', 'John Smith']}
+            format="Name, Bib, Division, Gender, Member 1, Member 1 Gender, Member 2, Member 2 Gender…"
+            example={['Jane Doe, 42, RX, F', 'Team Rocket, 12, Team RX, , Ann Lee, F, Bob Ray, M']}
+            help="Start with a row of column titles. Only Name is required, so leave out any column you don't need. A row is a team when its division is a team division: Name is the team name, and each person gets their own Member columns. Use Gender for individuals only. Uploading a name that's already on the roster updates that entry, and blank cells keep what it has."
             value={bulkText}
             onChange={setBulkText}
             refNoun="division"
             unknown={imported.unknown}
+            problems={importProblems}
+            summary={importSummary(imported.lines, imported.unknown.length + importProblems.length > 0)}
             fallback={divisions.length > 0 && (
               <Field label="Default division (for lines that name none)">
                 {divisionSelect(bulkDivisionId, setBulkDivisionId)}

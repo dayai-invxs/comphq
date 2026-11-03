@@ -66,11 +66,14 @@ export function useRoster<T extends Row>({
   }, [noun, reload, resource, run, setLoading, slug])
 
   // One request per line, and one banner per line that fails, so an import
-  // that trips on row 4 still lands rows 5 and 6.
-  const bulk = useCallback(async (entries: { name: string; body: object }[], reset: () => void) => {
+  // that trips on row 4 still lands rows 5 and 6. An entry with an id is one
+  // already on the roster, and updates it.
+  const bulk = useCallback(async (entries: { id?: number; name: string; body: object }[], reset: () => void) => {
     setLoading(true)
-    for (const entry of entries) {
-      await run(`Import "${entry.name}"`, () => apiPost(`/api/${resource}`, { slug, ...entry.body }))
+    for (const { id, name, body } of entries) {
+      await run(`Import "${name}"`, () => (id != null
+        ? apiPut(`/api/${resource}/${id}?slug=${slug}`, body)
+        : apiPost(`/api/${resource}`, { slug, ...body })))
     }
     reset()
     await reload()

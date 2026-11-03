@@ -17,13 +17,20 @@ interface Props {
   unknown: string[]
   /** The pick a line with a blank column falls back to. */
   fallback?: ReactNode
+  /** How the columns work, when the format line is not enough. */
+  help?: ReactNode
+  /** Anything else in the list that stops the import. */
+  problems?: string[]
+  /** What the import will do, once the list can go. */
+  summary?: string
 }
 
-export function CsvImport({ format, example, value, onChange, refNoun, unknown, fallback }: Props) {
+export function CsvImport({ format, example, value, onChange, refNoun, unknown, fallback, help, problems = [], summary }: Props) {
   const label = `One per line: ${format}`
   return (
     <>
       {fallback}
+      {help && <Text variant="meta" tone="muted">{help}</Text>}
       <FileDrop
         label="Drop a CSV here, or choose a file"
         hint={format}
@@ -42,6 +49,10 @@ export function CsvImport({ format, example, value, onChange, refNoun, unknown, 
           No {refNoun} named {unknown.join(', ')}. Add it on the setup screen, or fix the list.
         </Text>
       )}
+      {problems.map((problem) => (
+        <Text key={problem} role="alert" variant="meta" tone="danger">{problem}</Text>
+      ))}
+      {summary && <Text role="status" variant="meta" tone="muted">{summary}</Text>}
     </>
   )
 }

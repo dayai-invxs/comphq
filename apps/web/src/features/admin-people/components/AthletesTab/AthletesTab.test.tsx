@@ -19,7 +19,7 @@ const ATHLETES: Athlete[] = [
   { id: 2, competitionId: 1, name: 'Bo Barnes', bibNumber: null, divisionId: null, division: null, withdrawn: true, userId: null, gender: null, members: [] },
 ]
 
-function draw(over: { athletes?: Athlete[]; divisions?: Division[]; adding?: boolean; loading?: boolean } = {}) {
+function draw(over: { athletes?: Athlete[]; athletesLoaded?: boolean; divisions?: Division[]; adding?: boolean; loading?: boolean } = {}) {
   const run = vi.fn(async (_label: string, op: () => Promise<unknown>) => {
     try { return await op() } catch { return undefined }
   })
@@ -30,6 +30,7 @@ function draw(over: { athletes?: Athlete[]; divisions?: Division[]; adding?: boo
     <AthletesTab
       slug="rugged-rumble"
       athletes={over.athletes ?? ATHLETES}
+      athletesLoaded={over.athletesLoaded ?? true}
       divisions={over.divisions ?? DIVISIONS}
       loading={over.loading ?? false}
       setLoading={vi.fn()}
@@ -167,6 +168,87 @@ describe('adding athletes', () => {
       target: { value: 'Cy Cole, 9, Teens\nDi Dean, , Rx' },
     })
     expect(form.getByRole('alert')).toHaveTextContent('No division named Teens')
+    press('Import athletes/teams')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  it('imports a team with its members, and an individual with a gender', async () => {
+    const team: Division = { id: 5, name: 'Team Rx', order: 3, teamSize: 2, menCount: 1, womenCount: 1 }
+    draw({ adding: true, divisions: [...DIVISIONS, team] })
+    const form = sheet('Add athlete/team')
+    fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
+    fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
+      target: {
+        value: 'Name, Division, Gender, Member 1, Member 1 Gender, Member 2, Member 2 Gender\n'
+          + 'Duo, Team Rx, , Ann Lee, F, Bob Ray, M\n'
+          + 'Cy Cole, Rx, M',
+      },
+    })
+    press('Import athletes/teams')
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(2))
+    expect(apiPost.mock.calls[0][1]).toEqual({
+      slug: 'rugged-rumble',
+      name: 'Duo',
+      bibNumber: null,
+      divisionId: 5,
+      members: [{ name: 'Ann Lee', gender: 'female' }, { name: 'Bob Ray', gender: 'male' }],
+    })
+    expect(apiPost.mock.calls[1][1]).toEqual({
+      slug: 'rugged-rumble', name: 'Cy Cole', bibNumber: null, divisionId: 3, gender: 'male',
+    })
+  })
+
+  it('says what is wrong with a list and imports nothing', async () => {
+    draw({ adding: true })
+    const form = sheet('Add athlete/team')
+    fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
+    fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
+      target: { value: 'Name, Email\nCy Cole, c@x.io' },
+    })
+    expect(form.getByRole('alert')).toHaveTextContent('Unknown column "Email"')
+    press('Import athletes/teams')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  it('updates a name on the roster, keeps its bib, and adds only the new one', async () => {
+    draw({ adding: true })
+    const form = sheet('Add athlete/team')
+    fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
+    fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
+      target: { value: 'Name, Division\nann adams, Scaled\nCy Cole, Rx' },
+    })
+    expect(form.getByRole('status')).toHaveTextContent('Will add 1, update 1.')
+    press('Import athletes/teams')
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1))
+    expect(apiPut).toHaveBeenCalledTimes(1)
+    expect(apiPut).toHaveBeenCalledWith('/api/athletes/1?slug=rugged-rumble', {
+      name: 'ann adams', bibNumber: '7', divisionId: 4, gender: null,
+    })
+    expect(apiPost.mock.calls[0][1]).toMatchObject({ name: 'Cy Cole', divisionId: 3 })
+  })
+
+  it('sends nothing for a row the roster already agrees with', async () => {
+    draw({ adding: true })
+    const form = sheet('Add athlete/team')
+    fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
+    fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
+      target: { value: 'Name, Bib, Division\nAnn Adams, 7, Rx' },
+    })
+    expect(form.getByRole('status')).toHaveTextContent('Nothing to change')
+    press('Import athletes/teams')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+
+  it('will not import over a roster that failed to load', async () => {
+    draw({ adding: true, athletes: [], athletesLoaded: false })
+    const form = sheet('Add athlete/team')
+    fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
+    fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), { target: { value: 'Cy Cole, 9' } })
+    expect(form.getByRole('alert')).toHaveTextContent('did not load')
     press('Import athletes/teams')
     await new Promise((r) => setTimeout(r, 0))
     expect(apiPost).not.toHaveBeenCalled()
