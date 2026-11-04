@@ -24,6 +24,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         points: score.points,
         partBRawScore: score.partBRawScore,
         partBPoints: score.partBPoints,
+        capped: score.capped,
+        partBCapped: score.partBCapped,
         athleteName: athleteTable.name,
         bibNumber: athleteTable.bibNumber,
         divisionId: athleteTable.divisionId,
@@ -41,6 +43,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       points: r.points,
       partBRawScore: r.partBRawScore,
       partBPoints: r.partBPoints,
+      capped: r.capped,
+      partBCapped: r.partBCapped,
       athlete: { id: r.athleteId, name: r.athleteName, bibNumber: r.bibNumber, divisionId: r.divisionId },
     })))
   } catch (e) {
@@ -57,7 +61,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
-    await requireWorkoutInCompetition(workoutId, competition.id)
+    const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string }>(workoutId, competition.id)
+    // Only a time can be capped; anything else has no finish to miss.
+    const capped = wk.scoreType === 'time' && (parsed.data.capped ?? false)
+    const partBCapped = wk.partBScoreType === 'time' && parsed.data.partBRawScore != null && (parsed.data.partBCapped ?? false)
 
     const [row] = await db
       .insert(score)
@@ -69,6 +76,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         points: null,
         partBRawScore: parsed.data.partBRawScore ?? null,
         partBPoints: null,
+        capped,
+        partBCapped,
       })
       .onConflictDoUpdate({
         target: [score.athleteId, score.workoutId],
@@ -78,6 +87,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           points: sql`NULL`,
           partBRawScore: sql`excluded."partBRawScore"`,
           partBPoints: sql`NULL`,
+          capped: sql`excluded."capped"`,
+          partBCapped: sql`excluded."partBCapped"`,
         },
       })
       .returning()

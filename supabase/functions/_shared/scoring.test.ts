@@ -79,9 +79,9 @@ describe('calcCumulativePoints', () => {
       {
         id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null, withdrawn: false, externalId: null, gender: null,
         scores: [
-          { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null },
-          { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null },
-          { id: 3, athleteId: 1, workoutId: 99, rawScore: 0, tiebreakRawScore: null, points: 100, partBRawScore: null, partBPoints: null },
+          { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false },
+          { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false },
+          { id: 3, athleteId: 1, workoutId: 99, rawScore: 0, tiebreakRawScore: null, points: 100, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false },
         ],
       },
     ]
@@ -142,9 +142,9 @@ describe('rankAndPersist', () => {
     mock.queueResult(undefined)
 
     const result = await rankAndPersist(7, workout, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
-      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
-      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: null, divisionId: 1, capped: false, partBCapped: false },
     ])
 
     expect(result.count).toBe(3)
@@ -159,7 +159,7 @@ describe('rankAndPersist', () => {
   it('preserves rawScore/tiebreak/partBRawScore on the upserted rows', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, { ...workout, partBEnabled: true }, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50, divisionId: 1 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50, divisionId: 1, capped: false, partBCapped: false },
     ])
     const row = (lastValues() as Array<Record<string, unknown>>)[0]
     expect(row).toMatchObject({ rawScore: 100, tiebreakRawScore: 5, partBRawScore: 50 })
@@ -168,8 +168,8 @@ describe('rankAndPersist', () => {
   it('computes partB points when enabled, leaves them null otherwise', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, { ...workout, partBEnabled: true }, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1 },
-      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: 20, divisionId: 1 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 2, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: 20, divisionId: 1, capped: false, partBCapped: false },
     ])
     const rows = lastValues() as Array<{ athleteId: number; partBPoints: number | null }>
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.partBPoints]))
@@ -181,9 +181,9 @@ describe('rankAndPersist', () => {
     mock.queueResult(undefined)
     // Athletes 1 and 2 tie on Part A (same rawScore); athlete 2 has better Part B → wins the tie
     await rankAndPersist(7, { ...workout, partBEnabled: true, partBScoreType: 'time' }, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 50, divisionId: 1 },
-      { athleteId: 2, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1 },
-      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: 40, divisionId: 1 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 50, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 2, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 3, workoutId: 7, rawScore: 120, tiebreakRawScore: null, partBRawScore: 40, divisionId: 1, capped: false, partBCapped: false },
     ])
     const rows = lastValues() as Array<{ athleteId: number; points: number }>
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.points]))
@@ -196,9 +196,9 @@ describe('rankAndPersist', () => {
     mock.queueResult(undefined)
     // Athletes 1 and 2 tie on Part B; athlete 2 has better Part A → wins the Part B tie
     await rankAndPersist(7, { ...workout, partBEnabled: true, partBScoreType: 'time' }, [
-      { athleteId: 1, workoutId: 7, rawScore: 110, tiebreakRawScore: null, partBRawScore: 40, divisionId: 1 },
-      { athleteId: 2, workoutId: 7, rawScore: 90,  tiebreakRawScore: null, partBRawScore: 40, divisionId: 1 },
-      { athleteId: 3, workoutId: 7, rawScore: 80,  tiebreakRawScore: null, partBRawScore: 60, divisionId: 1 },
+      { athleteId: 1, workoutId: 7, rawScore: 110, tiebreakRawScore: null, partBRawScore: 40, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 2, workoutId: 7, rawScore: 90,  tiebreakRawScore: null, partBRawScore: 40, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 3, workoutId: 7, rawScore: 80,  tiebreakRawScore: null, partBRawScore: 60, divisionId: 1, capped: false, partBCapped: false },
     ])
     const rows = lastValues() as Array<{ athleteId: number; partBPoints: number | null }>
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.partBPoints]))
@@ -210,7 +210,7 @@ describe('rankAndPersist', () => {
   it('leaves partBPoints null when partBEnabled is false', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, workout, [
-      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1 },
+      { athleteId: 1, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: 30, divisionId: 1, capped: false, partBCapped: false },
     ])
     const row = (lastValues() as Array<Record<string, unknown>>)[0]
     expect(row.partBPoints).toBeNull()
@@ -219,10 +219,10 @@ describe('rankAndPersist', () => {
   it('ranks each division independently so points restart at 1 per division', async () => {
     mock.queueResult(undefined)
     await rankAndPersist(7, workout, [
-      { athleteId: 1, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
-      { athleteId: 2, workoutId: 7, rawScore: 90, tiebreakRawScore: null, partBRawScore: null, divisionId: 1 },
-      { athleteId: 3, workoutId: 7, rawScore: 70, tiebreakRawScore: null, partBRawScore: null, divisionId: 2 },
-      { athleteId: 4, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null, divisionId: 2 },
+      { athleteId: 1, workoutId: 7, rawScore: 80, tiebreakRawScore: null, partBRawScore: null, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 2, workoutId: 7, rawScore: 90, tiebreakRawScore: null, partBRawScore: null, divisionId: 1, capped: false, partBCapped: false },
+      { athleteId: 3, workoutId: 7, rawScore: 70, tiebreakRawScore: null, partBRawScore: null, divisionId: 2, capped: false, partBCapped: false },
+      { athleteId: 4, workoutId: 7, rawScore: 100, tiebreakRawScore: null, partBRawScore: null, divisionId: 2, capped: false, partBCapped: false },
     ])
     const rows = lastValues() as Array<{ athleteId: number; points: number }>
     const byId = Object.fromEntries(rows.map((r) => [r.athleteId, r.points]))
@@ -238,5 +238,62 @@ describe('rankAndPersist', () => {
     const result = await rankAndPersist(7, workout, [])
     expect(result.count).toBe(0)
     expect(mock.calls).toHaveLength(0)
+  })
+})
+
+// A capped score holds rounds and reps, so it never compares with a time by value.
+describe('calculateRankings with capped scores', () => {
+  const pointsOf = (ranked: { athleteId: number; points: number }[]) =>
+    Object.fromEntries(ranked.map((r) => [r.athleteId, r.points]))
+
+  it('places every finisher ahead of every capped athlete, however the numbers compare', () => {
+    const ranked = calculateRankings([
+      { athleteId: 1, rawScore: 40_012, capped: true }, // 4 rounds + 12: a smaller number than the time below
+      { athleteId: 2, rawScore: 600_000 },
+      { athleteId: 3, rawScore: 500_000 },
+    ], 'time')
+    expect(pointsOf(ranked)).toEqual({ 3: 1, 2: 2, 1: 3 })
+  })
+
+  it('orders capped athletes by rounds, then reps, most first', () => {
+    const ranked = calculateRankings([
+      { athleteId: 1, rawScore: 30_020, capped: true },
+      { athleteId: 2, rawScore: 40_005, capped: true },
+      { athleteId: 3, rawScore: 40_012, capped: true },
+    ], 'time')
+    expect(pointsOf(ranked)).toEqual({ 3: 1, 2: 2, 1: 3 })
+  })
+
+  it('ties capped athletes on the same rounds and reps', () => {
+    const ranked = calculateRankings([
+      { athleteId: 1, rawScore: 40_012, capped: true },
+      { athleteId: 2, rawScore: 40_012, capped: true },
+      { athleteId: 3, rawScore: 30_000, capped: true },
+    ], 'time')
+    expect(pointsOf(ranked)).toEqual({ 1: 1, 2: 1, 3: 3 })
+  })
+
+  it('does not tie a time with a capped score of the same number', () => {
+    const ranked = calculateRankings([
+      { athleteId: 1, rawScore: 40_012, capped: true },
+      { athleteId: 2, rawScore: 40_012 },
+    ], 'time')
+    expect(pointsOf(ranked)).toEqual({ 2: 1, 1: 2 })
+  })
+
+  it('breaks a capped tie with the tiebreak', () => {
+    const ranked = calculateRankings([
+      { athleteId: 1, rawScore: 40_012, capped: true, tiebreakRawScore: 200_000 },
+      { athleteId: 2, rawScore: 40_012, capped: true, tiebreakRawScore: 100_000 },
+    ], 'time', true, 'time')
+    expect(pointsOf(ranked)).toEqual({ 2: 1, 1: 2 })
+  })
+
+  it('reads a capped Part B as worse than a finished one when it breaks a tie', () => {
+    const ranked = calculateRankings([
+      { athleteId: 1, rawScore: 300_000, tiebreakRawScore: 40_012, tiebreakCapped: true },
+      { athleteId: 2, rawScore: 300_000, tiebreakRawScore: 90_000 },
+    ], 'time', true, 'time')
+    expect(pointsOf(ranked)).toEqual({ 2: 1, 1: 2 })
   })
 })

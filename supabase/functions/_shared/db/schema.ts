@@ -167,6 +167,10 @@ export const score = pgTable('Score', {
   points: integer('points'),
   partBRawScore: doublePrecision('partBRawScore'),
   partBPoints: integer('partBPoints'),
+  /** Set when the athlete hit the time cap: rawScore is rounds and reps, not a time. */
+  capped: boolean('capped').notNull().default(false),
+  /** The same, for partBRawScore. */
+  partBCapped: boolean('partBCapped').notNull().default(false),
 }, (t) => [
   uniqueIndex('Score_athleteId_workoutId_key').on(t.athleteId, t.workoutId),
 ])

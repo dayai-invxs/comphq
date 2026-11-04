@@ -20,6 +20,8 @@ const score = (over: Partial<Score> & { id: number; athleteId: number; name: str
   points: 1,
   partBRawScore: null,
   partBPoints: null,
+  capped: false,
+  partBCapped: false,
   athlete: athlete(over.athleteId, over.name),
   ...over,
 })

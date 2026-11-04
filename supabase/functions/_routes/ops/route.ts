@@ -70,6 +70,7 @@ export async function GET(req: Request) {
             athleteId: score.athleteId,
             workoutId: score.workoutId,
             rawScore: score.rawScore,
+            capped: score.capped,
             tiebreakRawScore: score.tiebreakRawScore,
           })
           .from(score)
@@ -85,7 +86,7 @@ export async function GET(req: Request) {
   for (const s of scoreRows) {
     const w = workouts.find((x) => x.id === s.workoutId)
     if (w) {
-      scoreMap.set(`${s.athleteId}-${s.workoutId}`, formatScore(s.rawScore, w.scoreType))
+      scoreMap.set(`${s.athleteId}-${s.workoutId}`, formatScore(s.rawScore, w.scoreType, s.capped))
       if (w.tiebreakEnabled && s.tiebreakRawScore != null) {
         const tbDisplay = w.tiebreakScoreType === 'time'
           ? formatTiebreak(s.tiebreakRawScore)

@@ -53,8 +53,8 @@ describe('POST /api/athletes/[id]/withdraw', () => {
 
     const values = mock.calls.find(c => c.method === 'values')!.args[0] as Record<string, unknown>[]
     expect(values).toEqual([
-      { athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, partBRawScore: null, points: null, partBPoints: null },
-      { athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, partBRawScore: null, points: null, partBPoints: null },
+      { athleteId: 1, workoutId: 10, rawScore: 0, capped: true, tiebreakRawScore: null, partBRawScore: null, partBCapped: false, points: null, partBPoints: null },
+      { athleteId: 1, workoutId: 11, rawScore: 0, capped: true, tiebreakRawScore: null, partBRawScore: null, partBCapped: false, points: null, partBPoints: null },
     ])
   })
 
@@ -92,7 +92,7 @@ describe('POST /api/athletes/[id]/withdraw', () => {
     mock.queueResults(
       [{ id: 1, withdrawn: false }],
       [],
-      [wk({ id: 10, tiebreakEnabled: true, partBEnabled: true })],
+      [wk({ id: 10, tiebreakEnabled: true, tiebreakScoreType: 'reps', partBEnabled: true })],
       [],
       [],
     )
@@ -102,6 +102,35 @@ describe('POST /api/athletes/[id]/withdraw', () => {
     expect(values[0]).toMatchObject({ rawScore: 0, tiebreakRawScore: 0, partBRawScore: 0 })
   })
 
+  // A 0 on a timed workout would be the fastest time there is.
+  it('enters a timed workout as capped with no work done, so it places last', async () => {
+    mock.queueResults(
+      [{ id: 1, withdrawn: false }],
+      [],
+      [wk({ id: 10, scoreType: 'time', tiebreakEnabled: true, tiebreakScoreType: 'time', partBEnabled: true, partBScoreType: 'time' })],
+      [],
+      [],
+    )
+    await POST(req('POST'), params('1'))
+
+    const values = mock.calls.find(c => c.method === 'values')!.args[0] as Record<string, unknown>[]
+    expect(values[0]).toMatchObject({ rawScore: 0, capped: true, tiebreakRawScore: null, partBRawScore: 0, partBCapped: true })
+  })
+
+  it('leaves a higher-is-better workout uncapped, where 0 already places last', async () => {
+    mock.queueResults(
+      [{ id: 1, withdrawn: false }],
+      [],
+      [wk({ id: 10, scoreType: 'rounds_reps', tiebreakEnabled: true, tiebreakScoreType: 'weight', partBEnabled: true, partBScoreType: 'weight' })],
+      [],
+      [],
+    )
+    await POST(req('POST'), params('1'))
+
+    const values = mock.calls.find(c => c.method === 'values')!.args[0] as Record<string, unknown>[]
+    expect(values[0]).toMatchObject({ rawScore: 0, capped: false, tiebreakRawScore: 0, partBRawScore: 0, partBCapped: false })
+  })
+
   it('recalculates only the completed workouts', async () => {
     mock.queueResults(
       [{ id: 1, withdrawn: false }],
@@ -109,7 +138,7 @@ describe('POST /api/athletes/[id]/withdraw', () => {
       [wk({ id: 10, status: 'completed' }), wk({ id: 11, status: 'draft' })],
       [],
       [],
-      [{ athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, partBRawScore: null, divisionId: 3 }],
+      [{ athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, partBRawScore: null, capped: false, partBCapped: false, divisionId: 3 }],
       [],
     )
     const res = await POST(req('POST'), params('1'))

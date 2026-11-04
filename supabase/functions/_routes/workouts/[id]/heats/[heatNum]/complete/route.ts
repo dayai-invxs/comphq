@@ -40,6 +40,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           rawScore: score.rawScore,
           tiebreakRawScore: score.tiebreakRawScore,
           partBRawScore: score.partBRawScore,
+          capped: score.capped,
+          partBCapped: score.partBCapped,
           divisionId: athlete.divisionId,
         })
         .from(score)

@@ -63,6 +63,8 @@ const SCORE: Score = {
   points: 3,
   partBRawScore: null,
   partBPoints: null,
+  capped: false,
+  partBCapped: false,
   athlete: athlete(1, 'Ann Adams', 'Rx'),
 }
 
@@ -77,6 +79,10 @@ const scoreInputs = () =>
     partBTimeInputs: {},
     partBWeightInputs: {},
     partBRrInputs: {},
+    cappedInputs: {},
+    partBCappedInputs: {},
+    setCappedInputs: vi.fn(),
+    setPartBCappedInputs: vi.fn(),
     setWeightInputs: vi.fn(),
     setTimeInputs: vi.fn(),
     setRrInputs: vi.fn(),

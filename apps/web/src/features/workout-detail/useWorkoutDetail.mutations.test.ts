@@ -10,7 +10,7 @@ const { apiGet, apiPost, apiPut, apiDel } = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/api', () => ({ apiGet, apiPost, apiPut, apiDel }))
 
-const PAYLOAD = { athleteId: 1, rawScore: 1000, tiebreakRawScore: null, partBRawScore: null }
+const PAYLOAD = { athleteId: 1, rawScore: 1000, tiebreakRawScore: null, partBRawScore: null, capped: false, partBCapped: false }
 
 beforeEach(() => {
   vi.clearAllMocks()

@@ -353,6 +353,8 @@ export function HeatCard({
                       setRr={scoreInputs.setRrInputs}
                       weight={scoreInputs.weightInputs}
                       setWeight={scoreInputs.setWeightInputs}
+                      capped={scoreInputs.cappedInputs}
+                      setCapped={scoreInputs.setCappedInputs}
                       tiebreakEnabled={workout.tiebreakEnabled}
                       tiebreakScoreType={workout.tiebreakScoreType}
                       tiebreak={scoreInputs.tiebreakInputs}
@@ -370,6 +372,8 @@ export function HeatCard({
                         setRr={scoreInputs.setPartBRrInputs}
                         weight={scoreInputs.partBWeightInputs}
                         setWeight={scoreInputs.setPartBWeightInputs}
+                        capped={scoreInputs.partBCappedInputs}
+                        setCapped={scoreInputs.setPartBCappedInputs}
                       />
                     </td>
                   )}
@@ -428,8 +432,8 @@ export function HeatCard({
                             <Text as="span" variant="meta" tone="muted"> / B#{score.partBPoints}</Text>
                           )}
                         </Text>
-                        {score.rawScore > 0 && (
-                          <Text as="div" variant="meta" tone="muted">{formatScore(score.rawScore, workout.scoreType)}</Text>
+                        {(score.rawScore > 0 || score.capped) && (
+                          <Text as="div" variant="meta" tone="muted">{formatScore(score.rawScore, workout.scoreType, score.capped)}</Text>
                         )}
                         {score.tiebreakRawScore != null && (
                           <Text as="div" variant="meta" tone="accent">

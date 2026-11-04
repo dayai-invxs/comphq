@@ -55,6 +55,33 @@ describe('POST /api/workouts/[id]/scores', () => {
   })
 })
 
+describe('POST /api/workouts/[id]/scores, capped', () => {
+  const sent = () => mock.calls.find(
+    (c) => c.method === 'values' && (c.args[0] as { athleteId?: number }).athleteId === 2,
+  )!.args[0] as { capped: boolean; partBCapped: boolean }
+
+  it('stores the flag on a timed workout', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 1 }])
+    await POST(req('POST', { athleteId: 2, rawScore: 40012, capped: true, partBRawScore: 30000, partBCapped: true }), params('1'))
+    expect(sent()).toMatchObject({ rawScore: 40012, capped: true, partBCapped: true })
+  })
+
+  it('refuses the flag where there is no time to miss', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'rounds_reps', partBScoreType: 'weight' }])
+    mock.queueResult([{ id: 1 }])
+    await POST(req('POST', { athleteId: 2, rawScore: 40012, capped: true, partBRawScore: 100, partBCapped: true }), params('1'))
+    expect(sent()).toMatchObject({ capped: false, partBCapped: false })
+  })
+
+  it('treats a score that does not mention it as finished', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 1 }])
+    await POST(req('POST', { athleteId: 2, rawScore: 95 }), params('1'))
+    expect(sent()).toMatchObject({ capped: false, partBCapped: false })
+  })
+})
+
 describe('DELETE /api/workouts/[id]/scores', () => {
   it('rejects unauthenticated', async () => {
     setAuthUser(null)

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { PartAInputCell, PartBInputCell } from './ScoreInputCells'
 import type { RRField } from '../../useScoreInputs'
@@ -15,10 +15,12 @@ function cellA(over: Partial<Parameters<typeof PartAInputCell>[0]> = {}) {
     setRr: vi.fn(),
     setWeight: vi.fn(),
     setTiebreak: vi.fn(),
+    setCapped: vi.fn(),
   }
   render(
     <PartAInputCell
       athleteId={1}
+      capped={{} as Record<number, boolean>}
       scoreType="time"
       time={{} as Record<number, string>}
       rr={{} as Record<number, RRField>}
@@ -101,7 +103,7 @@ describe('the part A cell', () => {
     const { container } = render(
       <PartAInputCell
         athleteId={1} scoreType="time"
-        time={{}} setTime={vi.fn()} rr={{}} setRr={vi.fn()} weight={{}} setWeight={vi.fn()}
+        time={{}} setTime={vi.fn()} rr={{}} setRr={vi.fn()} weight={{}} setWeight={vi.fn()} capped={{}} setCapped={vi.fn()}
         tiebreakEnabled tiebreakScoreType="time" tiebreak={{}} setTiebreak={vi.fn()}
       />,
     )
@@ -116,7 +118,7 @@ describe('the part B cell', () => {
         athleteId={1} scoreType="rounds_reps"
         time={{}} setTime={vi.fn()}
         rr={{ 1: { rounds: '2', reps: '9' } }} setRr={vi.fn()}
-        weight={{}} setWeight={vi.fn()}
+        weight={{}} setWeight={vi.fn()} capped={{}} setCapped={vi.fn()}
       />,
     )
     expect(screen.getByDisplayValue('2')).toBeInTheDocument()
@@ -127,9 +129,33 @@ describe('the part B cell', () => {
     render(
       <PartBInputCell
         athleteId={1} scoreType="time"
-        time={{ 1: '1:00' }} setTime={vi.fn()} rr={{}} setRr={vi.fn()} weight={{}} setWeight={vi.fn()}
+        time={{ 1: '1:00' }} setTime={vi.fn()} rr={{}} setRr={vi.fn()} weight={{}} setWeight={vi.fn()} capped={{}} setCapped={vi.fn()}
       />,
     )
     expect(screen.queryByText('TB:')).not.toBeInTheDocument()
+  })
+})
+
+describe('a capped time', () => {
+  it('offers Capped on a timed score, and only there', () => {
+    cellA()
+    expect(screen.getByRole('checkbox', { name: 'Score capped' })).not.toBeChecked()
+    cleanup()
+    cellA({ scoreType: 'rounds_reps' })
+    expect(screen.queryByRole('checkbox', { name: 'Score capped' })).toBeNull()
+  })
+
+  it('swaps the time for rounds and reps once ticked', () => {
+    cellA({ capped: { 1: true } })
+    expect(screen.queryByRole('textbox', { name: 'Score time' })).toBeNull()
+    expect(screen.getByRole('spinbutton', { name: 'Score rounds' })).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: 'Score reps' })).toBeInTheDocument()
+  })
+
+  it('reports the tick', () => {
+    const { setCapped } = cellA()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Score capped' }))
+    const update = setCapped.mock.calls[0][0] as (p: Record<number, boolean>) => Record<number, boolean>
+    expect(update({})).toEqual({ 1: true })
   })
 })

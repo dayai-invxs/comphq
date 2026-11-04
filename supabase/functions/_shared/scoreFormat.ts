@@ -19,7 +19,12 @@ export function scoreToRoundsReps(score: number): { rounds: number; reps: number
   return { rounds: Math.floor(score / REPS_MULTIPLIER), reps: Math.round(score % REPS_MULTIPLIER) }
 }
 
-export function formatScore(rawScore: number, scoreType: string): string {
+/** A capped score holds rounds and reps whatever the workout's score type. */
+export function formatScore(rawScore: number, scoreType: string, capped = false): string {
+  if (capped) {
+    const { rounds, reps } = scoreToRoundsReps(rawScore)
+    return `CAP ${rounds}r + ${reps}`
+  }
   if (scoreType === 'time' || scoreType === 'lower_is_better') {
     const { mins, secs, ms } = msToTimeParts(rawScore)
     const cs = Math.round(ms / 10)

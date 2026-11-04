@@ -17,6 +17,7 @@ export type Assignment = { id: number; heatNumber: number; lane: number; athlete
 export type Score = {
   id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null
   points: number | null; partBRawScore: number | null; partBPoints: number | null; athlete: Athlete
+  capped: boolean; partBCapped: boolean
 }
 export type Workout = {
   id: number; number: number; name: string; description: string | null; scoreType: string; lanes: number
@@ -32,6 +33,8 @@ export type ScorePayload = {
   rawScore: number
   tiebreakRawScore: number | null
   partBRawScore: number | null
+  capped: boolean
+  partBCapped: boolean
 }
 
 type Options = {

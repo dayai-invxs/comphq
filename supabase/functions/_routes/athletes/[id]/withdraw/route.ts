@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, workout, score } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
-import { rankAndPersist } from '@/lib/scoring'
+import { lowerIsBetter, rankAndPersist } from '@/lib/scoring'
 
 type WorkoutRow = {
   id: number
@@ -25,7 +25,7 @@ async function getCompetitionAndAthlete(slug: string, id: number) {
   return { competition, athlete: row }
 }
 
-// POST — withdraw athlete: flag + insert 0-scores + recalculate completed workouts
+// POST — withdraw athlete: flag + insert last-place scores + recalculate completed workouts
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
@@ -66,9 +66,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         unscoredWorkouts.map((w) => ({
           athleteId: a.id,
           workoutId: w.id,
+          // On anything timed, 0 would be the fastest result there is. So it goes
+          // in as capped with no work done, which places last, and a time
+          // tiebreak is left empty because an empty one loses to any real one.
           rawScore: 0,
-          tiebreakRawScore: w.tiebreakEnabled ? 0 : null,
+          capped: lowerIsBetter(w.scoreType),
+          tiebreakRawScore: w.tiebreakEnabled && !lowerIsBetter(w.tiebreakScoreType) ? 0 : null,
           partBRawScore: w.partBEnabled ? 0 : null,
+          partBCapped: w.partBEnabled && lowerIsBetter(w.partBScoreType),
           points: null,
           partBPoints: null,
         })),
@@ -82,6 +87,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             rawScore: score.rawScore,
             tiebreakRawScore: score.tiebreakRawScore,
             partBRawScore: score.partBRawScore,
+            capped: score.capped,
+            partBCapped: score.partBCapped,
             divisionId: athlete.divisionId,
           })
           .from(score)
@@ -100,7 +107,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 }
 
-// DELETE — un-withdraw: clears the flag only; inserted 0-scores are left in place
+// DELETE — un-withdraw: clears the flag only; inserted scores are left in place
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {

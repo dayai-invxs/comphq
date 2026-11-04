@@ -186,6 +186,8 @@ export const ScoreUpsert = z.object({
   rawScore: z.number(),
   tiebreakRawScore: z.number().nullable().optional(),
   partBRawScore: z.number().nullable().optional(),
+  capped: z.boolean().optional(),
+  partBCapped: z.boolean().optional(),
 })
 
 export const ScorePointsOverride = z.object({

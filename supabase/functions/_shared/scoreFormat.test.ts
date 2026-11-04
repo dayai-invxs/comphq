@@ -38,3 +38,14 @@ describe('formatTiebreak', () => {
     expect(formatTiebreak(2 * 60000 + 7 * 1000)).toBe('2:07.00')
   })
 })
+
+describe('a capped score', () => {
+  it('reads as the rounds and reps it holds, whatever the workout type', () => {
+    expect(formatScore(40012, 'time', true)).toBe('CAP 4r + 12')
+    expect(formatScore(0, 'time', true)).toBe('CAP 0r + 0')
+  })
+
+  it('leaves an uncapped time as a time', () => {
+    expect(formatScore(330000, 'time', false)).toBe('5:30.00')
+  })
+})

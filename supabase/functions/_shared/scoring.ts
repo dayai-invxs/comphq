@@ -126,22 +126,43 @@ export function lowerIsBetter(scoreType: string): boolean {
   return scoreType === 'time' || scoreType === 'lower_is_better'
 }
 
+// A finished time beats any capped score, whatever the numbers say: a capped
+// score holds rounds and reps, not milliseconds, so the two never compare by
+// value. Between capped scores, more work done is better.
+function compareResults(
+  a: number, aCapped: boolean,
+  b: number, bCapped: boolean,
+  scoreType: string,
+): number {
+  if (aCapped !== bCapped) return aCapped ? 1 : -1
+  if (aCapped) return b - a
+  return lowerIsBetter(scoreType) ? a - b : b - a
+}
+
 export function calculateRankings(
-  scores: Array<{ athleteId: number; rawScore: number; tiebreakRawScore?: number | null }>,
+  scores: Array<{
+    athleteId: number
+    rawScore: number
+    capped?: boolean
+    tiebreakRawScore?: number | null
+    tiebreakCapped?: boolean
+  }>,
   scoreType: string,
   tiebreakEnabled = false,
   tiebreakScoreType = 'time'
 ): Array<{ athleteId: number; rawScore: number; points: number }> {
   const sorted = [...scores].sort((a, b) => {
-    const primary = lowerIsBetter(scoreType) ? a.rawScore - b.rawScore : b.rawScore - a.rawScore
+    const primary = compareResults(a.rawScore, a.capped ?? false, b.rawScore, b.capped ?? false, scoreType)
     if (primary !== 0) return primary
     if (!tiebreakEnabled) return 0
     if (a.tiebreakRawScore == null && b.tiebreakRawScore == null) return 0
     if (a.tiebreakRawScore == null) return 1
     if (b.tiebreakRawScore == null) return -1
-    return lowerIsBetter(tiebreakScoreType)
-      ? a.tiebreakRawScore - b.tiebreakRawScore
-      : b.tiebreakRawScore - a.tiebreakRawScore
+    return compareResults(
+      a.tiebreakRawScore, a.tiebreakCapped ?? false,
+      b.tiebreakRawScore, b.tiebreakCapped ?? false,
+      tiebreakScoreType,
+    )
   })
   // Standard competition ranking: tied athletes share the same rank and positions
   // are skipped (e.g. two 7th places → next is 9th, not 8th).
@@ -150,9 +171,11 @@ export function calculateRankings(
     const s = sorted[i]
     if (i === 0) { result.push({ ...s, points: 1 }); continue }
     const prev = sorted[i - 1]
-    const primaryTied = prev.rawScore === s.rawScore
-    const tiebreakTied = !tiebreakEnabled ||
+    const primaryTied = prev.rawScore === s.rawScore && (prev.capped ?? false) === (s.capped ?? false)
+    const tiebreakTied = !tiebreakEnabled || (
       (prev.tiebreakRawScore ?? null) === (s.tiebreakRawScore ?? null)
+      && (prev.tiebreakCapped ?? false) === (s.tiebreakCapped ?? false)
+    )
     result.push({ ...s, points: primaryTied && tiebreakTied ? result[i - 1].points : i + 1 })
   }
   return result
@@ -164,6 +187,8 @@ type ScoreRow = {
   rawScore: number
   tiebreakRawScore: number | null
   partBRawScore: number | null
+  capped: boolean
+  partBCapped: boolean
   divisionId: number | null
 }
 
@@ -206,8 +231,10 @@ export async function rankAndPersist(
       group.map((s) => ({
         athleteId: s.athleteId,
         rawScore: s.rawScore,
+        capped: s.capped,
         // When partBEnabled, Part B score breaks ties in Part A ranking
         tiebreakRawScore: workout.partBEnabled ? (s.partBRawScore ?? null) : (s.tiebreakRawScore ?? null),
+        tiebreakCapped: workout.partBEnabled && s.partBCapped,
       })),
       workout.scoreType,
       workout.partBEnabled ? true : workout.tiebreakEnabled,
@@ -222,7 +249,9 @@ export async function rankAndPersist(
         partBScores.map((s) => ({
           athleteId: s.athleteId,
           rawScore: s.partBRawScore as number,
+          capped: s.partBCapped,
           tiebreakRawScore: s.rawScore,
+          tiebreakCapped: s.capped,
         })),
         workout.partBScoreType,
         true,
@@ -243,6 +272,8 @@ export async function rankAndPersist(
       rawScore: existing.rawScore,
       tiebreakRawScore: existing.tiebreakRawScore,
       partBRawScore: existing.partBRawScore,
+      capped: existing.capped,
+      partBCapped: existing.partBCapped,
       points,
       partBPoints: partBPointsMap.get(athleteId) ?? null,
     }

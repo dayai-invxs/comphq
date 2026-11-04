@@ -1,4 +1,4 @@
-import { Inline, Input, Text } from '@mond-design-system/react'
+import { Checkbox, Inline, Input, Stack, Text } from '@mond-design-system/react'
 import { REPS_MULTIPLIER } from '@/lib/scoreFormat'
 import { keyNav } from '@/lib/keyNav'
 import type { RRField } from '../../useScoreInputs'
@@ -112,18 +112,42 @@ type CommonProps = {
   setRr: Setter<RRField>
   weight: Record<number, string>
   setWeight: Setter<string>
+  capped: Record<number, boolean>
+  setCapped: Setter<boolean>
 }
 
 function ScoreControl({
-  athleteId, scoreType, time, setTime, rr, setRr, weight, setWeight, part,
+  athleteId, scoreType, time, setTime, rr, setRr, weight, setWeight, capped, setCapped, part,
 }: CommonProps & { part: string }) {
   if (scoreType === 'time') {
+    const isCapped = !!capped[athleteId]
     return (
-      <TimeInput
-        label={`${part} time`}
-        value={time[athleteId] ?? ''}
-        onChange={(v) => setTime((p) => ({ ...p, [athleteId]: v }))}
-      />
+      <Stack gap="hairline">
+        {isCapped ? (
+          <RoundsReps
+            part={part}
+            value={rr[athleteId]}
+            onRounds={(v) => setRr((p) => ({ ...p, [athleteId]: { ...p[athleteId], rounds: v } }))}
+            onReps={(v) => setRr((p) => ({ ...p, [athleteId]: { ...p[athleteId], reps: v } }))}
+          />
+        ) : (
+          <TimeInput
+            label={`${part} time`}
+            value={time[athleteId] ?? ''}
+            onChange={(v) => setTime((p) => ({ ...p, [athleteId]: v }))}
+          />
+        )}
+        <Checkbox
+          label="Capped"
+          aria-label={`${part} capped`}
+          checked={isCapped}
+          onChange={(e) => {
+            // Read now: a controlled box is put back before the updater runs.
+            const { checked } = e.target
+            setCapped((p) => ({ ...p, [athleteId]: checked }))
+          }}
+        />
+      </Stack>
     )
   }
   if (scoreType === 'rounds_reps') {

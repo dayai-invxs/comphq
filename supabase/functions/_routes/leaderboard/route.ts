@@ -62,6 +62,7 @@ export async function GET(req: Request) {
           workoutId: score.workoutId,
           points: score.points,
           rawScore: score.rawScore,
+          capped: score.capped,
           tiebreakRawScore: score.tiebreakRawScore,
           partBPoints: score.partBPoints,
         })
@@ -72,13 +73,14 @@ export async function GET(req: Request) {
   // A team shows its members under its name; an individual has none.
   const members = await memberNamesByAthlete(athletes.map((a) => a.id))
 
-  const scoreMap = new Map<string, { points: number; rawScore: number; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null }>()
+  const scoreMap = new Map<string, { points: number; rawScore: number; capped: boolean; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null }>()
   for (const s of scores) {
     if (s.points != null) {
       const wo = visibleWorkouts.find((w) => w.id === s.workoutId)
       scoreMap.set(`${s.athleteId}-${s.workoutId}`, {
         points: s.points,
         rawScore: s.rawScore,
+        capped: s.capped,
         scoreType: wo?.scoreType ?? '',
         tiebreakRawScore: s.tiebreakRawScore ?? null,
         tiebreakEnabled: wo?.tiebreakEnabled ?? false,
@@ -102,7 +104,7 @@ export async function GET(req: Request) {
         const tiebreakDisplay = !wo.partBEnabled && entry.tiebreakEnabled && entry.tiebreakRawScore != null
           ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
           : null
-        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType), tiebreakDisplay, partBPoints: entry.partBPoints }
+        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType, entry.capped), tiebreakDisplay, partBPoints: entry.partBPoints }
       } else {
         workoutScores[wo.id] = null
       }

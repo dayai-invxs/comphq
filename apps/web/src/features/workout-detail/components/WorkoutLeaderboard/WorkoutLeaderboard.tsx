@@ -32,7 +32,7 @@ export function WorkoutLeaderboard({ workout }: { workout: Workout }) {
       cell: (s) => (
         <Inline gap="hairline" align="baseline" wrap>
           <Text as="span" variant="label" tone={placingTone(s.points)}>#{s.points}</Text>
-          <Text as="span" variant="meta" tone="muted">{formatScore(s.rawScore, workout.scoreType)}</Text>
+          <Text as="span" variant="meta" tone="muted">{formatScore(s.rawScore, workout.scoreType, s.capped)}</Text>
           {!workout.partBEnabled && s.tiebreakRawScore != null && (
             <Text as="span" variant="meta" tone="accent">
               TB {workout.tiebreakScoreType === 'time'
@@ -55,7 +55,7 @@ export function WorkoutLeaderboard({ workout }: { workout: Workout }) {
                 <Text as="span" variant="label" tone={placingTone(s.partBPoints)}>#{s.partBPoints}</Text>
                 {s.partBRawScore != null && (
                   <Text as="span" variant="meta" tone="muted">
-                    {formatScore(s.partBRawScore, workout.partBScoreType)}
+                    {formatScore(s.partBRawScore, workout.partBScoreType, s.partBCapped)}
                   </Text>
                 )}
               </Inline>

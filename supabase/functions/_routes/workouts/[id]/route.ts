@@ -44,6 +44,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           points: score.points,
           partBRawScore: score.partBRawScore,
           partBPoints: score.partBPoints,
+          capped: score.capped,
+          partBCapped: score.partBCapped,
           athleteName: athleteTable.name,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
@@ -80,6 +82,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       points: s.points,
       partBRawScore: s.partBRawScore,
       partBPoints: s.partBPoints,
+      capped: s.capped,
+      partBCapped: s.partBCapped,
       athlete: {
         id: s.athleteId,
         name: s.athleteName,

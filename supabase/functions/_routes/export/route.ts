@@ -117,7 +117,7 @@ export async function GET(req: Request) {
         const s = scoreMap.get(scoreKey(a.id, w.id))
         if (!s || s.points == null) return 'DNS'
         total += w.halfWeight ? s.points * 0.5 : s.points
-        const display = formatScore(s.rawScore, w.scoreType)
+        const display = formatScore(s.rawScore, w.scoreType, s.capped)
         return `#${s.points} (${display})`
       })
       lines.push(row(
@@ -139,12 +139,12 @@ export async function GET(req: Request) {
   const completedWorkouts = workouts.filter((w) => w.status === 'completed')
   const leaderboardEntries = athletes.map((a) => {
     let total = 0
-    const workoutScores: Record<number, { points: number; rawScore: number } | null> = {}
+    const workoutScores: Record<number, { points: number; rawScore: number; capped: boolean } | null> = {}
     for (const w of completedWorkouts) {
       const s = scoreMap.get(scoreKey(a.id, w.id))
       if (s && s.points != null) {
         total += w.halfWeight ? s.points * 0.5 : s.points
-        workoutScores[w.id] = { points: s.points, rawScore: s.rawScore }
+        workoutScores[w.id] = { points: s.points, rawScore: s.rawScore, capped: s.capped }
       } else {
         workoutScores[w.id] = null
       }
@@ -176,7 +176,7 @@ export async function GET(req: Request) {
     const divName = e.athlete.divisionId ? (divMap.get(e.athlete.divisionId) ?? '—') : '—'
     const wodCols = completedWorkouts.map((w) => {
       const s = e.workoutScores[w.id]
-      return s ? `#${s.points} (${formatScore(s.rawScore, w.scoreType)})` : 'DNS'
+      return s ? `#${s.points} (${formatScore(s.rawScore, w.scoreType, s.capped)})` : 'DNS'
     })
     lines.push(row(rank, e.athlete.name, divName, ...wodCols, Number.isInteger(e.total) ? e.total : e.total.toFixed(1)))
   }

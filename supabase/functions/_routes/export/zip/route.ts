@@ -85,16 +85,17 @@ export async function GET(req: Request) {
       }),
     ),
     'scores.csv': rows(
-      ['workoutId', 'workoutNumber', 'athleteId', 'athleteName', 'rawScore', 'formattedScore', 'tiebreakRawScore', 'points', 'partBRawScore', 'partBPoints'],
+      ['workoutId', 'workoutNumber', 'athleteId', 'athleteName', 'rawScore', 'formattedScore', 'capped', 'tiebreakRawScore', 'points', 'partBRawScore', 'partBCapped', 'partBPoints'],
       scores.map((s) => {
         const w = workouts.find((x) => x.id === s.workoutId)
         const aName = athletes.find((x) => x.id === s.athleteId)?.name ?? ''
         return [
           s.workoutId, w?.number ?? '', s.athleteId, aName,
-          s.rawScore, w ? formatScore(s.rawScore, w.scoreType) : '',
+          s.rawScore, w ? formatScore(s.rawScore, w.scoreType, s.capped) : '', String(s.capped),
           s.tiebreakRawScore ?? '',
           s.points ?? '',
           s.partBRawScore ?? '',
+          String(s.partBCapped),
           s.partBPoints ?? '',
         ]
       }),

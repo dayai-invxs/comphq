@@ -55,7 +55,7 @@ const assign = (id: number, heatNumber: number, lane: number, aId: number, name:
 
 const SCORE: Score = {
   id: 1, athleteId: 1, rawScore: 192000, tiebreakRawScore: null,
-  points: 1, partBRawScore: null, partBPoints: null, athlete: athlete(1, 'Ann'),
+  points: 1, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, athlete: athlete(1, 'Ann'),
 }
 
 const WORKOUT: Workout = {
@@ -330,7 +330,7 @@ describe('the heats themselves', () => {
     fireEvent.click(screen.getByRole('button', { name: 'save heat 1' }))
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
       '/api/workouts/42/scores?slug=rugged-rumble',
-      { athleteId: 1, rawScore: 192000, tiebreakRawScore: null, partBRawScore: null },
+      { athleteId: 1, rawScore: 192000, tiebreakRawScore: null, partBRawScore: null, capped: false, partBCapped: false },
     ))
   })
 

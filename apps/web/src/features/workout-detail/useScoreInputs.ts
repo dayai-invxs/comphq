@@ -33,13 +33,22 @@ export function useScoreInputs(workout: Workout | null) {
   const [partBTimeInputs, setPartBTimeInputs] = useState<Record<number, string>>({})
   const [partBWeightInputs, setPartBWeightInputs] = useState<Record<number, string>>({})
   const [partBRrInputs, setPartBRrInputs] = useState<Record<number, RRField>>({})
+  // A capped time is entered as rounds and reps, in the same boxes a rounds-and-
+  // reps workout uses; these say which of the two a time workout's row is showing.
+  const [cappedInputs, setCappedInputs] = useState<Record<number, boolean>>({})
+  const [partBCappedInputs, setPartBCappedInputs] = useState<Record<number, boolean>>({})
 
   // Hydrate inputs from workout.scores (called by consumer after load).
   const hydrate = useCallback((w: Workout) => {
     const wI: Record<number, string> = {}, tI: Record<number, string> = {}, rI: Record<number, RRField> = {}, tbI: Record<number, string> = {}
     const bTI: Record<number, string> = {}, bWI: Record<number, string> = {}, bRI: Record<number, RRField> = {}
+    const cI: Record<number, boolean> = {}, bCI: Record<number, boolean> = {}
     for (const s of w.scores) {
-      if (w.scoreType === 'time') {
+      if (s.capped) {
+        const rr = scoreToRoundsReps(s.rawScore)
+        cI[s.athleteId] = true
+        rI[s.athleteId] = { rounds: String(rr.rounds), reps: String(rr.reps) }
+      } else if (w.scoreType === 'time') {
         tI[s.athleteId] = formatTimeInput(s.rawScore)
       } else if (w.scoreType === 'rounds_reps') {
         const rr = scoreToRoundsReps(s.rawScore)
@@ -53,7 +62,11 @@ export function useScoreInputs(workout: Workout | null) {
           : String(s.tiebreakRawScore)
       }
       if (s.partBRawScore != null) {
-        if (w.partBScoreType === 'time') bTI[s.athleteId] = formatTimeInput(s.partBRawScore)
+        if (s.partBCapped) {
+          const rr = scoreToRoundsReps(s.partBRawScore)
+          bCI[s.athleteId] = true
+          bRI[s.athleteId] = { rounds: String(rr.rounds), reps: String(rr.reps) }
+        } else if (w.partBScoreType === 'time') bTI[s.athleteId] = formatTimeInput(s.partBRawScore)
         else if (w.partBScoreType === 'rounds_reps') {
           const rr = scoreToRoundsReps(s.partBRawScore)
           bRI[s.athleteId] = { rounds: String(rr.rounds), reps: String(rr.reps) }
@@ -64,11 +77,13 @@ export function useScoreInputs(workout: Workout | null) {
     }
     setWeightInputs(wI); setTimeInputs(tI); setRrInputs(rI); setTiebreakInputs(tbI)
     setPartBTimeInputs(bTI); setPartBWeightInputs(bWI); setPartBRrInputs(bRI)
+    setCappedInputs(cI); setPartBCappedInputs(bCI)
   }, [])
 
   const clear = useCallback(() => {
     setWeightInputs({}); setTimeInputs({}); setRrInputs({}); setTiebreakInputs({})
     setPartBTimeInputs({}); setPartBWeightInputs({}); setPartBRrInputs({})
+    setCappedInputs({}); setPartBCappedInputs({})
   }, [])
 
   // Build a ScorePayload for a single athlete, or null when nothing's entered.
@@ -78,7 +93,14 @@ export function useScoreInputs(workout: Workout | null) {
     let tiebreakRawScore: number | null = null
     let partBRawScore: number | null = null
 
-    if (workout.scoreType === 'time') {
+    // Ticking Capped is an entry in itself: zero rounds and zero reps is a score.
+    const capped = workout.scoreType === 'time' && !!cappedInputs[athleteId]
+    const partBCapped = workout.partBEnabled && workout.partBScoreType === 'time' && !!partBCappedInputs[athleteId]
+
+    if (capped) {
+      const r = rrInputs[athleteId]
+      rawScore = roundsRepsToScore(Number(r?.rounds) || 0, Number(r?.reps) || 0)
+    } else if (workout.scoreType === 'time') {
       rawScore = parseTimeInput(timeInputs[athleteId] ?? '')
       if (rawScore === 0) return null
     } else if (workout.scoreType === 'rounds_reps') {
@@ -100,7 +122,10 @@ export function useScoreInputs(workout: Workout | null) {
       }
     }
 
-    if (workout.partBEnabled) {
+    if (partBCapped) {
+      const r = partBRrInputs[athleteId]
+      partBRawScore = roundsRepsToScore(Number(r?.rounds) || 0, Number(r?.reps) || 0)
+    } else if (workout.partBEnabled) {
       if (workout.partBScoreType === 'time') {
         partBRawScore = parseTimeInput(partBTimeInputs[athleteId] ?? '') || null
       } else if (workout.partBScoreType === 'rounds_reps') {
@@ -112,18 +137,20 @@ export function useScoreInputs(workout: Workout | null) {
       }
     }
 
-    return { athleteId, rawScore, tiebreakRawScore, partBRawScore }
-  }, [workout, timeInputs, rrInputs, tiebreakInputs, weightInputs, partBTimeInputs, partBRrInputs, partBWeightInputs])
+    return { athleteId, rawScore, tiebreakRawScore, partBRawScore, capped, partBCapped }
+  }, [workout, timeInputs, rrInputs, tiebreakInputs, weightInputs, partBTimeInputs, partBRrInputs, partBWeightInputs, cappedInputs, partBCappedInputs])
 
   const api = useMemo(() => ({
     weightInputs, timeInputs, rrInputs, tiebreakInputs,
     partBTimeInputs, partBWeightInputs, partBRrInputs,
+    cappedInputs, partBCappedInputs, setCappedInputs, setPartBCappedInputs,
     setWeightInputs, setTimeInputs, setRrInputs, setTiebreakInputs,
     setPartBTimeInputs, setPartBWeightInputs, setPartBRrInputs,
     hydrate, clear, buildPayload,
   }), [
     weightInputs, timeInputs, rrInputs, tiebreakInputs,
     partBTimeInputs, partBWeightInputs, partBRrInputs,
+    cappedInputs, partBCappedInputs,
     hydrate, clear, buildPayload,
   ])
 
