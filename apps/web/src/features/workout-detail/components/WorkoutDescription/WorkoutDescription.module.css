@@ -1,0 +1,15 @@
+.box {
+  width: 100%;
+}
+
+.text {
+  white-space: pre-wrap;
+}
+
+.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}

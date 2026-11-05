@@ -22,10 +22,6 @@
   }
 }
 
-.description {
-  white-space: pre-wrap;
-}
-
 /* The workout-level controls. Beside the heats the rail is 240px and the
    buttons run down it edge to edge; stacked above them on a narrow screen,
    full-width bars would be most of the first viewport, so they sit in rows

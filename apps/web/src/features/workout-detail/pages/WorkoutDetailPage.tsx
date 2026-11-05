@@ -22,6 +22,7 @@ import { statusBadge } from '@/lib/workoutStatus'
 import { HeatCard } from '../components/HeatCard/HeatCard'
 import { HeatRail, type HeatSummary } from '../components/HeatRail/HeatRail'
 import { HeatDndProvider } from '../components/heat-dnd-context'
+import { WorkoutDescription } from '../components/WorkoutDescription/WorkoutDescription'
 import { WorkoutEditForm } from '../components/WorkoutEditForm/WorkoutEditForm'
 import { WorkoutEquipmentPopover } from '../components/WorkoutEquipmentPopover/WorkoutEquipmentPopover'
 import { WorkoutLeaderboard } from '../components/WorkoutLeaderboard/WorkoutLeaderboard'
@@ -318,7 +319,7 @@ export function WorkoutDetailPage() {
         />
       ) : workout.description ? (
         <DataPanel title="Description" tone="sunken">
-          <Text className={styles.description}>{workout.description}</Text>
+          <WorkoutDescription text={workout.description} />
         </DataPanel>
       ) : null}
 
