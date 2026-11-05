@@ -143,18 +143,18 @@ it('subscribes to the keys its own reads are cached under', async () => {
 // v1 compiled the QR target in as ruggedrumble's athlete list, so every board
 // ever printed sent the room to one competition whatever it was showing
 // (defect 27). The address is now the board's own.
-it('points its QR code at the athlete list of the competition it is showing', async () => {
+it('points its QR code at the schedule of the competition it is showing', async () => {
   mount()
   await drawn()
   expect(screen.getByText('Scan for Comp Info →')).toBeInTheDocument()
-  expect(screen.getByTitle(`${window.location.origin}/summer/athlete-overview`)).toBeInTheDocument()
+  expect(screen.getByTitle(`${window.location.origin}/summer`)).toBeInTheDocument()
   expect(screen.queryByTitle(/ruggedrumble/)).not.toBeInTheDocument()
 })
 
 it('sends the room to whichever competition the board was opened with', async () => {
   mount('winter')
   await drawn()
-  expect(screen.getByTitle(`${window.location.origin}/winter/athlete-overview`)).toBeInTheDocument()
+  expect(screen.getByTitle(`${window.location.origin}/winter`)).toBeInTheDocument()
 })
 
 // The board is one screen with no scrollbar and nobody near it, so anything

@@ -22,9 +22,9 @@ const SWITCH_INTERVAL_MS = 10_000
 // competition it was showing (defect 27). The board already knows both halves
 // of the answer: the competition is the slug it was opened with, and the host
 // is the host it is being served from — the same one the phone scanning it
-// will have to reach.
+// will have to reach. The competition's root is its schedule.
 function qrTarget(slug: string) {
-  return new URL(`/${slug}/athlete-overview`, window.location.origin).toString()
+  return new URL(`/${slug}`, window.location.origin).toString()
 }
 
 const VIEWS = {
