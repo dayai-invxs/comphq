@@ -51,6 +51,8 @@ interface Props {
   onUndoHeat: (heatNumber: number) => void
   /** Asks to delete the heat; the page decides whether that is allowed. */
   onDeleteHeat?: (heatNumber: number) => void
+  /** Heats are locked: show Delete Heat gray and disabled until unlocked. */
+  deleteLocked?: boolean
   onReorder: (dragId: number, destHeat: number, destIndex: number) => void
   onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
   isSaving: boolean
@@ -74,7 +76,7 @@ function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
 
 export function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
-  onSaveHeat, onCompleteHeat, onUndoHeat, onDeleteHeat, onReorder, onSaveHeatTime, isSaving,
+  onSaveHeat, onCompleteHeat, onUndoHeat, onDeleteHeat, deleteLocked, onReorder, onSaveHeatTime, isSaving,
   judges, judgesByLane, onJudgeChange, onPointsOverride,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
@@ -229,7 +231,12 @@ export function HeatCard({
               Complete Heat
             </Button>
             {onDeleteHeat && (
-              <Button variant="danger" size="sm" disabled={loading} onClick={() => onDeleteHeat(heatNumber)}>
+              <Button
+                variant={deleteLocked ? 'primary' : 'danger'}
+                size="sm"
+                disabled={loading || deleteLocked}
+                onClick={() => onDeleteHeat(heatNumber)}
+              >
                 Delete Heat
               </Button>
             )}

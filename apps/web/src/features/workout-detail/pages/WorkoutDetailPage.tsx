@@ -313,7 +313,12 @@ export function WorkoutDetailPage() {
         Generate (By Cumulative Points)
       </Button>
       {heatNums.length > 0 && (
-        <Button size="sm" variant="danger" onClick={() => askToDeleteHeats('clearHeats')} disabled={detail.loading}>
+        <Button
+          size="sm"
+          variant={locked ? 'primary' : 'danger'}
+          onClick={() => askToDeleteHeats('clearHeats')}
+          disabled={detail.loading || locked}
+        >
           Clear All Heats
         </Button>
       )}
@@ -468,6 +473,7 @@ export function WorkoutDetailPage() {
                       onCompleteHeat={completeHeat}
                       onUndoHeat={detail.undoHeat}
                       onDeleteHeat={(n) => askToDeleteHeats('deleteHeat', n)}
+                      deleteLocked={locked}
                       onReorder={detail.reorderAssignments}
                       onSaveHeatTime={detail.saveHeatTime}
                       isSaving={detail.savingHeats.has(heatNum)}
