@@ -15,6 +15,8 @@ export const queryKeys = {
   leaderboard: (slug: string) => ['leaderboard', slug] as const,
   ops: (slug: string) => ['ops', slug] as const,
   schedule: (slug: string) => ['schedule', slug] as const,
+  // The spectators' workout list: names and descriptions, no drafts.
+  publicWorkouts: (slug: string) => ['public-workouts', slug] as const,
   checks: (slug: string) => ['checks', slug] as const,
   judgeSchedule: (slug: string) => ['judge-schedule', slug] as const,
   judgeAssignments: (slug: string, workoutId: string) =>

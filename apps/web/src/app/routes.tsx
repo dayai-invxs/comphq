@@ -90,6 +90,22 @@ function routeTable(): RouteObject[] {
               (page) => <RequireCompetition>{page}</RequireCompetition>,
             ),
           },
+          {
+            path: 'workouts',
+            lazy: lazyPage(
+              () => import('@/features/public-workouts/pages/WorkoutsPage'),
+              'WorkoutsPage',
+              (page) => <RequireCompetition>{page}</RequireCompetition>,
+            ),
+          },
+          {
+            path: 'workouts/:workoutId',
+            lazy: lazyPage(
+              () => import('@/features/public-workouts/pages/WorkoutPage'),
+              'WorkoutPage',
+              (page) => <RequireCompetition>{page}</RequireCompetition>,
+            ),
+          },
           // No RequireCompetition here: v1's leaderboard is the one [slug]
           // page that never called resolveCompetition, so an unknown slug
           // renders the empty board rather than a 404. That asymmetry is

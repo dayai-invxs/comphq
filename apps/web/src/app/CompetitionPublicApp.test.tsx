@@ -35,7 +35,7 @@ describe('CompetitionPublicApp', () => {
   it('points every destination at the competition in the address', () => {
     mount()
     expect(within(tabBar()).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
-      '/rugged', '/rugged/leaderboard', '/rugged/athlete-overview',
+      '/rugged', '/rugged/leaderboard', '/rugged/workouts', '/rugged/athlete-overview',
     ])
   })
 

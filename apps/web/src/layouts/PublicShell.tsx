@@ -26,7 +26,7 @@ import styles from './PublicShell.module.css'
 // admin's one. On a phone that collapsed into a hamburger where everything was
 // equally buried.
 //
-// Split by audience instead: three thumb-reachable destinations plus More, and
+// Split by audience instead: four thumb-reachable destinations plus More, and
 // the staff screens live behind More where they belong. Above --mds-bp-lg the
 // same rows become a rail; it is the same page, not a second one.
 
@@ -34,6 +34,7 @@ export function publicDestinations(slug: string): Destination[] {
   return [
     { to: `/${slug}`, label: 'Schedule', icon: 'schedule' },
     { to: `/${slug}/leaderboard`, label: 'Leaderboard', icon: 'leaderboard' },
+    { to: `/${slug}/workouts`, label: 'Workouts', icon: 'workouts' },
     { to: `/${slug}/athlete-overview`, label: 'Athletes/Teams', icon: 'athletes' },
   ]
 }
@@ -57,6 +58,9 @@ export interface PublicShellProps {
 
 export function PublicShell({ slug, brand, status }: PublicShellProps) {
   const { pathname } = useLocation()
+  // A destination is lit on its own page and on the pages under it — one
+  // workout is still Workouts. Not Schedule: every page is under /{slug}.
+  const isAt = (to: string) => pathname === to || (to !== `/${slug}` && pathname.startsWith(`${to}/`))
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen] = useState(false)
 
@@ -84,7 +88,7 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
                   href={d.to}
                   icon={<Glyph name={d.icon} />}
                   label={d.label}
-                  active={pathname === d.to}
+                  active={isAt(d.to)}
                 />
               ))}
             </SideNavGroup>
@@ -96,7 +100,7 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
                   href={d.to}
                   icon={<Glyph name={d.icon} />}
                   label={d.label}
-                  active={pathname === d.to}
+                  active={isAt(d.to)}
                 />
               ))}
             </SideNavGroup>
@@ -119,13 +123,13 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
               href={d.to}
               icon={<Glyph name={d.icon} />}
               label={d.label}
-              active={pathname === d.to}
+              active={isAt(d.to)}
             />
           ))}
           <TabBarItem
             icon={<Glyph name="more" />}
             label="More"
-            active={staff.some((d) => d.to === pathname)}
+            active={staff.some((d) => isAt(d.to))}
             onClick={() => setMoreOpen(true)}
           />
         </TabBar>
@@ -141,7 +145,7 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
                   key={d.to}
                   icon={<Glyph name={d.icon} />}
                   label={d.label}
-                  active={pathname === d.to}
+                  active={isAt(d.to)}
                   onClick={() => go(d.to)}
                 />
               ))}

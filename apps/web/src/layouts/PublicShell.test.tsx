@@ -9,6 +9,7 @@ function mount(at = '/rugged') {
     <Route path="/:slug" element={<PublicShell slug="rugged" brand="Rugged Rumble" />}>
       <Route index element={<h1>Competition Schedule</h1>} />
       <Route path="leaderboard" element={<h1>Leaderboard</h1>} />
+      <Route path="workouts/:workoutId" element={<h1>Fran</h1>} />
     </Route>,
     [at],
   )
@@ -30,11 +31,11 @@ describe('PublicShell', () => {
 
   // The split that matters: a spectator's screens are one tap away, the crew's
   // are one step further in.
-  it('gives the phone bar the three spectator destinations and nothing else', () => {
+  it('gives the phone bar the four spectator destinations and nothing else', () => {
     mount()
     const bar = tabBar()
     expect(within(bar).getAllByRole('link').map((l) => l.textContent)).toEqual([
-      'Schedule', 'Leaderboard', 'Athletes/Teams',
+      'Schedule', 'Leaderboard', 'Workouts', 'Athletes/Teams',
     ])
     expect(within(bar).queryByRole('link', { name: 'Judges' })).toBeNull()
   })
@@ -69,6 +70,16 @@ describe('PublicShell', () => {
     mount('/rugged/leaderboard')
     const current = await screen.findAllByRole('link', { name: 'Leaderboard' })
     expect(current.every((l) => l.getAttribute('aria-current') === 'page')).toBe(true)
+  })
+
+  // One workout is still Workouts; and it is not Schedule, though every page
+  // is under the schedule's address.
+  it('keeps Workouts marked on a single workout', async () => {
+    mount('/rugged/workouts/11')
+    const current = await screen.findAllByRole('link', { name: 'Workouts' })
+    expect(current.every((l) => l.getAttribute('aria-current') === 'page')).toBe(true)
+    const schedule = screen.getAllByRole('link', { name: 'Schedule' })
+    expect(schedule.some((l) => l.getAttribute('aria-current') === 'page')).toBe(false)
   })
 
   // Ahead of the navigation, on every page.
