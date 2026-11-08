@@ -138,6 +138,21 @@ describe('adding volunteers', () => {
     expect(apiPost.mock.calls[1][1]).toEqual({ slug: 'rugged-rumble', name: 'Lee Lang', roleId: 6 })
   })
 
+  it('updates a volunteer already on the roster instead of adding them again', async () => {
+    draw({ adding: true })
+    const form = sheet('Add volunteer')
+    fireEvent.click(form.getByRole('radio', { name: 'Import many' }))
+    fireEvent.change(form.getByRole('textbox', { name: /One per line/ }), {
+      target: { value: 'Jo Jones, Marshal\nKit King\nLee Lang' },
+    })
+    expect(form.getByRole('status')).toHaveTextContent('Will add 1, update 1, leave 1 unchanged.')
+    press('Import volunteers')
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1))
+    expect(apiPost.mock.calls[0][1]).toEqual({ slug: 'rugged-rumble', name: 'Lee Lang', roleId: null })
+    expect(apiPut).toHaveBeenCalledTimes(1)
+    expect(apiPut).toHaveBeenCalledWith('/api/volunteers/8?slug=rugged-rumble', { name: 'Jo Jones', roleId: 6 })
+  })
+
   it('names a role that does not exist and imports nothing', async () => {
     draw({ adding: true })
     const form = sheet('Add volunteer')

@@ -17,13 +17,14 @@ import { useRoster } from '../../useRoster'
 import type { RunFn, Volunteer, VolunteerRole } from '../../usePeople'
 import { RosterSheet, type AddMode } from '../RosterSheet/RosterSheet'
 import { CsvImport } from '@/components/CsvImport/CsvImport'
-import { parseLookupCsv } from '@/lib/lookupCsv'
+import { parseVolunteerCsv, type VolunteerLine } from '@/lib/volunteerCsv'
 import styles from './VolunteersTab.module.css'
 
 // v1: the volunteers half of src/app/[slug]/admin/people/page.tsx. The writes
 // are useRoster's, shared with the athletes half; what is here is the role a
 // volunteer holds, the filter on it, and an importer that takes a whole line
-// as one name — a volunteer may be entered as "Doe, Jane".
+// as one name — a volunteer may be entered as "Doe, Jane". A name already on
+// the roster updates that volunteer instead of adding them twice.
 
 /** v1's sentinel for "volunteers with no role", carried in the same select as
     the role ids because a native option value is a string either way. */
@@ -45,6 +46,19 @@ interface Props {
 
 const BLANK = { name: '', roleId: '' }
 
+/** What the import will do, in the words of the person about to press the button. */
+function importSummary(lines: VolunteerLine[], blocked: boolean): string | undefined {
+  if (blocked || lines.length === 0) return undefined
+  const count = (action: VolunteerLine['action']) => lines.filter((l) => l.action === action).length
+  const [creates, updates, same] = [count('create'), count('update'), count('unchanged')]
+  if (creates + updates === 0) return 'Everything in this list is already on the roster. Nothing to change.'
+  return [
+    creates && `Will add ${creates}`,
+    updates && `${creates ? 'update' : 'Will update'} ${updates}`,
+    same && `leave ${same} unchanged`,
+  ].filter(Boolean).join(', ') + '.'
+}
+
 export function VolunteersTab({
   slug, volunteers, roles, loading, setLoading, run, reload, setVolunteers, adding, onCloseAdd,
 }: Props) {
@@ -60,7 +74,7 @@ export function VolunteersTab({
   const [deleting, setDeleting] = useState<Volunteer | null>(null)
 
   const editing = volunteers.find((v) => v.id === roster.editingId) ?? null
-  const imported = parseLookupCsv(bulkText, roles, 1, bulkRoleId ? Number(bulkRoleId) : null)
+  const imported = parseVolunteerCsv(bulkText, roles, bulkRoleId ? Number(bulkRoleId) : null, volunteers)
 
   // The editor opens on whoever was tapped, so it opens holding what that
   // volunteer already is rather than what the last one was.
@@ -91,11 +105,15 @@ export function VolunteersTab({
 
   // COM-107: Name, Role. A role is matched by name, never created, so a list
   // naming one that is not there sends nothing. v1 took a whole line as the
-  // name; a comma inside a name now needs quotes.
+  // name; a comma inside a name now needs quotes. A name already on the roster
+  // is an update, and one the roster already agrees with sends nothing.
   function importMany() {
-    const { lines, unknown } = imported
-    if (!lines.length || unknown.length) return
-    const entries = lines.map(({ name, refId }) => ({ name, body: { name, roleId: refId } }))
+    const { lines, unknown, problems } = imported
+    if (loading || !lines.length || unknown.length || problems.length) return
+    const entries = lines.filter((l) => l.action !== 'unchanged').map(({ id, name, roleId }) => ({
+      id: id ?? undefined, name, body: { name, roleId },
+    }))
+    if (!entries.length) { setBulkText(''); close(); return }
     void roster.bulk(entries, () => { setBulkText(''); close() })
   }
 
@@ -225,8 +243,11 @@ export function VolunteersTab({
             example={['Jane Doe, Judge', 'John Smith']}
             value={bulkText}
             onChange={setBulkText}
+            help="Uploading a name that's already on the roster updates that volunteer instead of adding them again. A blank role keeps the one they have."
             refNoun="role"
             unknown={imported.unknown}
+            problems={imported.problems}
+            summary={importSummary(imported.lines, imported.unknown.length + imported.problems.length > 0)}
             fallback={roles.length > 0 && (
               <Field label="Default role (for lines that name none)">
                 {roleSelect(bulkRoleId, setBulkRoleId)}
