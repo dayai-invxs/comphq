@@ -37,7 +37,7 @@ export function WorkoutPage() {
   }
 
   return (
-    <PageFrame eyebrow={`Workout ${workout.number}`} title={workout.name} actions={back}>
+    <PageFrame eyebrow={`Event ${workout.number}`} title={workout.name} actions={back}>
       {workout.description?.trim()
         ? <Text className={styles.description}>{workout.description}</Text>
         : <Text tone="muted">No description yet.</Text>}

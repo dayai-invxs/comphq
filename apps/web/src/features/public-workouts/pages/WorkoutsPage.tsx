@@ -4,8 +4,8 @@ import { usePublicWorkouts } from '@/api/publicWorkouts'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { RouterAnchor } from '@/components/RouterAnchor'
 
-// The spectator's list of workouts, by number and name. Each opens to its full
-// description. Drafts are not here: the server leaves them out.
+// The spectator's list of workouts, as "Event N - Name". Each opens to its full
+// description. Secret workouts are left out by the server until they go live.
 export function WorkoutsPage() {
   const { slug = '' } = useParams()
   const workouts = usePublicWorkouts(slug)
@@ -25,8 +25,7 @@ export function WorkoutsPage() {
               key={w.id}
               as={RouterAnchor}
               href={`/${slug}/workouts/${w.id}`}
-              title={w.name}
-              description={`Workout ${w.number}`}
+              title={`Event ${w.number} - ${w.name}`}
             />
           ))}
         </ListGroup>

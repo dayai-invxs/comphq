@@ -32,8 +32,9 @@ describe('the workout list', () => {
   it('reads the public list and shows each workout by name', async () => {
     mount('/summer/workouts')
     const list = await screen.findByRole('list', { name: 'Workouts' })
-    expect(within(list).getByText('Fran')).toBeInTheDocument()
-    expect(within(list).getByText('Workout 2')).toBeInTheDocument()
+    expect(within(list).getByText('Event 1 - Fran')).toBeInTheDocument()
+    expect(within(list).getByText('Event 2 - Grace')).toBeInTheDocument()
+    expect(within(list).queryByText('Workout 2')).not.toBeInTheDocument()
     expect(apiGet).toHaveBeenCalledWith('/api/schedule/workouts?slug=summer')
   })
 
@@ -55,6 +56,7 @@ describe('the workout list', () => {
 describe('one workout', () => {
   it('says when a workout has no description', async () => {
     mount('/summer/workouts/12')
+    expect(await screen.findByText('Event 2')).toBeInTheDocument()
     expect(await screen.findByText('No description yet.')).toBeInTheDocument()
   })
 
