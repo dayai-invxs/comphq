@@ -4,7 +4,7 @@ import {
   PasswordInput, Sheet, SheetBody, SheetFooter, SheetHeader, Skeleton, Stack, Tag, Text, useToast,
 } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
-import { useCompetitions } from '@/api/competitions'
+import { useMyCompetitions } from '@/api/competitions'
 import {
   useCreateUser,
   useDeleteUser,
@@ -52,7 +52,9 @@ function toggle(set: Set<number>, id: number) {
 
 export function SiteUsersPage() {
   const users = useUsers()
-  const competitions = useCompetitions()
+  // Every competition, unlisted ones too: this screen is super-admin only,
+  // and /mine hands a super admin all of them.
+  const competitions = useMyCompetitions(true)
   const create = useCreateUser()
   const update = useUpdateUser()
   const remove = useDeleteUser()

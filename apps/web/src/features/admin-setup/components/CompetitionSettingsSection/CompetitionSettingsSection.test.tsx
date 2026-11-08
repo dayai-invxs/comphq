@@ -10,6 +10,7 @@ const onPatch = vi.fn()
 function draw(over: Partial<Parameters<typeof CompetitionSettingsSection>[0]> = {}) {
   return render(
     <CompetitionSettingsSection
+      listed
       showBib
       leaderboardVisibility="per_workout"
       judgePassword="rug702"
@@ -44,6 +45,27 @@ it('shows each setting where it stands', () => {
   expect(consecutive()).toHaveValue(3)
 })
 
+it('hides the competition from the home page list when Public is switched off', async () => {
+  const { rerender } = draw()
+  const pub = screen.getByRole('switch', { name: 'Public' })
+  expect(pub).toBeChecked()
+  expect(screen.getByText('Listed on the comphq.pro home page for anyone to find')).toBeInTheDocument()
+  fireEvent.click(pub)
+  await waitFor(() => expect(onPatch).toHaveBeenCalledWith({ listed: false }))
+
+  rerender(
+    <CompetitionSettingsSection
+      listed={false}
+      showBib
+      leaderboardVisibility="per_workout"
+      judgePassword="rug702"
+      judgeMaxConsecutive={3}
+      onPatch={onPatch}
+    />,
+  )
+  expect(screen.getByText(/Hidden from the comphq.pro home page/)).toBeInTheDocument()
+})
+
 it('writes the bib setting the moment it is toggled', async () => {
   draw()
   fireEvent.click(bib())
@@ -58,6 +80,7 @@ it('names the two leaderboard settings by what they do', () => {
 
   rerender(
     <CompetitionSettingsSection
+      listed
       showBib
       leaderboardVisibility="per_heat"
       judgePassword="rug702"

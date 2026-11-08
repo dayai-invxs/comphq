@@ -6,7 +6,7 @@ import {
 } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
 import {
-  useCompetitions,
+  useMyCompetitions,
   useCreateCompetition,
   useDeleteCompetition,
   type CompetitionSummary,
@@ -41,7 +41,9 @@ function deriveSlug(n: string) {
 }
 
 export function AdminHomePage() {
-  const competitions = useCompetitions()
+  // Every competition, unlisted ones too: this screen is super-admin only,
+  // and /mine hands a super admin all of them.
+  const competitions = useMyCompetitions(true)
   const create = useCreateCompetition()
   const remove = useDeleteCompetition()
   const navigate = useNavigate()

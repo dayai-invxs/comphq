@@ -248,6 +248,7 @@ export const SettingsPatch = z.object({
   tvLeaderboardOrder: z.record(z.string(), z.number().int().min(1)).optional(),
   judgePassword: z.string().min(1).max(100).optional(),
   judgeMaxConsecutive: z.number().int().min(1).max(20).optional(),
+  listed: z.boolean().optional(),
 })
 
 export const CsvImport = z.object({

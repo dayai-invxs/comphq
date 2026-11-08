@@ -29,6 +29,15 @@ describe('GET /api/competitions', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(rows)
   })
+
+  // The listed setting is joined in and filtered on, so an unlisted
+  // competition never reaches the home page.
+  it('leaves out competitions that are not listed', async () => {
+    mock.queueResult([])
+    await GET()
+    expect(mock.calls.some((c) => c.method === 'leftJoin')).toBe(true)
+    expect(mock.calls.some((c) => c.method === 'where')).toBe(true)
+  })
 })
 
 describe('POST /api/competitions', () => {

@@ -127,6 +127,7 @@ export function SetupPage() {
             {!settings.data && settings.error && failed('settings', settings.error)}
             {settings.data && (
               <CompetitionSettingsSection
+                listed={settings.data.listed ?? true}
                 showBib={settings.data.showBib}
                 leaderboardVisibility={settings.data.leaderboardVisibility}
                 judgePassword={settings.data.judgePassword ?? 'rug702'}

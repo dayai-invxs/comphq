@@ -15,6 +15,8 @@ export interface CompetitionSettings {
   tvLeaderboardOrder: Record<string, number>
   judgePassword?: string
   judgeMaxConsecutive?: number
+  /** Shown in the comphq.pro home page list. Missing means listed. */
+  listed?: boolean
 }
 
 export function useSettings(slug: string) {

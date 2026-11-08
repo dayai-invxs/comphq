@@ -16,11 +16,13 @@ import { DataPanel } from '@/components/DataPanel/DataPanel'
 // which is v1's. They are seeded once: v1 read the settings a single time too.
 
 interface Props {
+  listed: boolean
   showBib: boolean
   leaderboardVisibility: 'per_heat' | 'per_workout'
   judgePassword: string
   judgeMaxConsecutive: number
   onPatch: (patch: {
+    listed?: boolean
     showBib?: boolean
     leaderboardVisibility?: 'per_heat' | 'per_workout'
     judgePassword?: string
@@ -29,7 +31,7 @@ interface Props {
 }
 
 export function CompetitionSettingsSection({
-  showBib, leaderboardVisibility, judgePassword, judgeMaxConsecutive, onPatch,
+  listed, showBib, leaderboardVisibility, judgePassword, judgeMaxConsecutive, onPatch,
 }: Props) {
   const [password, setPassword] = useState(judgePassword)
   const [consecutive, setConsecutive] = useState(String(judgeMaxConsecutive))
@@ -56,6 +58,20 @@ export function CompetitionSettingsSection({
       description="Every control here writes as it is changed. There is no Save."
     >
       <Stack gap="base">
+        <Stack gap="hairline">
+          <Switch
+            label="Public"
+            aria-describedby="setup-listed-hint"
+            checked={listed}
+            onChange={() => patch({ listed: !listed })}
+          />
+          <Text id="setup-listed-hint" variant="note" tone="muted">
+            {listed
+              ? 'Listed on the comphq.pro home page for anyone to find'
+              : 'Hidden from the comphq.pro home page. Anyone with the link or QR code can still open it.'}
+          </Text>
+        </Stack>
+
         <Stack gap="hairline">
           <Switch
             label="Show Bib Numbers"

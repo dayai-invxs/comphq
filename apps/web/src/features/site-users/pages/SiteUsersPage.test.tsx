@@ -24,7 +24,7 @@ const USERS = [
 function serve(users: unknown = USERS) {
   apiGet.mockImplementation((path: string) => {
     if (path === '/api/users') return Promise.resolve(users)
-    if (path === '/api/competitions') return Promise.resolve(COMPS)
+    if (path === '/api/competitions/mine') return Promise.resolve(COMPS.map((c) => ({ ...c, role: 'admin' })))
     return Promise.resolve(null)
   })
 }

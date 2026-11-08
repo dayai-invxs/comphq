@@ -25,26 +25,23 @@ async function upsertSetting(competitionId: number, key: string, value: string) 
     })
 }
 
-// Public read of competition-level settings (used by unauthed display views).
-export async function GET(req: Request) {
-  const slug = new URL(req.url).searchParams.get('slug') ?? ''
-  const competition = await resolveCompetition(slug)
-  if (!competition) return new Response('Competition not found', { status: 404 })
-
-  const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, judgePassword, judgeMaxConsecutiveRaw] = await Promise.all([
-    getSetting(competition.id, 'showBib', 'true'),
-    getSetting(competition.id, 'tiebreakWorkoutId', ''),
-    getSetting(competition.id, 'leaderboardVisibility', 'per_workout'),
-    getSetting(competition.id, 'tvLeaderboardPercentages', '{}'),
-    getSetting(competition.id, 'tvLeaderboardOrder', '{}'),
-    getSetting(competition.id, 'judgePassword', 'rug702'),
-    getSetting(competition.id, 'judgeMaxConsecutive', '3'),
+// Every setting with its default, as both the read and the write answer it.
+async function readSettings(competitionId: number) {
+  const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, judgePassword, judgeMaxConsecutiveRaw, listed] = await Promise.all([
+    getSetting(competitionId, 'showBib', 'true'),
+    getSetting(competitionId, 'tiebreakWorkoutId', ''),
+    getSetting(competitionId, 'leaderboardVisibility', 'per_workout'),
+    getSetting(competitionId, 'tvLeaderboardPercentages', '{}'),
+    getSetting(competitionId, 'tvLeaderboardOrder', '{}'),
+    getSetting(competitionId, 'judgePassword', 'rug702'),
+    getSetting(competitionId, 'judgeMaxConsecutive', '3'),
+    getSetting(competitionId, 'listed', 'true'),
   ])
   let tvLeaderboardPercentages: Record<string, number> = {}
   try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw) } catch { /* ignore */ }
   let tvLeaderboardOrder: Record<string, number> = {}
   try { tvLeaderboardOrder = JSON.parse(tvLeaderboardOrderRaw) } catch { /* ignore */ }
-  return Response.json({
+  return {
     showBib: showBib !== 'false',
     tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
     leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
@@ -52,7 +49,19 @@ export async function GET(req: Request) {
     tvLeaderboardOrder,
     judgePassword,
     judgeMaxConsecutive: Number(judgeMaxConsecutiveRaw) || 3,
-  })
+    /** Shown in the comphq.pro home page list. An unlisted competition still
+        opens for anyone with its link. */
+    listed: listed !== 'false',
+  }
+}
+
+// Public read of competition-level settings (used by unauthed display views).
+export async function GET(req: Request) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const competition = await resolveCompetition(slug)
+  if (!competition) return new Response('Competition not found', { status: 404 })
+
+  return Response.json(await readSettings(competition.id))
 }
 
 export async function PATCH(req: Request) {
@@ -89,30 +98,12 @@ export async function PATCH(req: Request) {
     if (d.judgeMaxConsecutive !== undefined) {
       upserts.push(upsertSetting(competition.id, 'judgeMaxConsecutive', String(d.judgeMaxConsecutive)))
     }
+    if (d.listed !== undefined) {
+      upserts.push(upsertSetting(competition.id, 'listed', String(d.listed)))
+    }
     await Promise.all(upserts)
 
-    const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, judgePassword, judgeMaxConsecutiveRaw] = await Promise.all([
-      getSetting(competition.id, 'showBib', 'true'),
-      getSetting(competition.id, 'tiebreakWorkoutId', ''),
-      getSetting(competition.id, 'leaderboardVisibility', 'per_workout'),
-      getSetting(competition.id, 'tvLeaderboardPercentages', '{}'),
-      getSetting(competition.id, 'tvLeaderboardOrder', '{}'),
-      getSetting(competition.id, 'judgePassword', 'rug702'),
-      getSetting(competition.id, 'judgeMaxConsecutive', '3'),
-    ])
-    let tvLeaderboardPercentages: Record<string, number> = {}
-    try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw) } catch { /* ignore */ }
-    let tvLeaderboardOrder: Record<string, number> = {}
-    try { tvLeaderboardOrder = JSON.parse(tvLeaderboardOrderRaw) } catch { /* ignore */ }
-    return Response.json({
-      showBib: showBib !== 'false',
-      tiebreakWorkoutId: tiebreakWorkoutId ? Number(tiebreakWorkoutId) : null,
-      leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
-      tvLeaderboardPercentages,
-      tvLeaderboardOrder,
-      judgePassword,
-      judgeMaxConsecutive: Number(judgeMaxConsecutiveRaw) || 3,
-    })
+    return Response.json(await readSettings(competition.id))
   } catch (e) {
     return authErrorResponse(e)
   }
