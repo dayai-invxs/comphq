@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { drizzleMock as mock, setAuthUser } from '@/test/setup'
-import { GET, POST } from './route'
+import { DELETE, GET, POST } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
 const url = '?slug=default'
@@ -78,5 +78,31 @@ describe('POST /api/workouts/[id]/assignments', () => {
     expect(Array.isArray(body)).toBe(true)
     expect(body).toHaveLength(2)
     expect(mock.calls.some((c) => c.method === 'execute')).toBe(true)
+  })
+})
+
+describe('DELETE /api/workouts/[id]/assignments', () => {
+  it('rejects unauthenticated', async () => {
+    setAuthUser(null)
+    const res = await DELETE(req('DELETE'), params('1'))
+    expect(res.status).toBe(401)
+  })
+
+  it('refuses with 409 while the workout has scores', async () => {
+    mock.queueResult([{ id: 1 }])
+    mock.queueResult([{ id: 7 }])
+    const res = await DELETE(req('DELETE'), params('1'))
+    expect(res.status).toBe(409)
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
+  it('clears heats, judges, completions and start overrides in one transaction', async () => {
+    mock.queueResult([{ id: 1 }])
+    mock.queueResult([])
+    const res = await DELETE(req('DELETE'), params('1'))
+    expect(res.status).toBe(200)
+    expect(mock.calls.some((c) => c.method === 'transaction')).toBe(true)
+    expect(mock.calls.filter((c) => c.method === 'delete')).toHaveLength(3)
+    expect(mock.calls.filter((c) => c.method === 'set').map((c) => c.args[0])).toContainEqual({ heatStartOverrides: {} })
   })
 })

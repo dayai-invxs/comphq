@@ -1,13 +1,14 @@
 import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
-import { athlete, division, heatAssignment, workout } from '@/db/schema'
+import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
 import { score as scoreTable } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentRegen } from '@/lib/schemas'
+import { SCORES_BLOCK_MESSAGE, workoutHasScores } from '@/lib/heatDeletion'
 
 // GET /api/workouts/[id]/assignments — returns heat assignments with
 // embedded athlete + division. Replaces the PostgREST ASSIGNMENT_EMBED string.
@@ -139,6 +140,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const result = await fetchAssignmentsWithEmbeds(workoutId)
     return Response.json(result, { status: 201 })
+  } catch (e) {
+    return authErrorResponse(e)
+  }
+}
+
+// DELETE /api/workouts/[id]/assignments — clears every heat of the workout,
+// with the judges and completions that pointed at them. Refused while the
+// workout has scores.
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+
+  try {
+    const { competition } = await requireCompetitionAccess(slug)
+    const { id } = await params
+    const workoutId = Number(id)
+    await requireWorkoutInCompetition(workoutId, competition.id)
+
+    if (await workoutHasScores(workoutId)) {
+      return new Response(SCORES_BLOCK_MESSAGE, { status: 409 })
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.delete(heatAssignment).where(eq(heatAssignment.workoutId, workoutId))
+      await tx.delete(judgeAssignment).where(eq(judgeAssignment.workoutId, workoutId))
+      await tx.delete(heatCompletion).where(eq(heatCompletion.workoutId, workoutId))
+      await tx.update(workout).set({ heatStartOverrides: {} }).where(eq(workout.id, workoutId))
+    })
+
+    return Response.json({ ok: true })
   } catch (e) {
     return authErrorResponse(e)
   }

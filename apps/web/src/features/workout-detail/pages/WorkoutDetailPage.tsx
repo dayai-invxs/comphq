@@ -58,7 +58,9 @@ import styles from './WorkoutDetailPage.module.css'
 // with `display: none` measures as a zero-sized box at the origin — either way
 // the drop lands somewhere it was not aimed.
 
-type PromptKey = 'unlock' | 'clearScores' | 'reset' | 'delete' | 'generateJudges' | 'clearJudges'
+type PromptKey =
+  | 'unlock' | 'clearScores' | 'reset' | 'delete' | 'generateJudges' | 'clearJudges'
+  | 'unlockFirst' | 'scoresFirst' | 'deleteHeat' | 'clearHeats'
 
 type Prompt = {
   title: string
@@ -78,6 +80,7 @@ export function WorkoutDetailPage() {
   const [editing, setEditing] = useState(false)
   const [heatsUnlocked, setHeatsUnlocked] = useState(false)
   const [prompt, setPrompt] = useState<PromptKey | null>(null)
+  const [heatToDelete, setHeatToDelete] = useState<number | null>(null)
 
   const detail = useWorkoutDetail(id, { slug, onNotFound: () => navigate(workoutsPath) })
   const inputs = useScoreInputs(detail.workout)
@@ -118,8 +121,8 @@ export function WorkoutDetailPage() {
 
   const prompts: Record<PromptKey, Prompt> = {
     unlock: {
-      title: 'Regenerate heats?',
-      description: 'Regenerating heats will replace all existing assignments. Athletes may be moved between heats.',
+      title: 'Unlock heats?',
+      description: 'Unlocking lets you regenerate, delete or clear heats. Regenerating replaces all existing assignments, and athletes may be moved between heats.',
       confirmLabel: 'Unlock',
       tone: 'warning',
       run: async () => setHeatsUnlocked(true),
@@ -144,6 +147,38 @@ export function WorkoutDetailPage() {
       confirmLabel: 'Delete workout',
       tone: 'danger',
       run: async () => { await detail.deleteWorkout(); navigate(workoutsPath) },
+    },
+    unlockFirst: {
+      title: 'Unlock heats first',
+      description: 'Heats are locked. Click "Unlock to Regenerate" under Heat assignments, then try again.',
+      confirmLabel: 'OK',
+      tone: 'warning',
+      run: async () => {},
+    },
+    scoresFirst: {
+      title: 'This workout has scores',
+      description: 'Heats can’t be deleted while the workout has scores. Use "Clear All Scores" first if you really mean to start over.',
+      confirmLabel: 'OK',
+      tone: 'warning',
+      run: async () => {},
+    },
+    deleteHeat: {
+      title: `Are you sure you want to delete Heat ${heatToDelete ?? ''}?`,
+      description: 'This cannot be undone. Its athletes come out of the heat (they stay on the roster), and its judge assignments and completion are removed. Later heats keep their numbers and start times, leaving a gap. Any scores for these athletes would be lost.',
+      confirmLabel: `Delete Heat ${heatToDelete ?? ''}`,
+      tone: 'danger',
+      run: async () => {
+        if (heatToDelete == null) return
+        await detail.deleteHeat(heatToDelete)
+        setHeatsUnlocked(false)
+      },
+    },
+    clearHeats: {
+      title: 'Are you sure you want to clear all heats?',
+      description: 'This cannot be undone. Every heat, lane assignment, judge assignment and heat completion for this workout is removed, and you will lose all scores. Athletes stay on the roster.',
+      confirmLabel: 'Clear all heats',
+      tone: 'danger',
+      run: async () => { await detail.clearHeats(); setHeatsUnlocked(false) },
     },
     generateJudges: {
       title: 'Replace the judges already assigned?',
@@ -221,6 +256,15 @@ export function WorkoutDetailPage() {
     await detail.load()
   }
 
+  // Deleting heats is guarded twice before the "are you sure": the heats must
+  // be unlocked, and the workout must have no scores (the server refuses too).
+  function askToDeleteHeats(key: 'deleteHeat' | 'clearHeats', heatNum?: number) {
+    if (!heatsUnlocked) { setPrompt('unlockFirst'); return }
+    if (workout.scores.length > 0) { setPrompt('scoresFirst'); return }
+    setHeatToDelete(heatNum ?? null)
+    setPrompt(key)
+  }
+
   function generateJudges() {
     if (judges.assignments.length > 0) setPrompt('generateJudges')
     // The rejection exists for the ConfirmDialog path; here the hook's error
@@ -268,6 +312,11 @@ export function WorkoutDetailPage() {
       >
         Generate (By Cumulative Points)
       </Button>
+      {heatNums.length > 0 && (
+        <Button size="sm" variant="danger" onClick={() => askToDeleteHeats('clearHeats')} disabled={detail.loading}>
+          Clear All Heats
+        </Button>
+      )}
       {locked && (
         <Button size="sm" variant="secondary" onClick={() => setPrompt('unlock')}>Unlock to Regenerate</Button>
       )}
@@ -418,6 +467,7 @@ export function WorkoutDetailPage() {
                       onSaveHeat={saveHeat}
                       onCompleteHeat={completeHeat}
                       onUndoHeat={detail.undoHeat}
+                      onDeleteHeat={(n) => askToDeleteHeats('deleteHeat', n)}
                       onReorder={detail.reorderAssignments}
                       onSaveHeatTime={detail.saveHeatTime}
                       isSaving={detail.savingHeats.has(heatNum)}

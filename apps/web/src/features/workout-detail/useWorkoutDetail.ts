@@ -188,6 +188,33 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     onError: (e) => setError(errorMessage(e)),
   })
 
+  // Deleting heats also drops their judge assignments server-side, so the
+  // judges query is re-read beside the workout.
+  const reloadAfterHeatDelete = useCallback(() => Promise.all([
+    load(),
+    qc.invalidateQueries({ queryKey: queryKeys.judgeAssignments(slug, workoutId) }),
+  ]), [load, qc, slug, workoutId])
+
+  const deleteHeatMutation = useMutation({
+    mutationFn: (heatNumber: number) => api.deleteHeat(heatNumber),
+    onMutate: () => { setMsg(''); setError('') },
+    onSuccess: async (_data, heatNumber) => {
+      await reloadAfterHeatDelete()
+      onSuccess(`Heat ${heatNumber} deleted.`)
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+
+  const clearHeatsMutation = useMutation({
+    mutationFn: () => api.clearHeats(),
+    onMutate: () => { setMsg(''); setError('') },
+    onSuccess: async () => {
+      await reloadAfterHeatDelete()
+      onSuccess('All heats cleared.')
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+
   const deleteWorkoutMutation = useMutation({
     mutationFn: () => api.deleteWorkout(),
     onError: (e) => setError(errorMessage(e)),
@@ -280,6 +307,14 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   const resetWorkout = useCallback(
     () => resetWorkoutAsync().then(() => undefined), [resetWorkoutAsync])
 
+  const { mutateAsync: deleteHeatAsync } = deleteHeatMutation
+  const deleteHeat = useCallback(
+    (heatNumber: number) => deleteHeatAsync(heatNumber).then(() => undefined), [deleteHeatAsync])
+
+  const { mutateAsync: clearHeatsAsync } = clearHeatsMutation
+  const clearHeats = useCallback(
+    () => clearHeatsAsync().then(() => undefined), [clearHeatsAsync])
+
   const { mutateAsync: deleteWorkoutAsync } = deleteWorkoutMutation
   const deleteWorkout = useCallback(
     () => deleteWorkoutAsync().then(() => undefined), [deleteWorkoutAsync])
@@ -297,7 +332,8 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     saveHeatTimeMutation.isPending || saveManyMutation.isPending ||
     completeHeatMutation.isPending || undoHeatMutation.isPending ||
     calculateMutation.isPending || clearScoresMutation.isPending ||
-    resetWorkoutMutation.isPending || updateSettingsMutation.isPending
+    resetWorkoutMutation.isPending || updateSettingsMutation.isPending ||
+    deleteHeatMutation.isPending || clearHeatsMutation.isPending
 
   return {
     workout,
@@ -317,6 +353,8 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     undoHeat,
     clearScores,
     resetWorkout,
+    deleteHeat,
+    clearHeats,
     calculateRankings,
     deleteWorkout,
     updateSettings,

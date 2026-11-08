@@ -16,6 +16,7 @@
     "@/lib/env": "./_shared/env.ts",
     "@/lib/heat-reorder": "./_shared/heat-reorder.ts",
     "@/lib/heatCompletion": "./_shared/heatCompletion.ts",
+    "@/lib/heatDeletion": "./_shared/heatDeletion.ts",
     "@/lib/heatTime": "./_shared/heatTime.ts",
     "@/lib/parseJson": "./_shared/parseJson.ts",
     "@/lib/rate-limit": "./_shared/rate-limit.ts",

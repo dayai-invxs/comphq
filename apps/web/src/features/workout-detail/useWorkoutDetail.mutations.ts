@@ -63,6 +63,14 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
       return apiPost(`${base}/assignments${qs}`, { useCumulative })
     },
 
+    async deleteHeat(heatNumber: number) {
+      return apiDel(`${base}/heats/${heatNumber}${qs}`)
+    },
+
+    async clearHeats() {
+      return apiDel(`${base}/assignments${qs}`)
+    },
+
     async saveHeatTime(heatNumber: number, isoTime: string) {
       return apiPut(`${base}/heat-times${qs}`, { heatNumber, isoTime })
     },
