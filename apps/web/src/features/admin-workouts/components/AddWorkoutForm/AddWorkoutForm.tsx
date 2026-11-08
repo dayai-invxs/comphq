@@ -79,6 +79,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
   const [partBEnabled, setPartBEnabled] = useState(false)
   const [partBScoreType, setPartBScoreType] = useState('time')
   const [halfWeight, setHalfWeight] = useState(false)
+  const [secret, setSecret] = useState(false)
   const [locationId, setLocationId] = useState('')
 
   function handleSubmit(e: FormEvent) {
@@ -100,6 +101,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
       partBEnabled,
       partBScoreType,
       halfWeight,
+      secret,
       locationId: locationId ? Number(locationId) : null,
     })
   }
@@ -227,6 +229,13 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
                 hint="This workout counts at 50% on the overall leaderboard"
                 checked={halfWeight}
                 onChange={setHalfWeight}
+              />
+
+              <Toggle
+                label="Secret Workout"
+                hint="Hidden from the public Workouts screen until it is active"
+                checked={secret}
+                onChange={setSecret}
               />
             </div>
           </Stack>

@@ -31,6 +31,7 @@ const DRAFT = {
   partBEnabled: false,
   partBScoreType: 'time',
   halfWeight: false,
+  secret: false,
   locationId: null,
 }
 

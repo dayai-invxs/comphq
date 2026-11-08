@@ -1,13 +1,14 @@
-import { and, asc, eq, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 
 /**
- * The public workout list: number, name and description of every workout that
- * is out of draft. No auth, like the rest of /api/schedule; the admin's
- * /api/workouts is gated and carries every column. A draft is a workout still
- * being written, so it stays off the spectator side until it goes active.
+ * The public workout list: number, name and description of every workout,
+ * drafts included. No auth, like the rest of /api/schedule; the admin's
+ * /api/workouts is gated and carries every column. A secret workout is the
+ * exception: it stays off this list until it goes active, and once revealed it
+ * stays on through completed.
  */
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -24,7 +25,10 @@ export async function GET(req: Request) {
         status: workout.status,
       })
       .from(workout)
-      .where(and(eq(workout.competitionId, competition.id), ne(workout.status, 'draft')))
+      .where(and(
+        eq(workout.competitionId, competition.id),
+        or(eq(workout.secret, false), inArray(workout.status, ['active', 'completed'])),
+      ))
       .orderBy(asc(workout.number))
     return Response.json(rows)
   } catch (e) {

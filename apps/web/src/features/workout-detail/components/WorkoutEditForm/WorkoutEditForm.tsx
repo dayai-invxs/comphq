@@ -115,6 +115,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
   const [partBEnabled, setPartBEnabled] = useState(workout.partBEnabled)
   const [partBScoreType, setPartBScoreType] = useState(workout.partBScoreType)
   const [halfWeight, setHalfWeight] = useState(workout.halfWeight)
+  const [secret, setSecret] = useState(workout.secret ?? false)
   const [locationId, setLocationId] = useState(workout.locationId ? String(workout.locationId) : '')
 
   async function submit(e: FormEvent) {
@@ -136,6 +137,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
       partBEnabled,
       partBScoreType,
       halfWeight,
+      secret,
       locationId: locationId ? Number(locationId) : null,
     })
     if (ok) onCancel()
@@ -239,6 +241,13 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
             onToggle={() => setHalfWeight((v) => !v)}
             title="Half Weight"
             subtitle="This workout counts at 50% on the overall leaderboard"
+          />
+
+          <Toggle
+            on={secret}
+            onToggle={() => setSecret((v) => !v)}
+            title="Secret Workout"
+            subtitle="Hidden from the public Workouts screen until it is active"
           />
 
           <Inline gap="tight" className={styles.wide}>

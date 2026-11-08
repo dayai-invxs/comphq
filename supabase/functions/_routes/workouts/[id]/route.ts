@@ -131,6 +131,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.partBScoreType !== undefined) patch.partBScoreType = d.partBScoreType
     if (d.number !== undefined) patch.number = d.number
     if (d.halfWeight !== undefined) patch.halfWeight = d.halfWeight
+    if (d.secret !== undefined) patch.secret = d.secret
     if ('locationId' in d) patch.locationId = d.locationId ?? null
 
     const [updated] = await db

@@ -23,7 +23,7 @@ export type Workout = {
   id: number; number: number; name: string; description: string | null; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
-  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; locationId: number | null; heatStartOverrides: Record<string, string> | string
+  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; secret?: boolean; locationId: number | null; heatStartOverrides: Record<string, string> | string
   completedHeats: number[]
   assignments: Assignment[]; scores: Score[]
 }

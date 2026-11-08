@@ -149,6 +149,7 @@ describe('what it sends', () => {
       partBEnabled: false,
       partBScoreType: 'time',
       halfWeight: false,
+      secret: false,
       locationId: null,
     })
   })
@@ -218,9 +219,11 @@ describe('what it sends', () => {
     fillRequired()
     fireEvent.click(sheet().getByRole('switch', { name: /Mixed Heats/ }))
     fireEvent.click(sheet().getByRole('switch', { name: /Half Weight/ }))
+    fireEvent.click(sheet().getByRole('switch', { name: /Secret Workout/ }))
     submit()
     expect(onCreate.mock.calls[0][0].mixedHeats).toBe(false)
     expect(onCreate.mock.calls[0][0].halfWeight).toBe(true)
+    expect(onCreate.mock.calls[0][0].secret).toBe(true)
   })
 })
 

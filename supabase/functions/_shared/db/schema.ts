@@ -130,6 +130,8 @@ export const workout = pgTable('Workout', {
   partBEnabled: boolean('partBEnabled').notNull().default(false),
   partBScoreType: text('partBScoreType').notNull().default('time'),
   halfWeight: boolean('halfWeight').notNull().default(false),
+  /** Kept off the public Workouts screen until the workout is active. */
+  secret: boolean('secret').notNull().default(false),
   heatStartOverrides: jsonb('heatStartOverrides').$type<Record<string, string>>().notNull().default({}),
   locationId: integer('locationId').references(() => workoutLocation.id, { onDelete: 'set null' }),
   externalId: text('externalId'),

@@ -17,7 +17,7 @@ describe('GET /api/schedule/workouts', () => {
     expect(await res.json()).toEqual(rows)
   })
 
-  it('filters out drafts', async () => {
+  it('filters out secret workouts that are not active yet', async () => {
     mock.queueResult([])
     await GET(req('default'))
     expect(mock.calls.some((c) => c.method === 'where')).toBe(true)

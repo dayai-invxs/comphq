@@ -150,6 +150,7 @@ export const WorkoutCreate = z.object({
   partBEnabled: z.boolean().optional(),
   partBScoreType: ScoreType.optional(),
   halfWeight: z.boolean().optional(),
+  secret: z.boolean().optional(),
   locationId: Id.nullable().optional(),
 })
 
@@ -171,6 +172,7 @@ export const WorkoutUpdate = z.object({
   partBScoreType: ScoreType.optional(),
   number: NumericInt.pipe(z.number().int().positive()).optional(),
   halfWeight: z.boolean().optional(),
+  secret: z.boolean().optional(),
   locationId: Id.nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
 

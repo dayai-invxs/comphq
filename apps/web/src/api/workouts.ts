@@ -26,6 +26,8 @@ export type Workout = {
   partBEnabled: boolean
   partBScoreType: string
   halfWeight: boolean
+  /** Off the public Workouts screen until it is active. */
+  secret: boolean
   heatStartOverrides: Record<string, string>
   locationId: number | null
 }

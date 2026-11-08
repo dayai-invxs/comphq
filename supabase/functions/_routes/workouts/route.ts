@@ -50,6 +50,7 @@ export async function POST(req: Request) {
         partBEnabled: d.partBEnabled === true,
         partBScoreType: d.partBScoreType ?? 'time',
         halfWeight: d.halfWeight === true,
+        secret: d.secret === true,
         locationId: d.locationId ?? null,
       })
       .select('*')

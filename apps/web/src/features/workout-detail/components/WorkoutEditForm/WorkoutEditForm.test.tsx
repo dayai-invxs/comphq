@@ -144,6 +144,7 @@ describe('saving', () => {
       partBEnabled: false,
       partBScoreType: 'weight',
       halfWeight: false,
+      secret: false,
       locationId: 3,
     })
   })
