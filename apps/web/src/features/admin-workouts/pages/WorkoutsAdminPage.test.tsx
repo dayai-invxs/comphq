@@ -234,15 +234,17 @@ describe('the equipment master list', () => {
 })
 
 describe('the imports', () => {
-  it('posts a pasted heat CSV to the heats route', async () => {
+  it('checks a pasted heat CSV, then imports it to the heats route', async () => {
+    apiPost.mockResolvedValueOnce({ existing: [] })
     mount()
     await row(/WOD 1: Fran/)
     const panel = region('Import Heat Assignments')
     fireEvent.change(panel.getByLabelText('CSV'), { target: { value: 'a,b' } })
     fireEvent.click(panel.getByRole('button', { name: 'Import' }))
     await waitFor(() =>
-      expect(apiPost).toHaveBeenCalledWith('/api/import/heats', { slug: 'summer', csv: 'a,b' }),
+      expect(apiPost).toHaveBeenCalledWith('/api/import/heats', { slug: 'summer', csv: 'a,b', mode: 'replace' }),
     )
+    expect(apiPost).toHaveBeenCalledWith('/api/import/heats', { slug: 'summer', csv: 'a,b', mode: 'preview' })
   })
 
   it('posts a pasted judge CSV to its own route', async () => {

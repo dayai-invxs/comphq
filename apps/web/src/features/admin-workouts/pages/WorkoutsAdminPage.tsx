@@ -3,7 +3,7 @@ import type { DataColumn } from '@mond-design-system/react'
 import { useState } from 'react'
 import { useParams } from 'react-router'
 import { useEquipmentSummary } from '@/api/equipmentSummary'
-import { useImportHeats, useImportJudgeAssignments } from '@/api/imports'
+import { useImportJudgeAssignments } from '@/api/imports'
 import { useSettings, useUpdateSettings } from '@/api/settings'
 import { useWorkoutLocations } from '@/api/workoutLocations'
 import { useCreateWorkout, useWorkouts, type Workout, type WorkoutDraft } from '@/api/workouts'
@@ -15,6 +15,7 @@ import { scoreTypeLabel } from '@/lib/scoreTypes'
 import { statusBadge } from '@/lib/workoutStatus'
 import { AddWorkoutForm } from '../components/AddWorkoutForm/AddWorkoutForm'
 import { CsvImportPanel } from '../components/CsvImportPanel/CsvImportPanel'
+import { HeatImportPanel } from '../components/HeatImportPanel/HeatImportPanel'
 import { EquipmentMasterList } from '../components/EquipmentMasterList/EquipmentMasterList'
 import { TiebreakPicker } from '../components/TiebreakPicker/TiebreakPicker'
 
@@ -49,7 +50,6 @@ export function WorkoutsAdminPage() {
   const [showEquipment, setShowEquipment] = useState(false)
   const equipment = useEquipmentSummary(slug, showEquipment)
 
-  const heats = useImportHeats(slug)
   const judges = useImportJudgeAssignments(slug)
 
   const [adding, setAdding] = useState(false)
@@ -166,13 +166,7 @@ export function WorkoutsAdminPage() {
         saving={saveSettings.isPending}
       />
 
-      <CsvImportPanel
-        title="Import Heat Assignments"
-        columns="workout_number, heat_number, lane_number, athlete_name"
-        note="Overwrites existing assignments for any workout included in the file."
-        placeholder={'workout_number,heat_number,lane_number,athlete_name\n1,1,1,Jane Smith\n1,1,2,John Doe'}
-        run={heats}
-      />
+      <HeatImportPanel slug={slug} />
 
       <CsvImportPanel
         title="Import Judge Assignments"

@@ -23,10 +23,10 @@ beforeEach(() => {
 })
 
 describe('useImportHeats', () => {
-  it('posts the pasted CSV with the competition it belongs to', async () => {
+  it('posts the pasted CSV with the competition it belongs to and how to import it', async () => {
     const { result } = renderHook(() => useImportHeats('summer'), { wrapper })
-    await act(() => result.current.mutateAsync('a,b\n1,2'))
-    expect(apiPost).toHaveBeenCalledWith('/api/import/heats', { slug: 'summer', csv: 'a,b\n1,2' })
+    await act(() => result.current.mutateAsync({ csv: 'a,b\n1,2', mode: 'merge' }))
+    expect(apiPost).toHaveBeenCalledWith('/api/import/heats', { slug: 'summer', csv: 'a,b\n1,2', mode: 'merge' })
   })
 
   // A heat import rewrites assignments for every workout in the file, so the
@@ -34,7 +34,7 @@ describe('useImportHeats', () => {
   it('re-reads the schedule when rows landed', async () => {
     const spy = vi.spyOn(client, 'invalidateQueries')
     const { result } = renderHook(() => useImportHeats('summer'), { wrapper })
-    await act(() => result.current.mutateAsync('csv'))
+    await act(() => result.current.mutateAsync({ csv: 'csv', mode: 'replace' }))
     expect(spy).toHaveBeenCalledWith({ queryKey: queryKeys.schedule('summer') })
     expect(spy).toHaveBeenCalledWith({ queryKey: queryKeys.ops('summer') })
   })
@@ -45,7 +45,7 @@ describe('useImportHeats', () => {
     apiPost.mockResolvedValue(NOTHING)
     const spy = vi.spyOn(client, 'invalidateQueries')
     const { result } = renderHook(() => useImportHeats('summer'), { wrapper })
-    await act(() => result.current.mutateAsync('csv'))
+    await act(() => result.current.mutateAsync({ csv: 'csv', mode: 'replace' }))
     expect(spy).not.toHaveBeenCalled()
   })
 })

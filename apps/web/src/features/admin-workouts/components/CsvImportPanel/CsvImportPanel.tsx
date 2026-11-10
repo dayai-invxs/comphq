@@ -109,6 +109,9 @@ export function CsvImportPanel({ title, columns, note, placeholder, run }: Props
                 {result.workoutsAffected.map((n) => `#${n}`).join(', ')}.
               </Text>
             )}
+            {result.notes?.map((n, i) => (
+              <Text key={`note-${i}`} tone="muted">{n.message}</Text>
+            ))}
             {result.warnings?.map((w, i) => (
               <Text key={i} tone="muted">{w.message}</Text>
             ))}
