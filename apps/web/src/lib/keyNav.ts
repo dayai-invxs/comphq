@@ -25,8 +25,31 @@ export function keyNav(group: string) {
     const next = nodes[idx + delta]
     if (next) {
       e.preventDefault()
-      next.focus()
+      next.focus({ preventScroll: true })
       next.select()
+      reveal(next)
     }
   }
+}
+
+/** Room kept clear above a revealed box for the sticky app bar, and below it
+    so the box after it shows too. */
+const CLEARANCE = 96
+
+/**
+ * Brings a box focused from code into the part of the screen the person can
+ * see. A box focused by a tap is moved into view by the browser; one focused
+ * from a key press is not, on a phone, so Enter used to leave the next score
+ * box under the keyboard. The keyboard does not shrink the layout on iOS, only
+ * the visual viewport, so that is what the box is measured against.
+ */
+export function reveal(el: HTMLElement) {
+  el.scrollIntoView?.({ block: 'nearest' })
+  const vv = window.visualViewport
+  if (!vv) return
+  const r = el.getBoundingClientRect()
+  const top = vv.offsetTop + Math.min(CLEARANCE, vv.height / 4)
+  const bottom = vv.offsetTop + vv.height - Math.min(CLEARANCE, vv.height / 4)
+  if (r.top < top) window.scrollBy(0, r.top - top)
+  else if (r.bottom > bottom) window.scrollBy(0, r.bottom - bottom)
 }

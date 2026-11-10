@@ -18,7 +18,7 @@ import { queryKeys } from '@/api/queryKeys'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { ScoreCell } from '@/components/ScoreCell/ScoreCell'
-import { divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
+import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import styles from './LeaderboardPage.module.css'
@@ -62,6 +62,8 @@ export function LeaderboardPage() {
   const entries = useMemo(() => data?.entries ?? [], [data])
   const halfWeightIds = data?.halfWeightIds ?? []
   const tiebreakWorkoutId = data?.tiebreakWorkoutId ?? null
+  const decidingWorkoutId = data?.decidingWorkoutId ?? null
+  const decided = decidedBy(data?.workouts ?? [], decidingWorkoutId)
 
   // A table keeps its columns at every width and pans when they do not fit,
   // and what pans off the side of a phone first is the placing and the name —
@@ -98,7 +100,7 @@ export function LeaderboardPage() {
   // different routes, and only the ones who placed identically everywhere share
   // a rank. Reading one workout, that workout's placing is the whole test.
   function isTrulyTied(a: Entry, b: Entry): boolean {
-    if (sortBy === 'overall') return sameEverywhere(a, b, workoutIds)
+    if (sortBy === 'overall') return sameEverywhere(a, b, workoutIds, decidingWorkoutId)
     return (a.workoutScores[sortBy]?.points ?? null) === (b.workoutScores[sortBy]?.points ?? null)
   }
 
@@ -203,7 +205,9 @@ export function LeaderboardPage() {
     <PageFrame
       title="Leaderboard"
       description={
-        !isPending && workouts.length > 0
+        !isPending && decided
+          ? decided
+          : !isPending && workouts.length > 0
           ? `${workouts.length} workout${workouts.length !== 1 ? 's' : ''} · Lower points = better`
           : undefined
       }

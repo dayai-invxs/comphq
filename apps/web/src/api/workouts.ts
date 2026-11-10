@@ -32,6 +32,8 @@ export type Workout = {
   knockout?: boolean
   knockoutRounds?: number | null
   knockoutAdvance?: number | null
+  /** The finished tournament's placings are the final standings. */
+  knockoutDecides?: boolean
   heatStartOverrides: Record<string, string>
   locationId: number | null
 }

@@ -108,6 +108,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
     scoreType: workout.scoreType,
     rounds: String(workout.knockoutRounds ?? 3),
     advance: String(workout.knockoutAdvance ?? 2),
+    decides: workout.knockoutDecides ?? false,
   })
   const [lanes, setLanes] = useState(String(workout.lanes))
   const [heatInterval, setHeatInterval] = useState(formatMinSec(workout.heatIntervalSecs))

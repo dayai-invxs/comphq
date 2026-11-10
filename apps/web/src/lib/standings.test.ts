@@ -54,6 +54,14 @@ describe('divisionsOf', () => {
 describe('sameEverywhere', () => {
   const ids = [1, 2]
 
+  // A deciding knockout: level there is level, whatever came before it.
+  it('reads only the deciding knockout once it has placed both', () => {
+    const a = entry({ totalPoints: 3, workoutScores: { 1: score(1), 2: score(3) } })
+    const b = entry({ totalPoints: 3, workoutScores: { 1: score(5), 2: score(3) } })
+    expect(sameEverywhere(a, b, ids)).toBe(false)
+    expect(sameEverywhere(a, b, ids, 2)).toBe(true)
+  })
+
   it('is false when the totals differ', () => {
     const a = entry({ totalPoints: 4, workoutScores: { 1: score(2), 2: score(2) } })
     const b = entry({ totalPoints: 6, workoutScores: { 1: score(3), 2: score(3) } })

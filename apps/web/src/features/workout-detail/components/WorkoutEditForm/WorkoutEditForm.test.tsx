@@ -135,6 +135,7 @@ describe('saving', () => {
       knockout: false,
       knockoutRounds: null,
       knockoutAdvance: null,
+      knockoutDecides: false,
       lanes: 8,
       heatIntervalSecs: 450,
       timeBetweenHeatsSecs: 300,

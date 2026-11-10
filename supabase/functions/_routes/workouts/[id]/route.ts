@@ -159,6 +159,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.knockout !== undefined) patch.knockout = d.knockout
     if (d.knockoutRounds !== undefined) patch.knockoutRounds = d.knockoutRounds
     if (d.knockoutAdvance !== undefined) patch.knockoutAdvance = d.knockoutAdvance
+    if (d.knockoutDecides !== undefined) patch.knockoutDecides = d.knockoutDecides
+    // Only a knockout can decide the competition.
+    if (d.knockout === false) patch.knockoutDecides = false
     // A knockout heat has one result per lane; Part B does not apply.
     if (d.knockout === true) patch.partBEnabled = false
     if ('locationId' in d) patch.locationId = d.locationId ?? null

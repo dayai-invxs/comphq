@@ -67,7 +67,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
   const [number, setNumber] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [format, setFormat] = useState<KnockoutSettings>({ knockout: false, scoreType: 'time', rounds: '3', advance: '2' })
+  const [format, setFormat] = useState<KnockoutSettings>({ knockout: false, scoreType: 'time', rounds: '3', advance: '2', decides: false })
   const [lanes, setLanes] = useState('5')
   const [heatInterval, setHeatInterval] = useState('10:00')
   const [timeBetweenHeats, setTimeBetweenHeats] = useState('2:00')

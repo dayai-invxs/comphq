@@ -55,6 +55,7 @@ export async function POST(req: Request) {
         knockout: d.knockout === true,
         knockoutRounds: d.knockout === true ? (d.knockoutRounds ?? 2) : null,
         knockoutAdvance: d.knockout === true ? (d.knockoutAdvance ?? 1) : null,
+        knockoutDecides: d.knockout === true && d.knockoutDecides === true,
         locationId: d.locationId ?? null,
       })
       .select('*')

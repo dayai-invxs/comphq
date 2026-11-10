@@ -1,4 +1,4 @@
-import { Field, Input, Select, Text } from '@mond-design-system/react'
+import { Field, Input, Select, Switch, Text } from '@mond-design-system/react'
 import { roundSizes } from '@/lib/knockout'
 import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
 
@@ -12,6 +12,9 @@ export type KnockoutSettings = {
   scoreType: string
   rounds: string
   advance: string
+  /** The winner wins the competition: the finished tournament's placings
+      are the final standings, earlier workouts' points set aside. */
+  decides: boolean
 }
 
 const KNOCKOUT = 'knockout'
@@ -67,6 +70,16 @@ export function KnockoutFields({ value, onChange, lanes, wideClassName }: Props)
               )).join(' → ')}. Each division runs its own bracket; small divisions share a heat when the lanes allow.
             </Text>
           )}
+          <div className={wideClassName}>
+            <Switch
+              label="Winner wins the competition"
+              checked={value.decides}
+              onChange={(e) => set({ decides: e.target.checked })}
+            />
+            <Text variant="meta" tone="muted">
+              For a final tournament run as the last workout. Once it is finished, the leaderboard ranks each division by the tournament&apos;s placings alone and ignores the points from every earlier workout.
+            </Text>
+          </div>
         </>
       )}
     </>
@@ -80,5 +93,6 @@ export function knockoutPatch(v: KnockoutSettings) {
     knockout: v.knockout,
     knockoutRounds: v.knockout ? Number(v.rounds) : null,
     knockoutAdvance: v.knockout ? Number(v.advance) : null,
+    knockoutDecides: v.knockout && v.decides,
   }
 }

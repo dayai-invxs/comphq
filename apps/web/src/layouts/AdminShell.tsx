@@ -58,6 +58,7 @@ export function AdminShell({ title, groups, extras = [], trailing = [], onSignOu
   )
 
   return (
+    <div className={styles.shell}>
     <Screen>
       <SkipLink />
       <AppBar
@@ -84,10 +85,11 @@ export function AdminShell({ title, groups, extras = [], trailing = [], onSignOu
             </SideNavGroup>
           </SideNav>
         </div>
-        <ScreenContent id={MAIN_ID}>
+        <ScreenContent id={MAIN_ID} className={styles.content}>
           <RouteBoundary key={pathname}>{children}</RouteBoundary>
         </ScreenContent>
       </div>
     </Screen>
+    </div>
   )
 }

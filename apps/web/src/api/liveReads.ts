@@ -47,6 +47,8 @@ export type LeaderboardData = {
   entries: LeaderboardEntry[]
   halfWeightIds: number[]
   tiebreakWorkoutId?: number | null
+  /** A finished knockout whose placings are the final standings. */
+  decidingWorkoutId?: number | null
   tvLeaderboardPercentages?: Record<string, number>
   tvLeaderboardOrder?: Record<string, number>
   divisions?: { name: string; order: number }[]

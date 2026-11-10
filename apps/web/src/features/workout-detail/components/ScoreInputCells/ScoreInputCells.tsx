@@ -60,6 +60,7 @@ function TimeInput({
       onKeyDown={NAV}
       placeholder="m:ss"
       data-keynav-group="workout-scores"
+      enterKeyHint="next"
       className={className ?? styles.time}
     />
   )
@@ -82,6 +83,7 @@ function RoundsReps({
         onChange={(e) => onRounds(e.target.value)}
         placeholder="0"
         data-keynav-group="workout-scores"
+        enterKeyHint="next"
         onKeyDown={NAV}
         className={styles.count}
       />
@@ -93,6 +95,7 @@ function RoundsReps({
         onChange={(e) => onReps(e.target.value)}
         placeholder="0"
         data-keynav-group="workout-scores"
+        enterKeyHint="next"
         onKeyDown={NAV}
         className={styles.count}
       />
@@ -179,6 +182,7 @@ function ScoreControl({
       onChange={(e) => setWeight((p) => ({ ...p, [athleteId]: e.target.value }))}
       placeholder="Score"
       data-keynav-group="workout-scores"
+      enterKeyHint="next"
       onKeyDown={NAV}
       className={styles.time}
     />
@@ -215,6 +219,7 @@ export function PartAInputCell({
               onChange={(e) => setTiebreak((p) => ({ ...p, [athleteId]: e.target.value }))}
               placeholder="0"
               data-keynav-group="workout-scores"
+              enterKeyHint="next"
               onKeyDown={NAV}
               className={styles.tiebreakBox}
             />

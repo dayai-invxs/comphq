@@ -38,6 +38,7 @@ export type Workout = {
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
   partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; secret?: boolean
   knockout?: boolean; knockoutRounds?: number | null; knockoutAdvance?: number | null
+  knockoutDecides?: boolean
   locationId: number | null; heatStartOverrides: Record<string, string> | string
   completedHeats: number[]
   assignments: Assignment[]; scores: Score[]

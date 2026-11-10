@@ -78,4 +78,46 @@ describe('GET /api/leaderboard', () => {
       ['Team A', ['Kami']],
     ])
   })
+
+  // A knockout flagged as deciding the competition: once finished, its
+  // placings are the standings and earlier points are set aside.
+  it('ranks by a deciding knockout\'s placings alone once it is finished', async () => {
+    const base = {
+      scoreType: 'time', tiebreakEnabled: false, tiebreakScoreType: 'time', halfWeight: false,
+      competitionId: 1, lanes: 10, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+      callTimeSecs: 0, walkoutTimeSecs: 0, startTime: null, mixedHeats: false,
+      partBEnabled: false, partBScoreType: 'time', heatStartOverrides: '{}', locationId: null,
+    }
+    const workouts = [
+      { ...base, id: 10, number: 1, name: 'A', status: 'completed', knockout: false, knockoutDecides: false },
+      { ...base, id: 11, number: 2, name: 'Final', status: 'completed', knockout: true, knockoutDecides: true },
+    ]
+    const athletes = [
+      { id: 1, name: 'Alice', divisionName: 'Rx' },
+      { id: 2, name: 'Bob', divisionName: 'Rx' },
+      { id: 3, name: 'Cara', divisionName: 'Rx' },
+    ]
+    const scores = [
+      { athleteId: 1, workoutId: 10, points: 1, rawScore: 100, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 10, points: 3, rawScore: 120, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 10, points: 2, rawScore: 110, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 11, points: 2, rawScore: 0, tiebreakRawScore: null, knockoutLabel: 'Final' },
+      { athleteId: 2, workoutId: 11, points: 1, rawScore: 0, tiebreakRawScore: null, knockoutLabel: 'Final' },
+    ]
+    mock.queueResults([], [], [], [], workouts, athletes, [], scores)
+
+    const body = await (await GET(getReq())).json()
+    expect(body.decidingWorkoutId).toBe(11)
+    expect(body.entries.map((e: { athleteName: string }) => e.athleteName)).toEqual(['Bob', 'Alice', 'Cara'])
+    expect(body.entries.map((e: { totalPoints: number }) => e.totalPoints)).toEqual([1, 2, 2])
+  })
+
+  it('ranks as usual while the deciding knockout is not finished', async () => {
+    const workouts = [
+      { id: 11, number: 2, name: 'Final', scoreType: 'time', status: 'active', knockout: true, knockoutDecides: true, partBEnabled: false, halfWeight: false },
+    ]
+    mock.queueResults([], [], [], [], workouts, [{ id: 1, name: 'Alice', divisionName: null }], [], [])
+    const body = await (await GET(getReq())).json()
+    expect(body.decidingWorkoutId).toBeNull()
+  })
 })

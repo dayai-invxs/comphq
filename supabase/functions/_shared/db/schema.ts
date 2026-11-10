@@ -136,6 +136,8 @@ export const workout = pgTable('Workout', {
   knockout: boolean('knockout').notNull().default(false),
   knockoutRounds: integer('knockoutRounds'),
   knockoutAdvance: integer('knockoutAdvance'),
+  /** The finished knockout's placings are the competition's final standings. */
+  knockoutDecides: boolean('knockoutDecides').notNull().default(false),
   heatStartOverrides: jsonb('heatStartOverrides').$type<Record<string, string>>().notNull().default({}),
   locationId: integer('locationId').references(() => workoutLocation.id, { onDelete: 'set null' }),
   externalId: text('externalId'),

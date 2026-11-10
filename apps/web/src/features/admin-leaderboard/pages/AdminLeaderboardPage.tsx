@@ -4,7 +4,7 @@ import { useParams } from 'react-router'
 import { useLeaderboard, type LeaderboardEntry } from '@/api/liveReads'
 import { useSetScorePoints } from '@/api/scores'
 import { ScoreCell } from '@/components/ScoreCell/ScoreCell'
-import { divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
+import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
 import styles from './AdminLeaderboardPage.module.css'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
 
@@ -145,7 +145,7 @@ export function AdminLeaderboardPage() {
         <DataTable
           label={`${name} standings`}
           columns={columns}
-          rows={rankRows(rows, hasAnyScore, (a, b) => sameEverywhere(a, b, workoutIds))}
+          rows={rankRows(rows, hasAnyScore, (a, b) => sameEverywhere(a, b, workoutIds, data?.decidingWorkoutId))}
           rowKey={(r) => String(r.entry.athleteId)}
           rowLabel={(r) => r.entry.athleteName}
         />
@@ -166,6 +166,9 @@ export function AdminLeaderboardPage() {
       <Stack gap="section">
         <Stack gap="hairline">
           <Heading level={1}>Overall Leaderboard</Heading>
+          {decidedBy(workouts, data?.decidingWorkoutId) && (
+            <Text tone="accent">{decidedBy(workouts, data?.decidingWorkoutId)}</Text>
+          )}
           {workouts.length > 0 && (
             <Text tone="muted">
               Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · Lower points = better

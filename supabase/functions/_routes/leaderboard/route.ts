@@ -114,11 +114,32 @@ export async function GET(req: Request) {
     return { athleteId: a.id, athleteName: a.name, members: members.get(a.id) ?? [], divisionName: a.divisionName ?? null, totalPoints, workoutScores }
   })
 
+  // A finished knockout flagged as deciding the competition: its placings are
+  // the standings. Everyone it placed takes their placing as their total and
+  // ranks on that alone; anyone it did not place follows, ranked as before.
+  // Placings are per division, and so is every table that reads this.
+  const deciding = [...visibleWorkouts].reverse()
+    .find((w) => w.knockout && w.knockoutDecides && w.status === 'completed') ?? null
+  const decidingWorkoutId = deciding?.id ?? null
+  if (deciding) {
+    for (const e of entries) {
+      const placed = e.workoutScores[deciding.id]
+      if (placed) e.totalPoints = placed.points
+    }
+  }
+
   const tiebreakWorkout = tiebreakWorkoutId
     ? visibleWorkouts.find((w) => w.id === tiebreakWorkoutId)
     : undefined
 
   entries.sort((a, b) => {
+    if (decidingWorkoutId != null) {
+      const aPlace = a.workoutScores[decidingWorkoutId]?.points ?? null
+      const bPlace = b.workoutScores[decidingWorkoutId]?.points ?? null
+      if (aPlace != null && bPlace == null) return -1
+      if (aPlace == null && bPlace != null) return 1
+      if (aPlace != null && bPlace != null) return aPlace - bPlace || a.athleteName.localeCompare(b.athleteName)
+    }
     const aHas = Object.values(a.workoutScores).some((v) => v !== null)
     const bHas = Object.values(b.workoutScores).some((v) => v !== null)
     if (aHas && !bHas) return -1
@@ -156,6 +177,7 @@ export async function GET(req: Request) {
       workouts: visibleWorkouts,
       entries,
       tiebreakWorkoutId,
+      decidingWorkoutId,
       halfWeightIds: visibleWorkouts.filter((w) => w.halfWeight).map((w) => w.id),
       tvLeaderboardPercentages,
       tvLeaderboardOrder,

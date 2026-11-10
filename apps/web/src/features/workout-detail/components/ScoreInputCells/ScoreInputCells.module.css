@@ -6,9 +6,22 @@
   font-family: var(--mds-font-mono);
 }
 
+/* Rounds and reps: three digits (a capped 120 reps) must show whole. The box
+   is the digits plus the input's own padding and border, so the room is the
+   same whatever size the control is drawn at. The stepper arrows go: they ate
+   a digit's width on a desktop, and the arrow keys move between boxes here
+   anyway. */
 .count {
-  width: 5ch;
+  width: calc(4ch + 2 * var(--mds-pad-control-sm) + 2 * var(--mds-border-width));
+  font-family: var(--mds-font-mono);
   text-align: center;
+  appearance: textfield;
+}
+
+.count::-webkit-inner-spin-button,
+.count::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .tiebreak {

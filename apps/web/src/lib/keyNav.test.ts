@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { keyNav } from './keyNav'
+import { keyNav, reveal } from './keyNav'
 
 // Minimal DOM stub sufficient for keyNav's querySelectorAll-based lookup.
 // Using jsdom-like shim rather than adding the full environment, which
@@ -89,5 +89,49 @@ describe('keyNav', () => {
     // Because disabled filtering removes b from the list, a's neighbour is c
     expect(c.focused).toBe(true)
     expect(b.focused).toBe(false)
+  })
+
+  // Enter on a phone: the next box was focused under the keyboard and the
+  // page never moved to it.
+  it('scrolls the box it moves to into view', () => {
+    const a = makeFake('grp')
+    const b = Object.assign(makeFake('grp'), { scrollIntoView: vi.fn(), getBoundingClientRect: () => ({ top: 0, bottom: 0 }) })
+    mountDoc([a, b])
+    nav({ key: 'Enter', currentTarget: a, preventDefault: vi.fn() } as unknown as React.KeyboardEvent<HTMLInputElement>)
+    expect(b.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+  })
+})
+
+describe('reveal', () => {
+  function box(top: number) {
+    return { scrollIntoView: vi.fn(), getBoundingClientRect: () => ({ top, bottom: top + 40 }) } as unknown as HTMLElement
+  }
+
+  function keyboardOpen(height: number) {
+    const scrollBy = vi.fn()
+    vi.stubGlobal('window', { visualViewport: { offsetTop: 0, height }, scrollBy })
+    return scrollBy
+  }
+
+  it('lifts a box hidden behind the keyboard above it', () => {
+    const scrollBy = keyboardOpen(400)
+    reveal(box(500))
+    // 540 is its bottom; the visible area ends at 400 less the 96 kept clear.
+    expect(scrollBy).toHaveBeenCalledWith(0, 540 - 304)
+    vi.unstubAllGlobals()
+  })
+
+  it('leaves a box that is already in sight where it is', () => {
+    const scrollBy = keyboardOpen(400)
+    reveal(box(150))
+    expect(scrollBy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('brings a box up from under the app bar', () => {
+    const scrollBy = keyboardOpen(400)
+    reveal(box(10))
+    expect(scrollBy).toHaveBeenCalledWith(0, 10 - 96)
+    vi.unstubAllGlobals()
   })
 })

@@ -140,6 +140,7 @@ describe('what it sends', () => {
       knockout: false,
       knockoutRounds: null,
       knockoutAdvance: null,
+      knockoutDecides: false,
       lanes: 5,
       heatIntervalSecs: 600,
       timeBetweenHeatsSecs: 120,
@@ -168,7 +169,18 @@ describe('what it sends', () => {
     submit()
     expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       scoreType: 'rounds_reps', knockout: true, knockoutRounds: 4, knockoutAdvance: 3, partBEnabled: false,
+      knockoutDecides: false,
     }))
+  })
+
+  it('can make the tournament decide the competition', () => {
+    const { onCreate } = form()
+    fillRequired()
+    expect(screen.queryByRole('switch', { name: 'Winner wins the competition' })).toBeNull()
+    fireEvent.change(screen.getByLabelText('Score Type'), { target: { value: 'knockout' } })
+    fireEvent.click(screen.getByRole('switch', { name: 'Winner wins the competition' }))
+    submit()
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ knockout: true, knockoutDecides: true }))
   })
 
   // The button lives in the sheet's footer, outside the form it submits, so

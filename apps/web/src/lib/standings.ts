@@ -46,8 +46,20 @@ export function hasAnyScore(entry: LeaderboardEntry): boolean {
 
 /** Equal totals reached the same way. Two athletes on 6 who placed 1st/5th and
     3rd/3rd are level on paper and not tied, so every workout has to match. */
-export function sameEverywhere(a: LeaderboardEntry, b: LeaderboardEntry, workoutIds: number[]): boolean {
+export function sameEverywhere(
+  a: LeaderboardEntry,
+  b: LeaderboardEntry,
+  workoutIds: number[],
+  /** A knockout that decides the competition: two it placed level are level,
+      whatever they did before it. */
+  decidingWorkoutId?: number | null,
+): boolean {
   if (a.totalPoints !== b.totalPoints) return false
+  if (decidingWorkoutId != null) {
+    const pa = a.workoutScores[decidingWorkoutId]?.points ?? null
+    const pb = b.workoutScores[decidingWorkoutId]?.points ?? null
+    if (pa != null || pb != null) return pa === pb
+  }
   return workoutIds.every((id) => (a.workoutScores[id]?.points ?? null) === (b.workoutScores[id]?.points ?? null))
 }
 
@@ -63,6 +75,12 @@ export function rankRows<T>(
     if (i > 0 && scored(entry) && !tied(rows[i - 1], entry)) rank = i + 1
     return { entry, rank: scored(entry) ? rank : '—' }
   })
+}
+
+/** The line under a leaderboard's title when a knockout has decided it. */
+export function decidedBy(workouts: { id: number; number: number }[], decidingWorkoutId: number | null | undefined): string | null {
+  const w = decidingWorkoutId != null ? workouts.find((x) => x.id === decidingWorkoutId) : undefined
+  return w ? `Final standings · decided by the Event ${w.number} knockout` : null
 }
 
 /** halfWeight halves a workout's points, so a total can carry a .5. */

@@ -334,7 +334,7 @@ export function HeatCard({
               <th scope="col">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
               {workout.partBEnabled && <th scope="col">Part B</th>}
               {knockout && <th scope="col" className={styles.narrow}><VisuallyHidden>{knockout.isFinal ? 'Winner' : 'Advances'}</VisuallyHidden></th>}
-              <th scope="col" className={styles.narrow}>Points</th>
+              <th scope="col" className={styles.narrow}>Ranking</th>
             </tr>
           </thead>
           <tbody>
@@ -475,7 +475,7 @@ export function HeatCard({
                           type="number"
                           size="sm"
                           min={1}
-                          aria-label="Points"
+                          aria-label="Rank"
                           value={editPoints.value}
                           onChange={(e) => setEditPoints((prev) => (prev ? { ...prev, value: e.target.value } : null))}
                           onKeyDown={(e) => {
@@ -491,7 +491,7 @@ export function HeatCard({
                       </Inline>
                     ) : confirmPoints === a.athlete.id ? (
                       <Inline gap="tight" align="center" wrap>
-                        <Text as="span" variant="meta" tone="warning">Change points?</Text>
+                        <Text as="span" variant="meta" tone="warning">Change rank?</Text>
                         <Button
                           variant="primary"
                           size="sm"
@@ -511,7 +511,7 @@ export function HeatCard({
                             <button
                               type="button"
                               className={styles.placing}
-                              title={onPointsOverride ? 'Click to edit points' : undefined}
+                              title={onPointsOverride ? 'Click to change rank' : undefined}
                               onClick={() => onPointsOverride && setConfirmPoints(a.athlete.id)}
                             >
                               {`#${score.points}`}

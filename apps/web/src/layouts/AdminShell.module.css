@@ -1,3 +1,37 @@
+/* Below the rail's step the page itself scrolls, not a box inside it. iOS
+   does not shrink the layout for the soft keyboard: with the page held at
+   exactly the screen's height and the content scrolling inside it, focusing
+   a score box scrolled the whole page up past its end, showing a black band
+   under it, and each focus pushed it further. A page that scrolls as a
+   document is what Safari knows how to move a focused box into view on. The
+   app bar is sticky, so it stays put either way. */
+.shell {
+  min-height: 100%;
+}
+
+.shell > * {
+  height: auto;
+  min-height: 100%;
+}
+
+.body > .content {
+  overflow-y: visible;
+}
+
+@media (min-width: 1024px) {
+  .shell {
+    height: 100%;
+  }
+
+  .shell > * {
+    height: 100%;
+  }
+
+  .body > .content {
+    overflow-y: auto;
+  }
+}
+
 /* MDS composes a Screen as a column: AppBar, ScreenContent, and whatever
    bottom chrome the screen has. A rail sits between the bar and the content,
    in a row of its own — SideNav is already sized to be a flex child, so this

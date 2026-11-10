@@ -154,6 +154,7 @@ export const WorkoutCreate = z.object({
   knockout: z.boolean().optional(),
   knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
   knockoutAdvance: NumericInt.pipe(z.number().int().min(1).max(19)).nullable().optional(),
+  knockoutDecides: z.boolean().optional(),
   locationId: Id.nullable().optional(),
 })
 
@@ -179,6 +180,7 @@ export const WorkoutUpdate = z.object({
   knockout: z.boolean().optional(),
   knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
   knockoutAdvance: NumericInt.pipe(z.number().int().min(1).max(19)).nullable().optional(),
+  knockoutDecides: z.boolean().optional(),
   locationId: Id.nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
 
