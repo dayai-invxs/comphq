@@ -12,3 +12,49 @@
   font-size: var(--mds-text-3xl);
   font-weight: var(--mds-weight-bold);
 }
+
+/* The two ways into the roster and the workouts stay side by side. */
+.actions {
+  display: flex;
+  gap: var(--mds-gap-tight);
+  white-space: nowrap;
+}
+
+.long {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .long {
+    display: inline;
+  }
+
+  .short {
+    display: none;
+  }
+}
+
+/* On a phone the workouts table drops its Lanes column (the second; the
+   workout's own page has it) and pads less, so the name, status and the
+   Activate / Deactivate button fit without panning. */
+.workouts td,
+.workouts th {
+  padding-inline: var(--mds-pad-tight);
+}
+
+.workouts td:nth-child(2),
+.workouts th:nth-child(2) {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .workouts td,
+  .workouts th {
+    padding-inline: var(--mds-pad-control);
+  }
+
+  .workouts td:nth-child(2),
+  .workouts th:nth-child(2) {
+    display: table-cell;
+  }
+}

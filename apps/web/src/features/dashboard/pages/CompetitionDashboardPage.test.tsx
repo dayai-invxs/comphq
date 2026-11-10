@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { currentPath, renderRoutes } from '@/test/harness'
 import { CompetitionDashboardPage } from './CompetitionDashboardPage'
 
-const { apiGet, apiDownload } = vi.hoisted(() => ({ apiGet: vi.fn(), apiDownload: vi.fn() }))
-vi.mock('@/lib/api', () => ({ apiGet, apiDownload }))
+const { apiGet, apiPut, apiDownload } = vi.hoisted(() => ({ apiGet: vi.fn(), apiPut: vi.fn(), apiDownload: vi.fn() }))
+vi.mock('@/lib/api', () => ({ apiGet, apiPut, apiDownload }))
 
 const WORKOUTS = [
   { id: 11, number: 1, name: 'Fran', status: 'completed', lanes: 8 },
@@ -86,6 +86,28 @@ describe('the workout list', () => {
 
     const helen = within((await screen.findByRole('link', { name: /Helen/ })).closest('tr') as HTMLElement)
     expect(helen.getByText('INactive')).toBeInTheDocument()
+  })
+
+  it('activates an inactive workout and deactivates an active one, from its row', async () => {
+    apiPut.mockResolvedValue({})
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Activate WOD 3: Helen' }))
+    await waitFor(() => expect(apiPut).toHaveBeenCalledWith('/api/workouts/13?slug=summer', { status: 'active' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate WOD 2: Grace' }))
+    await waitFor(() => expect(apiPut).toHaveBeenCalledWith('/api/workouts/12?slug=summer', { status: 'draft' }))
+  })
+
+  it('offers no button on a completed workout', async () => {
+    mount()
+    const fran = within((await screen.findByRole('link', { name: /Fran/ })).closest('tr') as HTMLElement)
+    expect(fran.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('says so when a status change is refused', async () => {
+    apiPut.mockRejectedValue(new Error('Forbidden'))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Activate WOD 3: Helen' }))
+    expect(await screen.findByText('Could not change WOD 3: Forbidden')).toBeInTheDocument()
   })
 
   it('opens a workout from its row', async () => {

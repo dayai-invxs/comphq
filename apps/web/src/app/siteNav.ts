@@ -9,6 +9,6 @@ export const SITE_GROUP: NavGroup = {
   label: 'Site',
   items: [
     { to: '/admin', label: 'Competitions', icon: 'dashboard' },
-    { to: '/admin/users', label: 'Manage Users', icon: 'users' },
+    { to: '/admin/users', label: 'Admin Users', icon: 'users' },
   ],
 }

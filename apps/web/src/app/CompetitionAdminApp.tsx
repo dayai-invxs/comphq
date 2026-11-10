@@ -97,7 +97,7 @@ export function CompetitionAdminApp() {
           items: [
             { to: `${base}/people`, label: 'People', icon: 'people' },
             ...(isCompAdmin
-              ? [{ to: `${base}/users`, label: 'Users', icon: 'users' as const }]
+              ? [{ to: `${base}/users`, label: 'Comp Users', icon: 'users' as const }]
               : []),
           ],
         },

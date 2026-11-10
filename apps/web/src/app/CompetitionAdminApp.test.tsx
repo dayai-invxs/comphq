@@ -114,14 +114,14 @@ describe('CompetitionAdminApp', () => {
     })
     mount()
     await screen.findByText('comp dashboard')
-    expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Comp Users' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'People' })).toBeInTheDocument()
   })
 
   it('shows Users to a role=admin member', async () => {
     mount()
     await screen.findByText('comp dashboard')
-    expect(screen.getByRole('link', { name: 'Users' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Comp Users' })).toBeInTheDocument()
   })
 
   // A super admin administers every competition, so the shell they are
@@ -137,14 +137,14 @@ describe('CompetitionAdminApp', () => {
     mount()
     await screen.findByText('comp dashboard')
     expect(screen.getByRole('link', { name: 'Competitions' })).toHaveAttribute('href', '/admin')
-    expect(screen.getByRole('link', { name: 'Manage Users' })).toHaveAttribute('href', '/admin/users')
+    expect(screen.getByRole('link', { name: 'Admin Users' })).toHaveAttribute('href', '/admin/users')
   })
 
   it('keeps the site screens from a competition admin who is not super', async () => {
     mount()
     await screen.findByText('comp dashboard')
     expect(screen.queryByRole('link', { name: 'Competitions' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Manage Users' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Admin Users' })).not.toBeInTheDocument()
   })
 
   it('points the nav at this competition', async () => {

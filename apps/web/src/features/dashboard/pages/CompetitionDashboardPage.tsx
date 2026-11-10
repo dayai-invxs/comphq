@@ -3,7 +3,7 @@ import { Badge, Button, DataTable, EmptyState, Link, Skeleton, Stack, Text } fro
 import type { DataColumn } from '@mond-design-system/react'
 import { useParams } from 'react-router'
 import { useAthletes } from '@/api/athletes'
-import { useWorkouts, type Workout } from '@/api/workouts'
+import { useSetWorkoutStatus, useWorkouts, type Workout } from '@/api/workouts'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { Notice } from '@/components/Notice/Notice'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
@@ -33,6 +33,8 @@ export function CompetitionDashboardPage() {
   const athletes = athletesQuery.data ?? []
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const setStatus = useSetWorkoutStatus(slug)
+  const [statusError, setStatusError] = useState<string | null>(null)
 
   const base = `/${slug}/admin`
 
@@ -50,6 +52,31 @@ export function CompetitionDashboardPage() {
     } finally {
       setDownloading(false)
     }
+  }
+
+  // Activate and deactivate here, as on the workout's own page. A completed
+  // workout has no button: reopening one is done on its page, where it is
+  // less easily pressed by mistake.
+  function statusAction(w: Workout) {
+    if (w.status !== 'draft' && w.status !== 'active') return null
+    const next = w.status === 'draft' ? 'active' : 'draft'
+    const busy = setStatus.isPending && setStatus.variables?.id === w.id
+    return (
+      <Button
+        size="sm"
+        variant={next === 'active' ? 'primary' : 'secondary'}
+        disabled={busy}
+        aria-label={`${next === 'active' ? 'Activate' : 'Deactivate'} WOD ${w.number}: ${w.name}`}
+        onClick={() => {
+          setStatusError(null)
+          setStatus.mutate({ id: w.id, status: next }, {
+            onError: (e) => setStatusError(`Could not change WOD ${w.number}: ${e instanceof Error ? e.message : String(e)}`),
+          })
+        }}
+      >
+        {next === 'active' ? 'Activate' : 'Deactivate'}
+      </Button>
+    )
   }
 
   const columns: DataColumn<Workout>[] = [
@@ -71,7 +98,6 @@ export function CompetitionDashboardPage() {
     {
       key: 'status',
       header: 'Status',
-      width: '9rem',
       cell: (w) => {
         const badge = statusBadge(w.status)
         return <Badge tone={badge.tone}>{badge.label}</Badge>
@@ -85,16 +111,23 @@ export function CompetitionDashboardPage() {
       description="Competition overview"
       wide
       actions={
-        <>
-          <Button as={RouterAnchor} href={`${base}/people`}>Manage athletes/teams</Button>
-          <Button as={RouterAnchor} href={`${base}/workouts`} variant="secondary">Manage workouts</Button>
-        </>
+        // One line always: on a phone the labels drop "Manage" to fit. The
+        // full name stays the button's name for a screen reader either way.
+        <div className={styles.actions}>
+          <Button as={RouterAnchor} href={`${base}/people`} aria-label="Manage athletes/teams">
+            <span className={styles.long}>Manage athletes/teams</span>
+            <span className={styles.short}>Athletes/Teams</span>
+          </Button>
+          <Button as={RouterAnchor} href={`${base}/workouts`} variant="secondary" aria-label="Manage workouts">
+            <span className={styles.long}>Manage workouts</span>
+            <span className={styles.short}>Workouts</span>
+          </Button>
+        </div>
       }
     >
-      <div className={styles.stats}>
-        <Stat label="Athletes/Teams" count={athletes.length} pending={athletesQuery.isPending} failed={!!athletesQuery.error} />
-        <Stat label="Workouts" count={workouts.length} pending={workoutsQuery.isPending} failed={!!workoutsQuery.error} />
-      </div>
+      {statusError && (
+        <Notice tone="danger" onDismiss={() => setStatusError(null)} dismissLabel="Dismiss error">{statusError}</Notice>
+      )}
 
       <DataPanel title="Workouts" flush={workouts.length > 0}>
         {/* A failed read is not an empty competition: without this branch the
@@ -110,15 +143,26 @@ export function CompetitionDashboardPage() {
             action={<Button as={RouterAnchor} href={`${base}/workouts`}>Manage workouts</Button>}
           />
         ) : (
+          <div className={styles.workouts}>
           <DataTable
             label="Workouts and their status"
             columns={columns}
             rows={workouts}
             rowKey={(w) => String(w.id)}
             rowLabel={(w) => `WOD ${w.number}: ${w.name}`}
+            rowActions={statusAction}
+            actionsHeader="Actions"
           />
+          </div>
         )}
       </DataPanel>
+
+      {/* The counts sit under the list: the list is what an organiser came
+          for, the totals are a glance after it. */}
+      <div className={styles.stats}>
+        <Stat label="Athletes/Teams" count={athletes.length} pending={athletesQuery.isPending} failed={!!athletesQuery.error} />
+        <Stat label="Workouts" count={workouts.length} pending={workoutsQuery.isPending} failed={!!workoutsQuery.error} />
+      </div>
 
       <DataPanel
         title="Exports"
