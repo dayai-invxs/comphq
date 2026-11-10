@@ -42,7 +42,9 @@ function serve({ ops = OPS, checks = { athleteChecks: {}, equipChecks: {} }, equ
   apiGet.mockImplementation((path: string) => {
     if (path.startsWith('/api/ops')) return Promise.resolve(ops)
     if (path.startsWith('/api/checks')) return Promise.resolve(checks)
-    if (path.includes('/equipment')) return Promise.resolve(equipment)
+    if (path.startsWith('/api/schedule/equipment')) {
+      return Promise.resolve({ byWorkout: Object.fromEntries(ops.workouts.map((w) => [w.id, equipment])) })
+    }
     return Promise.resolve({ url: null })
   })
   apiPatch.mockResolvedValue({})
@@ -238,6 +240,13 @@ describe('EquipmentPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
     await screen.findByRole('alertdialog')
     expect(apiPatch).not.toHaveBeenCalled()
+  })
+
+  it('reads every workout\'s equipment in one request', async () => {
+    mount()
+    expect((await expand(1)).getByText('Barbell 43kg')).toBeInTheDocument()
+    const reads = apiGet.mock.calls.map(([p]) => p as string).filter((p) => p.includes('equipment'))
+    expect(new Set(reads)).toEqual(new Set(['/api/schedule/equipment?slug=summer']))
   })
 
   it('shows the equipment and the lanes behind an expander', async () => {

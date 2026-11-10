@@ -79,6 +79,8 @@ describe('createRouter', () => {
     // The SPA pins execution region with an x-region header; a preflight that
     // does not allow it would block every browser request that carries it.
     expect(res.headers.get('Access-Control-Allow-Headers')).toContain('x-region')
+    // Without it the browser repeats this preflight before nearly every call.
+    expect(res.headers.get('Access-Control-Max-Age')).toBe('86400')
     expect(handler).not.toHaveBeenCalled()
   })
 

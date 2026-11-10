@@ -33,6 +33,11 @@ const CORS = {
   // The export routes name the file they serve. Without this the browser hides
   // that header cross-origin and the client has to invent the name.
   'Access-Control-Expose-Headers': 'Content-Disposition',
+  // Every call carries apikey and authorization, so the browser asks first
+  // (a preflight) before each one. Without a max age it forgets the answer
+  // within seconds and asks again on every poll. Chrome keeps it two hours at
+  // most, Firefox a day, Safari ten minutes; this asks for the longest.
+  'Access-Control-Max-Age': '86400',
 }
 
 // The gateway may hand over /functions/v1/<name>/… or /<name>/… depending on

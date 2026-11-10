@@ -157,7 +157,7 @@ function EquipmentControl({ slug }: { slug: string }) {
   const equipChecks = checksData?.equipChecks ?? {}
   const workouts = data?.workouts ?? []
   const setEquipChecks = useSetEquipChecks(slug)
-  const equipmentByWorkout = useWorkoutEquipment(slug, workouts.filter((w) => !w.tba).map((w) => w.id))
+  const equipmentByWorkout = useWorkoutEquipment(slug)
   const [resetting, setResetting] = useState(false)
 
   const realtimeKeys = useMemo(() => [queryKeys.ops(slug), queryKeys.checks(slug)], [slug])

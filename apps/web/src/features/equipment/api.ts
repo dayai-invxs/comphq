@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'
 import { apiGet } from '@/lib/api'
 
@@ -9,24 +9,16 @@ export interface EquipmentItem {
   division: { id: number; name: string } | null
 }
 
-// GET /api/workouts/[id]/equipment has no session gate (defect 10), which is
-// what lets this screen — behind a shared password rather than a sign-in —
-// read it at all.
-//
-// One query per workout, as v1 fetched them: a Promise.all over the workout
-// list. A workout whose read fails shows no equipment, which is what v1 did
-// with its `r.ok ? r.json() : []`.
-export function useWorkoutEquipment(slug: string, workoutIds: number[]) {
-  const results = useQueries({
-    queries: workoutIds.map((id) => ({
-      queryKey: queryKeys.workoutEquipment(slug, id),
-      queryFn: () => apiGet<EquipmentItem[]>(`/api/workouts/${id}/equipment?slug=${slug}`),
-      enabled: !!slug,
-    })),
+// GET /api/schedule/equipment: every workout's list in one read. This screen
+// used to ask once per workout, and on a phone at a venue each of those asks
+// was a trip of its own. Public, like the rest of /api/schedule, which is what
+// lets this screen (behind a shared password rather than a sign-in) read it.
+// An unannounced secret workout has no list here, so it shows none.
+export function useWorkoutEquipment(slug: string) {
+  const { data } = useQuery({
+    queryKey: queryKeys.scheduleEquipment(slug),
+    queryFn: () => apiGet<{ byWorkout: Record<number, EquipmentItem[]> }>(`/api/schedule/equipment?slug=${slug}`),
+    enabled: !!slug,
   })
-  const byWorkout: Record<number, EquipmentItem[]> = {}
-  workoutIds.forEach((id, i) => {
-    byWorkout[id] = results[i]?.data ?? []
-  })
-  return byWorkout
+  return data?.byWorkout ?? {}
 }
