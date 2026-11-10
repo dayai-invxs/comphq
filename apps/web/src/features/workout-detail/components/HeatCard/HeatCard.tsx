@@ -19,7 +19,7 @@ import { calcHeatStartMs, fmtHeatTime } from '@/lib/heatTime'
 import { getCorralMs, getWalkoutMs } from '@/lib/opsHeats'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import type { useScoreInputs } from '../../useScoreInputs'
+import { laneKey, type useScoreInputs } from '../../useScoreInputs'
 import type { Assignment, Workout } from '../../useWorkoutDetail'
 import { useHeatDnd } from '../heat-dnd-context'
 import { PartAInputCell, PartBInputCell } from '../ScoreInputCells/ScoreInputCells'
@@ -316,6 +316,8 @@ export function HeatCard({
             {!isSaving && sorted.map((a) => {
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
               const repeatHeats = repeats?.get(a.athlete.id)
+              // A split team's lane has its own boxes; the team's score is the sum.
+              const inputKey = repeatHeats ? laneKey(a.id) : a.athlete.id
               return (
                 <tr
                   key={a.id}
@@ -363,7 +365,8 @@ export function HeatCard({
                   )}
                   <td>
                     <PartAInputCell
-                      athleteId={a.athlete.id}
+                      athleteId={inputKey}
+                      noCap={!!repeatHeats}
                       scoreType={workout.scoreType}
                       time={scoreInputs.timeInputs}
                       setTime={scoreInputs.setTimeInputs}
@@ -382,7 +385,8 @@ export function HeatCard({
                   {workout.partBEnabled && (
                     <td>
                       <PartBInputCell
-                        athleteId={a.athlete.id}
+                        athleteId={inputKey}
+                        noCap={!!repeatHeats}
                         scoreType={workout.partBScoreType}
                         time={scoreInputs.partBTimeInputs}
                         setTime={scoreInputs.setPartBTimeInputs}
@@ -396,7 +400,7 @@ export function HeatCard({
                     </td>
                   )}
                   <td>
-                    {!score ? '—' : editPoints?.athleteId === a.athlete.id ? (
+                    {!score ? (repeatHeats ? <Text as="span" variant="meta" tone="muted">Team total once every lane is scored</Text> : '—') : editPoints?.athleteId === a.athlete.id ? (
                       <Inline gap="hairline" align="center">
                         <Text as="span" variant="meta" tone="muted">#</Text>
                         <Input
@@ -473,7 +477,7 @@ export function HeatCard({
   )
 }
 
-/** "Duplicate: also in heat 3" / "Duplicate: twice in this heat, also in heat 3". */
+/** "Duplicate: also in heat 3 · team score is the sum of its lanes". */
 export function repeatLabel(heats: number[], heatNumber: number): string {
   const here = heats.filter((h) => h === heatNumber).length
   const others = [...new Set(heats.filter((h) => h !== heatNumber))]
@@ -481,7 +485,7 @@ export function repeatLabel(heats: number[], heatNumber: number): string {
     ...(here > 1 ? [`${here}× in this heat`] : []),
     ...(others.length ? [`also in heat${others.length > 1 ? 's' : ''} ${others.join(', ')}`] : []),
   ]
-  return `Duplicate: ${parts.join(', ')}`
+  return `Duplicate: ${parts.join(', ')} · team score is the sum of its lanes`
 }
 
 /** v1 painted the podium: gold for a win, accent for a medal, plain otherwise. */

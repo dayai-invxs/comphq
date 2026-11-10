@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { roundsRepsToScore, scoreToRoundsReps, timeToMs, msToTimeParts } from '@/lib/scoreFormat'
-import type { ScorePayload, Workout } from './useWorkoutDetail'
+import type { LaneScorePayload, ScorePayload, SplitScorePayload, Workout } from './useWorkoutDetail'
 
 export type RRField = { rounds: string; reps: string }
 
@@ -24,6 +24,13 @@ export function formatTimeInput(ms: number): string {
   if (cs > 0) return `${mins}:${ss}.${String(cs).padStart(2, '0')}`
   return `${mins}:${ss}`
 }
+
+/**
+ * The input key for one lane of a team placed in more than one heat. Inputs
+ * are keyed by athlete id; a split team's lanes each need their own boxes, so
+ * they use the lane's assignment id, negated so it cannot meet an athlete id.
+ */
+export const laneKey = (assignmentId: number) => -assignmentId
 
 export function useScoreInputs(workout: Workout | null) {
   const [weightInputs, setWeightInputs] = useState<Record<number, string>>({})
@@ -73,6 +80,28 @@ export function useScoreInputs(workout: Workout | null) {
         } else {
           bWI[s.athleteId] = String(s.partBRawScore)
         }
+      }
+    }
+    // A split team's lanes: plain entries, never capped (a member's time is
+    // entered as their total, penalties included).
+    for (const a of w.assignments ?? []) {
+      const k = laneKey(a.id)
+      if (a.rawScore != null) {
+        if (w.scoreType === 'time') tI[k] = formatTimeInput(a.rawScore)
+        else if (w.scoreType === 'rounds_reps') {
+          const rr = scoreToRoundsReps(a.rawScore)
+          rI[k] = { rounds: String(rr.rounds), reps: String(rr.reps) }
+        } else wI[k] = String(a.rawScore)
+      }
+      if (w.tiebreakEnabled && a.tiebreakRawScore != null) {
+        tbI[k] = w.tiebreakScoreType === 'time' ? formatTimeInput(a.tiebreakRawScore) : String(a.tiebreakRawScore)
+      }
+      if (a.partBRawScore != null) {
+        if (w.partBScoreType === 'time') bTI[k] = formatTimeInput(a.partBRawScore)
+        else if (w.partBScoreType === 'rounds_reps') {
+          const rr = scoreToRoundsReps(a.partBRawScore)
+          bRI[k] = { rounds: String(rr.rounds), reps: String(rr.reps) }
+        } else bWI[k] = String(a.partBRawScore)
       }
     }
     setWeightInputs(wI); setTimeInputs(tI); setRrInputs(rI); setTiebreakInputs(tbI)
@@ -140,18 +169,29 @@ export function useScoreInputs(workout: Workout | null) {
     return { athleteId, rawScore, tiebreakRawScore, partBRawScore, capped, partBCapped }
   }, [workout, timeInputs, rrInputs, tiebreakInputs, weightInputs, partBTimeInputs, partBRrInputs, partBWeightInputs, cappedInputs, partBCappedInputs])
 
+  // A split team's payload: one entry per lane with something typed in. Lanes
+  // left blank are not sent, so they keep what the server has. Null when none.
+  const buildLanePayload = useCallback((athleteId: number, assignmentIds: number[]): SplitScorePayload | null => {
+    const lanes: LaneScorePayload[] = []
+    for (const id of assignmentIds) {
+      const p = buildPayload(laneKey(id))
+      if (p) lanes.push({ assignmentId: id, rawScore: p.rawScore, tiebreakRawScore: p.tiebreakRawScore, partBRawScore: p.partBRawScore })
+    }
+    return lanes.length ? { athleteId, lanes } : null
+  }, [buildPayload])
+
   const api = useMemo(() => ({
     weightInputs, timeInputs, rrInputs, tiebreakInputs,
     partBTimeInputs, partBWeightInputs, partBRrInputs,
     cappedInputs, partBCappedInputs, setCappedInputs, setPartBCappedInputs,
     setWeightInputs, setTimeInputs, setRrInputs, setTiebreakInputs,
     setPartBTimeInputs, setPartBWeightInputs, setPartBRrInputs,
-    hydrate, clear, buildPayload,
+    hydrate, clear, buildPayload, buildLanePayload,
   }), [
     weightInputs, timeInputs, rrInputs, tiebreakInputs,
     partBTimeInputs, partBWeightInputs, partBRrInputs,
     cappedInputs, partBCappedInputs,
-    hydrate, clear, buildPayload,
+    hydrate, clear, buildPayload, buildLanePayload,
   ])
 
   return api

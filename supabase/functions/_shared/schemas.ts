@@ -183,14 +183,24 @@ export const WorkoutEquipmentCreate = z.object({
 
 // ─── Workout nested ───────────────────────────────────────────────────────
 
+export const LaneScore = z.object({
+  assignmentId: Id,
+  rawScore: z.number(),
+  tiebreakRawScore: z.number().nullable().optional(),
+  partBRawScore: z.number().nullable().optional(),
+})
+
+/** A score for one athlete/team. A team placed in more than one heat sends
+ *  `lanes` instead of `rawScore`: each lane is kept and the team gets the sum. */
 export const ScoreUpsert = z.object({
   athleteId: Id,
-  rawScore: z.number(),
+  rawScore: z.number().optional(),
   tiebreakRawScore: z.number().nullable().optional(),
   partBRawScore: z.number().nullable().optional(),
   capped: z.boolean().optional(),
   partBCapped: z.boolean().optional(),
-})
+  lanes: z.array(LaneScore).min(1).optional(),
+}).refine((s) => s.rawScore !== undefined || s.lanes !== undefined, { message: 'rawScore or lanes is required' })
 
 export const ScorePointsOverride = z.object({
   slug: Slug,

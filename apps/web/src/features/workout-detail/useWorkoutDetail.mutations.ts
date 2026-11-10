@@ -1,5 +1,5 @@
 import { apiDel, apiGet, apiPost, apiPut } from '@/lib/api'
-import type { ScorePayload } from './useWorkoutDetail'
+import type { AnyScorePayload } from './useWorkoutDetail'
 import type { AssignmentUpdate } from '@/lib/heat-reorder'
 
 /**
@@ -26,7 +26,7 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
       return apiGet<T>(`${base}${qs}`)
     },
 
-    async saveScorePayload(payload: ScorePayload) {
+    async saveScorePayload(payload: AnyScorePayload) {
       return apiPost(`${base}/scores${qs}`, payload)
     },
 
@@ -35,7 +35,7 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
      * rejects (Promise.all fail-fast). Callers should surface the error
      * in UI and NOT proceed with downstream steps (e.g. /calculate).
      */
-    async saveAll(payloads: ScorePayload[]) {
+    async saveAll(payloads: AnyScorePayload[]) {
       await Promise.all(payloads.map((p) => apiPost(`${base}/scores${qs}`, p)))
     },
 

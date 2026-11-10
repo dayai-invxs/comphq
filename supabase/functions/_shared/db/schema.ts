@@ -148,6 +148,11 @@ export const heatAssignment = pgTable('HeatAssignment', {
   athleteId: integer('athleteId').notNull().references((): AnyPgColumn => athlete.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   heatNumber: integer('heatNumber').notNull(),
   lane: integer('lane').notNull(),
+  /** This lane's own score, kept only for a team placed more than once in the
+   *  workout (one member per lane). The team's Score row is the sum. */
+  rawScore: doublePrecision('rawScore'),
+  tiebreakRawScore: doublePrecision('tiebreakRawScore'),
+  partBRawScore: doublePrecision('partBRawScore'),
 }, (t) => [
   index('HeatAssignment_workoutId_athleteId_idx').on(t.workoutId, t.athleteId),
   uniqueIndex('heat_assignment_lane_unique').on(t.workoutId, t.heatNumber, t.lane),

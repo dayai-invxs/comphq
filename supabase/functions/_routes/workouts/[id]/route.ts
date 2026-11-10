@@ -23,6 +23,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           lane: heatAssignment.lane,
           workoutId: heatAssignment.workoutId,
           athleteId: heatAssignment.athleteId,
+          rawScore: heatAssignment.rawScore,
+          tiebreakRawScore: heatAssignment.tiebreakRawScore,
+          partBRawScore: heatAssignment.partBRawScore,
           athleteName: athleteTable.name,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
@@ -62,6 +65,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       lane: r.lane,
       workoutId: r.workoutId,
       athleteId: r.athleteId,
+      // A split team's own lane score; null otherwise.
+      rawScore: r.rawScore,
+      tiebreakRawScore: r.tiebreakRawScore,
+      partBRawScore: r.partBRawScore,
       athlete: {
         id: r.athleteId,
         name: r.athleteName,

@@ -135,7 +135,7 @@ describe('the lanes', () => {
 
   it('marks an athlete/team that is also in another heat', () => {
     mount({ repeats: new Map([[2, [1, 3]]]) })
-    expect(screen.getByText('Duplicate: also in heat 3')).toBeInTheDocument()
+    expect(screen.getByText('Duplicate: also in heat 3 · team score is the sum of its lanes')).toBeInTheDocument()
     expect(screen.queryAllByText(/^Duplicate/)).toHaveLength(1)
   })
 
@@ -439,8 +439,8 @@ describe('while a reorder is in flight', () => {
 
 describe('repeatLabel', () => {
   it('names the other heats and repeats within this one', () => {
-    expect(repeatLabel([1, 2, 4], 1)).toBe('Duplicate: also in heats 2, 4')
-    expect(repeatLabel([1, 1], 1)).toBe('Duplicate: 2× in this heat')
-    expect(repeatLabel([1, 1, 2], 1)).toBe('Duplicate: 2× in this heat, also in heat 2')
+    expect(repeatLabel([1, 2, 4], 1)).toBe('Duplicate: also in heats 2, 4 · team score is the sum of its lanes')
+    expect(repeatLabel([1, 1], 1)).toBe('Duplicate: 2× in this heat · team score is the sum of its lanes')
+    expect(repeatLabel([1, 1, 2], 1)).toBe('Duplicate: 2× in this heat, also in heat 2 · team score is the sum of its lanes')
   })
 })

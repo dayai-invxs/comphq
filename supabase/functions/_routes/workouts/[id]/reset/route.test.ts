@@ -19,13 +19,15 @@ describe('POST /api/workouts/[id]/reset', () => {
   })
 
   it('clears scores and heat completions, then returns the workout to draft', async () => {
-    mock.queueResults([{ id: 1, competitionId: 1 }], [], [], [])
+    mock.queueResults([{ id: 1, competitionId: 1 }], [], [], [], [])
     const res = await POST(req(), params('1'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
 
     expect(mock.calls.filter(c => c.method === 'delete')).toHaveLength(2)
-    expect(mock.calls.find(c => c.method === 'set')!.args[0]).toEqual({ status: 'draft' })
+    const sets = mock.calls.filter(c => c.method === 'set').map(c => c.args[0])
+    // Split teams' lane scores go with the team scores.
+    expect(sets).toEqual([{ rawScore: null, tiebreakRawScore: null, partBRawScore: null }, { status: 'draft' }])
   })
 
   // Heat assignments survive a reset — the lane draw is kept, only results go.

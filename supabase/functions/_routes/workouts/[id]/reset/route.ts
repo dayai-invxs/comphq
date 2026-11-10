@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { heatCompletion, score, workout } from '@/db/schema'
+import { clearLaneScores } from '@/lib/laneScores'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +14,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await requireWorkoutInCompetition(workoutId, competition.id)
 
     await db.delete(score).where(eq(score.workoutId, workoutId))
+    await clearLaneScores(workoutId)
     await db.delete(heatCompletion).where(eq(heatCompletion.workoutId, workoutId))
     await db.update(workout).set({ status: 'draft' }).where(eq(workout.id, workoutId))
 

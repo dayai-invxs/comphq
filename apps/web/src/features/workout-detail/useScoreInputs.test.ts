@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { useScoreInputs } from './useScoreInputs'
+import { laneKey, useScoreInputs } from './useScoreInputs'
 import type { Workout } from './useWorkoutDetail'
 
 const workout = {
@@ -78,5 +78,33 @@ describe('capped entry on a time workout', () => {
     expect(result.current.cappedInputs[1]).toBe(true)
     expect(result.current.rrInputs[1]).toEqual({ rounds: '4', reps: '12' })
     expect(result.current.timeInputs[1]).toBeUndefined()
+  })
+})
+
+describe('a team split across heats', () => {
+  const timed = { ...workout, scoreType: 'time', assignments: [] } as unknown as Workout
+
+  it('sends each typed lane, and leaves blank lanes out', () => {
+    const { result } = renderHook(() => useScoreInputs(timed))
+    act(() => result.current.setTimeInputs(() => ({ [laneKey(31)]: '1:00', [laneKey(33)]: '2:30' })))
+    expect(result.current.buildLanePayload(2, [31, 32, 33])).toEqual({
+      athleteId: 2,
+      lanes: [
+        { assignmentId: 31, rawScore: 60_000, tiebreakRawScore: null, partBRawScore: null },
+        { assignmentId: 33, rawScore: 150_000, tiebreakRawScore: null, partBRawScore: null },
+      ],
+    })
+    expect(result.current.buildLanePayload(2, [32])).toBeNull()
+  })
+
+  it('reloads each lane into its own box, apart from the team total', () => {
+    const { result } = renderHook(() => useScoreInputs(timed))
+    act(() => result.current.hydrate({
+      ...timed,
+      scores: [{ athleteId: 2, rawScore: 150_000, capped: false }],
+      assignments: [{ id: 31, rawScore: 60_000 }, { id: 33, rawScore: 90_000 }],
+    } as unknown as Workout))
+    expect(result.current.timeInputs[laneKey(31)]).toBe('1:00')
+    expect(result.current.timeInputs[laneKey(33)]).toBe('1:30')
   })
 })

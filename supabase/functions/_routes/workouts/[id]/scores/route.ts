@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { athlete as athleteTable, score, workout } from '@/db/schema'
+import { athlete as athleteTable, heatAssignment, score, workout } from '@/db/schema'
+import { clearLaneScores, sumLaneScores } from '@/lib/laneScores'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { ScoreUpsert, ScorePointsOverride } from '@/lib/schemas'
@@ -62,6 +63,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params
     const workoutId = Number(id)
     const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string }>(workoutId, competition.id)
+
+    if (parsed.data.lanes) return await saveLanes(workoutId, parsed.data.athleteId, parsed.data.lanes)
+
     // Only a time can be capped; anything else has no finish to miss.
     const capped = wk.scoreType === 'time' && (parsed.data.capped ?? false)
     const partBCapped = wk.partBScoreType === 'time' && parsed.data.partBRawScore != null && (parsed.data.partBCapped ?? false)
@@ -71,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .values({
         athleteId: parsed.data.athleteId,
         workoutId,
-        rawScore: parsed.data.rawScore,
+        rawScore: parsed.data.rawScore!,
         tiebreakRawScore: parsed.data.tiebreakRawScore ?? null,
         points: null,
         partBRawScore: parsed.data.partBRawScore ?? null,
@@ -99,6 +103,72 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 }
 
+type LaneInput = { assignmentId: number; rawScore: number; tiebreakRawScore?: number | null; partBRawScore?: number | null }
+
+/**
+ * A team placed in more than one heat: each member's lane is scored on its own
+ * and the team's Score is the sum, written once every lane has a score.
+ * Lanes not sent keep what they had, so saving one heat leaves the others.
+ */
+async function saveLanes(workoutId: number, athleteId: number, lanes: LaneInput[]): Promise<Response> {
+  try {
+    return await writeLanes(workoutId, athleteId, lanes)
+  } catch (e) {
+    if (e instanceof ForeignLane) return new Response(e.message, { status: 400 })
+    throw e
+  }
+}
+
+class ForeignLane extends Error {}
+
+function writeLanes(workoutId: number, athleteId: number, lanes: LaneInput[]): Promise<Response> {
+  return db.transaction(async (tx) => {
+    for (const l of lanes) {
+      const updated = await tx
+        .update(heatAssignment)
+        .set({ rawScore: l.rawScore, tiebreakRawScore: l.tiebreakRawScore ?? null, partBRawScore: l.partBRawScore ?? null })
+        .where(and(
+          eq(heatAssignment.id, l.assignmentId),
+          eq(heatAssignment.workoutId, workoutId),
+          eq(heatAssignment.athleteId, athleteId),
+        ))
+        .returning({ id: heatAssignment.id })
+      // Thrown, so the lanes already written in this call roll back.
+      if (updated.length === 0) throw new ForeignLane(`Lane ${l.assignmentId} is not this athlete's in this workout`)
+    }
+
+    const all = await tx
+      .select({ rawScore: heatAssignment.rawScore, tiebreakRawScore: heatAssignment.tiebreakRawScore, partBRawScore: heatAssignment.partBRawScore })
+      .from(heatAssignment)
+      .where(and(eq(heatAssignment.workoutId, workoutId), eq(heatAssignment.athleteId, athleteId)))
+    const total = sumLaneScores(all)
+
+    // Not every member has gone yet: no team score, so no partial ranking.
+    if (!total) {
+      await tx.delete(score).where(and(eq(score.athleteId, athleteId), eq(score.workoutId, workoutId)))
+      return Response.json({ athleteId, workoutId, pending: true, lanesScored: all.filter((l) => l.rawScore != null).length, lanes: all.length })
+    }
+
+    const [row] = await tx
+      .insert(score)
+      .values({ athleteId, workoutId, ...total, points: null, partBPoints: null, capped: false, partBCapped: false })
+      .onConflictDoUpdate({
+        target: [score.athleteId, score.workoutId],
+        set: {
+          rawScore: sql`excluded."rawScore"`,
+          tiebreakRawScore: sql`excluded."tiebreakRawScore"`,
+          points: sql`NULL`,
+          partBRawScore: sql`excluded."partBRawScore"`,
+          partBPoints: sql`NULL`,
+          capped: false,
+          partBCapped: false,
+        },
+      })
+      .returning()
+    return Response.json(row)
+  })
+}
+
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
@@ -112,6 +182,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       .delete(score)
       .where(eq(score.workoutId, workoutId))
       .returning({ id: score.id })
+
+    await clearLaneScores(workoutId)
 
     await db
       .update(workout)
@@ -144,3 +216,4 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return authErrorResponse(e)
   }
 }
+

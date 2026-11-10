@@ -114,11 +114,22 @@ type CommonProps = {
   setWeight: Setter<string>
   capped: Record<number, boolean>
   setCapped: Setter<boolean>
+  /** No Capped box: a split team's lane takes the member's total time. */
+  noCap?: boolean
 }
 
 function ScoreControl({
-  athleteId, scoreType, time, setTime, rr, setRr, weight, setWeight, capped, setCapped, part,
+  athleteId, scoreType, time, setTime, rr, setRr, weight, setWeight, capped, setCapped, part, noCap,
 }: CommonProps & { part: string }) {
+  if (scoreType === 'time' && noCap) {
+    return (
+      <TimeInput
+        label={`${part} time`}
+        value={time[athleteId] ?? ''}
+        onChange={(v) => setTime((p) => ({ ...p, [athleteId]: v }))}
+      />
+    )
+  }
   if (scoreType === 'time') {
     const isCapped = !!capped[athleteId]
     return (

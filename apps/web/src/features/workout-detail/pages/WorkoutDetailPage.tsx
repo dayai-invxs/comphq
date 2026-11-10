@@ -27,7 +27,7 @@ import { WorkoutEditForm } from '../components/WorkoutEditForm/WorkoutEditForm'
 import { WorkoutEquipmentPopover } from '../components/WorkoutEquipmentPopover/WorkoutEquipmentPopover'
 import { WorkoutLeaderboard } from '../components/WorkoutLeaderboard/WorkoutLeaderboard'
 import { useScoreInputs } from '../useScoreInputs'
-import { useWorkoutDetail, type ScorePayload } from '../useWorkoutDetail'
+import { useWorkoutDetail, type AnyScorePayload, type Assignment } from '../useWorkoutDetail'
 import { useWorkoutJudges } from '../useWorkoutJudges'
 import styles from './WorkoutDetailPage.module.css'
 
@@ -226,32 +226,32 @@ export function WorkoutDetailPage() {
   }
   const workout = detail.workout
 
-  function payloadsFor(athleteIds: number[]): ScorePayload[] {
-    return athleteIds.map((aId) => inputs.buildPayload(aId)).filter((p): p is ScorePayload => p !== null)
-  }
-
-  function heatAthleteIds(heatNum: number): number[] {
-    return [...new Set((byHeat[heatNum] ?? []).map((a) => a.athlete.id))]
-  }
-
-  function allAthleteIds(): number[] {
-    return [...new Set(workout.assignments.map((a) => a.athlete.id))]
+  // One payload per athlete/team. A team placed in more than one heat sends
+  // the scores of its lanes among `entries`; the server adds up all its lanes.
+  function payloadsFor(entries: Assignment[]): AnyScorePayload[] {
+    const lanesOf = new Map<number, number[]>()
+    for (const a of entries) lanesOf.set(a.athlete.id, [...(lanesOf.get(a.athlete.id) ?? []), a.id])
+    return [...lanesOf]
+      .map(([athleteId, laneIds]) => repeats.has(athleteId)
+        ? inputs.buildLanePayload(athleteId, laneIds)
+        : inputs.buildPayload(athleteId))
+      .filter((p): p is AnyScorePayload => p !== null)
   }
 
   async function saveAllScores() {
-    await detail.saveMany(payloadsFor(allAthleteIds()), 'All scores saved.')
+    await detail.saveMany(payloadsFor(workout.assignments), 'All scores saved.')
   }
 
   async function saveHeat(heatNum: number) {
-    await detail.saveMany(payloadsFor(heatAthleteIds(heatNum)), `Heat ${heatNum} scores saved.`)
+    await detail.saveMany(payloadsFor(byHeat[heatNum] ?? []), `Heat ${heatNum} scores saved.`)
   }
 
   async function completeHeat(heatNum: number) {
-    await detail.completeHeat(heatNum, payloadsFor(heatAthleteIds(heatNum)))
+    await detail.completeHeat(heatNum, payloadsFor(byHeat[heatNum] ?? []))
   }
 
   async function calculate() {
-    await detail.calculateRankings(payloadsFor(allAthleteIds()))
+    await detail.calculateRankings(payloadsFor(workout.assignments))
   }
 
   // HeatCard awaits this with no catch of its own, so a rejection here would
@@ -472,7 +472,8 @@ export function WorkoutDetailPage() {
                 {repeats.size > 0 && (
                   <Text variant="meta" tone="warning" role="status">
                     {repeats.size === 1 ? '1 athlete/team is' : `${repeats.size} athletes/teams are`} placed
-                    in more than one heat (highlighted below). Each shares one score for this workout.
+                    in more than one heat (highlighted below). Each lane is scored on its own, and the
+                    team&apos;s score is the lanes added together once every lane has a score.
                   </Text>
                 )}
                 {heatNums.map((heatNum) => (

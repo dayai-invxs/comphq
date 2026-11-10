@@ -13,7 +13,11 @@ type Athlete = {
   /** A team's members; empty or absent for an individual. */
   members?: string[]
 }
-export type Assignment = { id: number; heatNumber: number; lane: number; athlete: Athlete }
+export type Assignment = {
+  id: number; heatNumber: number; lane: number; athlete: Athlete
+  /** This lane's own score, for a team placed in more than one heat. */
+  rawScore?: number | null; tiebreakRawScore?: number | null; partBRawScore?: number | null
+}
 export type Score = {
   id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null
   points: number | null; partBRawScore: number | null; partBPoints: number | null; athlete: Athlete
@@ -36,6 +40,15 @@ export type ScorePayload = {
   capped: boolean
   partBCapped: boolean
 }
+
+export type LaneScorePayload = {
+  assignmentId: number; rawScore: number; tiebreakRawScore: number | null; partBRawScore: number | null
+}
+
+/** A team placed in more than one heat: its lanes' scores; the server sums them. */
+export type SplitScorePayload = { athleteId: number; lanes: LaneScorePayload[] }
+
+export type AnyScorePayload = ScorePayload | SplitScorePayload
 
 type Options = {
   slug: string
@@ -119,7 +132,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   })
 
   const saveManyMutation = useMutation({
-    mutationFn: ({ payloads }: { payloads: ScorePayload[]; successMsg: string }) =>
+    mutationFn: ({ payloads }: { payloads: AnyScorePayload[]; successMsg: string }) =>
       api.saveAll(payloads),
     onMutate: () => setError(''),
     onSuccess: async (_data, { successMsg }) => { await load(); onSuccess(successMsg) },
@@ -129,7 +142,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   const completeHeatMutation = useMutation({
     // The saves and the completion are one act: if any save fails, the heat
     // must not close over a half-written set of scores.
-    mutationFn: async ({ heatNumber, payloads }: { heatNumber: number; payloads: ScorePayload[] }) => {
+    mutationFn: async ({ heatNumber, payloads }: { heatNumber: number; payloads: AnyScorePayload[] }) => {
       await api.saveAll(payloads)
       await api.completeHeat(heatNumber)
     },
@@ -155,7 +168,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     // Saves first; if any fail, we bail BEFORE calculating. This is the
     // whole point of the refactor — a partial save used to leave the
     // workout half-ranked with silent errors in the console.
-    mutationFn: async (payloads: ScorePayload[]) => {
+    mutationFn: async (payloads: AnyScorePayload[]) => {
       await api.saveAll(payloads)
       await api.calculate()
     },
@@ -247,8 +260,19 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
       setSavingHeats(new Set(getAffectedHeats(workout.assignments, vars.dragId, vars.destHeat)))
     },
     onSuccess: (freshAssignments) => {
-      qc.setQueryData<Workout>(key, (prev) =>
-        prev ? { ...prev, assignments: freshAssignments } : prev)
+      // The reorder reply carries positions only; lane scores and members
+      // stay as loaded.
+      qc.setQueryData<Workout>(key, (prev) => {
+        if (!prev) return prev
+        const before = new Map(prev.assignments.map((a) => [a.id, a]))
+        return {
+          ...prev,
+          assignments: freshAssignments.map((a) => {
+            const old = before.get(a.id)
+            return old ? { ...old, ...a, athlete: { ...old.athlete, ...a.athlete } } : a
+          }),
+        }
+      })
     },
     onError: (e) => {
       setError(`Reorder failed: ${errorMessage(e)}`)
@@ -283,12 +307,12 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
 
   const { mutateAsync: saveManyAsync } = saveManyMutation
   const saveMany = useCallback(
-    (payloads: ScorePayload[], successMsg: string) =>
+    (payloads: AnyScorePayload[], successMsg: string) =>
       saveManyAsync({ payloads, successMsg }).then(() => undefined, () => undefined), [saveManyAsync])
 
   const { mutateAsync: completeHeatAsync } = completeHeatMutation
   const completeHeat = useCallback(
-    (heatNumber: number, payloads: ScorePayload[]) =>
+    (heatNumber: number, payloads: AnyScorePayload[]) =>
       completeHeatAsync({ heatNumber, payloads }).then(() => undefined, () => undefined), [completeHeatAsync])
 
   const { mutateAsync: undoHeatAsync } = undoHeatMutation
@@ -297,7 +321,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
 
   const { mutateAsync: calculateAsync } = calculateMutation
   const calculateRankings = useCallback(
-    (payloads: ScorePayload[]) => calculateAsync(payloads).then(() => undefined, () => undefined), [calculateAsync])
+    (payloads: AnyScorePayload[]) => calculateAsync(payloads).then(() => undefined, () => undefined), [calculateAsync])
 
   const { mutateAsync: clearScoresAsync } = clearScoresMutation
   const clearScores = useCallback(

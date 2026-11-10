@@ -82,6 +82,62 @@ describe('POST /api/workouts/[id]/scores, capped', () => {
   })
 })
 
+describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
+  const body = { athleteId: 2, lanes: [{ assignmentId: 31, rawScore: 60_000 }, { assignmentId: 32, rawScore: 90_500, tiebreakRawScore: 1 }] }
+
+  it('keeps each lane and writes the sum as the team score once every lane is in', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 31 }]) // lane 31 updated
+    mock.queueResult([{ id: 32 }]) // lane 32 updated
+    mock.queueResult([
+      { rawScore: 60_000, tiebreakRawScore: 2, partBRawScore: null },
+      { rawScore: 90_500, tiebreakRawScore: 1, partBRawScore: null },
+    ])
+    mock.queueResult([{ id: 9, athleteId: 2, workoutId: 1, rawScore: 150_500 }])
+
+    const res = await POST(req('POST', body), params('1'))
+    expect(res.status).toBe(200)
+
+    const laneSets = mock.calls.filter((c) => c.method === 'set').map((c) => c.args[0])
+    expect(laneSets.slice(0, 2)).toEqual([
+      { rawScore: 60_000, tiebreakRawScore: null, partBRawScore: null },
+      { rawScore: 90_500, tiebreakRawScore: 1, partBRawScore: null },
+    ])
+    const values = mock.calls.find((c) => c.method === 'values')!.args[0]
+    expect(values).toMatchObject({ athleteId: 2, workoutId: 1, rawScore: 150_500, tiebreakRawScore: 3, capped: false, points: null })
+  })
+
+  it('removes the team score while a lane is still unscored', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 31 }])
+    mock.queueResult([{ id: 32 }])
+    mock.queueResult([
+      { rawScore: 60_000, tiebreakRawScore: null, partBRawScore: null },
+      { rawScore: 90_500, tiebreakRawScore: null, partBRawScore: null },
+      { rawScore: null, tiebreakRawScore: null, partBRawScore: null },
+    ])
+    mock.queueResult(undefined) // delete
+
+    const res = await POST(req('POST', body), params('1'))
+    expect(await res.json()).toEqual({ athleteId: 2, workoutId: 1, pending: true, lanesScored: 2, lanes: 3 })
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(true)
+    expect(mock.calls.some((c) => c.method === 'values')).toBe(false)
+  })
+
+  it('refuses a lane that is not this team\'s in this workout', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([]) // no row updated
+
+    const res = await POST(req('POST', body), params('1'))
+    expect(res.status).toBe(400)
+  })
+
+  it('needs a score or lanes', async () => {
+    const res = await POST(req('POST', { athleteId: 2 }), params('1'))
+    expect(res.status).toBe(400)
+  })
+})
+
 describe('DELETE /api/workouts/[id]/scores', () => {
   it('rejects unauthenticated', async () => {
     setAuthUser(null)
@@ -92,6 +148,7 @@ describe('DELETE /api/workouts/[id]/scores', () => {
   it('deletes all scores for workout and resets status', async () => {
     mock.queueResult([{ id: 1 }]) // requireWorkoutInCompetition
     mock.queueResult([{ id: 1 }, { id: 2 }]) // delete returning
+    mock.queueResult(undefined) // lane scores cleared
     mock.queueResult(undefined) // workout status update
     const res = await DELETE(req('DELETE'), params('1'))
     expect(res.status).toBe(200)
