@@ -154,6 +154,24 @@ describe('the lanes', () => {
     expect(onLaneMemberChange).toHaveBeenCalledWith(95, 7)
   })
 
+  it('leaves a split team\'s lane with no member picked, and lets a pick be cleared', () => {
+    const onLaneMemberChange = vi.fn()
+    const team = { ...athlete(2, 'Team B', 'Rx'), memberList: [{ id: 7, name: 'Jo' }] }
+    const { rerender, props } = mount({
+      entries: [{ id: 95, heatNumber: 1, lane: 1, athlete: team }],
+      repeats: new Map([[2, [1, 2]]]),
+      laneMember: () => null,
+      onLaneMemberChange,
+    })
+    const pick = () => screen.getByLabelText('Team member in lane 1') as HTMLSelectElement
+    expect(pick().value).toBe('')
+    expect(pick().selectedOptions[0].textContent).toBe('— no member selected —')
+
+    rerender(<HeatDndProvider><HeatCard {...props} laneMember={() => 7} /></HeatDndProvider>)
+    fireEvent.change(pick(), { target: { value: '' } })
+    expect(onLaneMemberChange).toHaveBeenCalledWith(95, null)
+  })
+
   it('draws a dash for an athlete with no division', () => {
     mount({ entries: [{ id: 92, heatNumber: 1, lane: 1, athlete: athlete(3, 'Cal Cook', null) }] })
     expect(cells(1)[3]).toBe('—')

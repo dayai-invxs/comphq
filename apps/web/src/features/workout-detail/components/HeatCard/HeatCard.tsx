@@ -353,7 +353,7 @@ export function HeatCard({
                           value={laneMember?.(a) ?? ''}
                           onChange={(e) => onLaneMemberChange?.(a.id, e.target.value ? Number(e.target.value) : null)}
                         >
-                          <option value="">— which member? —</option>
+                          <option value="">— no member selected —</option>
                           {a.athlete.memberList.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                         </Select>
                       ) : (
