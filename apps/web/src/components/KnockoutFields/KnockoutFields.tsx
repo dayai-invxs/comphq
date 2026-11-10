@@ -54,7 +54,7 @@ export function KnockoutFields({ value, onChange, lanes, wideClassName }: Props)
           <Field label="Rounds" hint="The last round is the final">
             <Input type="number" min={1} max={10} required value={value.rounds} onChange={(e) => set({ rounds: e.target.value })} />
           </Field>
-          <Field label="Advance per heat" hint="Top N of each heat move on">
+          <Field label="Advance per heat" hint="Top N of each division in a heat move on">
             <Input
               type="number" min={1} max={Math.max(1, lanes - 1)} required
               value={value.advance} onChange={(e) => set({ advance: e.target.value })}
@@ -64,7 +64,7 @@ export function KnockoutFields({ value, onChange, lanes, wideClassName }: Props)
             <Text variant="meta" tone="muted" className={wideClassName}>
               For example, 40 in a division with {lanes} lanes: {example.map((n, i) => (
                 i === example.length - 1 ? `final of ${n}` : `round ${i + 1} of ${n}`
-              )).join(' → ')}. Each division runs its own bracket.
+              )).join(' → ')}. Each division runs its own bracket; small divisions share a heat when the lanes allow.
             </Text>
           )}
         </>

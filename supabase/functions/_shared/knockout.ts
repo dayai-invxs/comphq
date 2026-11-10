@@ -2,10 +2,12 @@
 // apps/web/src/lib/knockout.ts is an identical copy (a test checks it).
 //
 // A knockout workout runs in rounds. Round 1 is everyone in the division;
-// the top N of each heat advance, and the next round's heats are built from
-// them. The last round (the number of rounds is set on the workout) is the
-// final: whoever is left, in one heat or several, ranked by score.
-// Each division runs its own bracket; all divisions move round by round.
+// the top N of each division in each heat advance, and the next round's heats
+// are built from them. The last round (the number of rounds is set on the
+// workout) is the final: whoever is left, in one heat or several, ranked by
+// score. Each division runs its own bracket; all divisions move round by
+// round. Divisions may share a heat when the lanes allow, but each is still
+// judged only against its own: sharing saves heats, it changes no one's odds.
 
 import { formatScore } from '@/lib/scoreFormat'
 
@@ -70,10 +72,16 @@ export type HeatResult = {
   problem: string | null
 }
 
+function divisionGroups(lanes: KnockoutLane[]): KnockoutLane[][] {
+  const groups = new Map<number | null, KnockoutLane[]>()
+  for (const l of lanes) groups.set(l.divisionId, [...(groups.get(l.divisionId) ?? []), l])
+  return [...groups.values()]
+}
+
 /**
- * Who advances from one heat. Ticks made by hand win outright; otherwise the
- * top N by score. Unscored lanes do not advance. A tie for the last spot is
- * left for the admin to settle.
+ * Who advances from one heat: the top N of each division in it by score.
+ * Ticks made by hand win outright, for the whole heat. Unscored lanes do not
+ * advance. A tie for a division's last spot is left for the admin to settle.
  */
 export function heatResult(lanes: KnockoutLane[], wk: KnockoutWorkout): HeatResult {
   const heat = lanes[0]?.heatNumber
@@ -81,18 +89,20 @@ export function heatResult(lanes: KnockoutLane[], wk: KnockoutWorkout): HeatResu
     return { advancing: new Set(lanes.filter((l) => l.advanced === true).map((l) => l.id)), suggested: false, problem: null }
   }
   const n = Math.max(1, wk.knockoutAdvance ?? 1)
-  const scored = lanes.filter((l) => l.rawScore != null).sort((a, b) => compareLanes(a, b, wk))
-  if (scored.length === 0) {
-    return { advancing: new Set(), suggested: true, problem: `Heat ${heat} has no scores and no one is ticked to advance.` }
+  const groups = divisionGroups(lanes)
+  const where = groups.length > 1 ? ' in one of its divisions' : ''
+  const advancing = new Set<number>()
+  let unscored = false, tied = false
+  for (const group of groups) {
+    const scored = group.filter((l) => l.rawScore != null).sort((a, b) => compareLanes(a, b, wk))
+    if (scored.length === 0) { unscored = true; continue }
+    if (scored.length > n && compareLanes(scored[n - 1], scored[n], wk) === 0) tied = true
+    for (const l of scored.slice(0, n)) advancing.add(l.id)
   }
-  if (scored.length > n && compareLanes(scored[n - 1], scored[n], wk) === 0) {
-    return {
-      advancing: new Set(scored.slice(0, n).map((l) => l.id)),
-      suggested: true,
-      problem: `Heat ${heat} has a tie for the last advancing spot. Tick who advances.`,
-    }
-  }
-  return { advancing: new Set(scored.slice(0, n).map((l) => l.id)), suggested: true, problem: null }
+  const problem = unscored
+    ? `Heat ${heat} has no scores${where} and no one is ticked to advance.`
+    : tied ? `Heat ${heat} has a tie for the last advancing spot${where}. Tick who advances.` : null
+  return { advancing, suggested: true, problem }
 }
 
 /** Seeds dealt across heats in a snake (1-2-3-3-2-1…) so the best are spread out. */
@@ -106,14 +116,18 @@ export function snakeHeats<T>(seeded: T[], lanes: number): T[][] {
   return heats
 }
 
-/** Lanes from the middle out: the best seed in a heat gets the middle lane. */
+/**
+ * Lanes from the middle out: the best seed in a heat gets the middle lane,
+ * then one lane up, one lane down, and so on. 6 lanes: 3, 4, 2, 5, 1, 6.
+ * The same order as seeded heats in scoring.ts.
+ */
 export function middleOutLanes(lanes: number): number[] {
   const mid = Math.ceil(lanes / 2)
   const order = [mid]
   let left = mid - 1, right = mid + 1
   while (order.length < lanes) {
-    if (left >= 1) order.push(left--)
-    if (order.length < lanes && right <= lanes) order.push(right++)
+    if (right <= lanes) order.push(right++)
+    if (order.length < lanes && left >= 1) order.push(left--)
   }
   return order
 }
@@ -122,7 +136,10 @@ export type Placement = { athleteId: number; heatNumber: number; lane: number; r
 
 /**
  * Heats for one round. Divisions run one after another in the order given;
- * within a division the heat holding the top seed runs last.
+ * within a division the heat holding the top seed runs last. Each division's
+ * heats are made as if it ran alone; then a heat shares its spare lanes with
+ * the next division's heat when both fit. Each division keeps its own block of
+ * lanes in a shared heat, so the groups that face each other are unchanged.
  */
 export function buildRound(
   divisions: Array<{ seeded: number[] }>,
@@ -130,15 +147,36 @@ export function buildRound(
   round: number,
   firstHeat: number,
 ): Placement[] {
-  const out: Placement[] = []
-  const laneOrder = middleOutLanes(lanes)
-  let heatNumber = firstHeat
-  for (const { seeded } of divisions) {
-    for (const heat of snakeHeats(seeded, lanes).reverse()) {
-      heat.forEach((athleteId, i) => out.push({ athleteId, heatNumber, lane: laneOrder[i], round }))
-      heatNumber++
-    }
+  // Each division's heats, in running order, before any sharing.
+  const groups: Array<{ division: number; athletes: number[] }> = []
+  divisions.forEach(({ seeded }, division) => {
+    for (const athletes of snakeHeats(seeded, lanes).reverse()) groups.push({ division, athletes })
+  })
+
+  // Neighbouring groups from different divisions share a heat when they fit.
+  const heats: Array<typeof groups> = []
+  for (const g of groups) {
+    const last = heats[heats.length - 1]
+    const used = last?.reduce((n, x) => n + x.athletes.length, 0) ?? 0
+    if (last && !last.some((x) => x.division === g.division) && used + g.athletes.length <= lanes) last.push(g)
+    else heats.push([g])
   }
+
+  const out: Placement[] = []
+  const fullOrder = middleOutLanes(lanes)
+  heats.forEach((heat, i) => {
+    const heatNumber = firstHeat + i
+    if (heat.length === 1) {
+      heat[0].athletes.forEach((athleteId, j) => out.push({ athleteId, heatNumber, lane: fullOrder[j], round }))
+      return
+    }
+    let offset = 0
+    for (const { athletes } of heat) {
+      const order = middleOutLanes(athletes.length)
+      athletes.forEach((athleteId, j) => out.push({ athleteId, heatNumber, lane: offset + order[j], round }))
+      offset += athletes.length
+    }
+  })
   return out
 }
 
@@ -149,7 +187,8 @@ export function currentRound(lanes: KnockoutLane[]): number {
 
 /**
  * Who moves on from a round, seeded for the next one: heat winners first,
- * then second places, and so on, each group ordered by score.
+ * then second places, and so on, each group ordered by score. A place is
+ * within the athlete's own division in that heat.
  */
 export function advancers(roundLanes: KnockoutLane[], wk: KnockoutWorkout): {
   byDivision: Map<number | null, number[]>
@@ -163,8 +202,10 @@ export function advancers(roundLanes: KnockoutLane[], wk: KnockoutWorkout): {
   for (const [, lanes] of [...heats].sort(([a], [b]) => a - b)) {
     const result = heatResult(lanes, wk)
     if (result.problem) problems.push(result.problem)
-    const ordered = [...lanes].sort((a, b) => compareLanes(a, b, wk))
-    ordered.forEach((lane, place) => { if (result.advancing.has(lane.id)) moving.push({ lane, place }) })
+    for (const group of divisionGroups(lanes)) {
+      const ordered = [...group].sort((a, b) => compareLanes(a, b, wk))
+      ordered.forEach((lane, place) => { if (result.advancing.has(lane.id)) moving.push({ lane, place }) })
+    }
   }
 
   const byDivision = new Map<number | null, number[]>()

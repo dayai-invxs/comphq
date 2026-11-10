@@ -19,16 +19,17 @@ export function calcCumulativePoints(
   return totals
 }
 
-// Returns middle-out lane order: rank 0 (best) → middle lane.
-// e.g. 5 lanes → [3, 2, 4, 1, 5]
+// Returns middle-out lane order: rank 0 (best) → middle lane, then one lane
+// up, one lane down, and so on.
+// e.g. 5 lanes → [3, 4, 2, 5, 1]; 6 lanes → [3, 4, 2, 5, 1, 6]
 function middleOutLaneOrder(totalLanes: number): number[] {
   const mid = Math.ceil(totalLanes / 2)
   const order: number[] = [mid]
   let left = mid - 1
   let right = mid + 1
   while (order.length < totalLanes) {
-    if (left >= 1) order.push(left--)
-    if (order.length < totalLanes && right <= totalLanes) order.push(right++)
+    if (right <= totalLanes) order.push(right++)
+    if (order.length < totalLanes && left >= 1) order.push(left--)
   }
   return order
 }

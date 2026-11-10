@@ -112,6 +112,14 @@ describe('assignHeats', () => {
     expect(Math.max(...div1Heats)).toBeLessThan(Math.min(...div2Heats))
   })
 
+  it('when seeded, puts 1st in the middle lane, then one up, one down: 3, 4, 2, 5, 1, 6', () => {
+    const athletes = [1, 2, 3, 4, 5, 6].map((id) => ({ id, divisionId: null }))
+    // Athlete n is nth on the leaderboard.
+    const cumulativePoints = new Map(athletes.map((a) => [a.id, a.id * 10]))
+    const result = assignHeats(athletes, 6, { cumulativePoints, mixedHeats: true, divisionOrder: new Map() })
+    expect([1, 2, 3, 4, 5, 6].map((id) => result.find((r) => r.athleteId === id)!.lane)).toEqual([3, 4, 2, 5, 1, 6])
+  })
+
   it('when seeded, puts best (lowest cumulative points) in last/championship heat', () => {
     const athletes = [
       { id: 1, divisionId: null }, { id: 2, divisionId: null },

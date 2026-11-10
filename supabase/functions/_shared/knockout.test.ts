@@ -65,13 +65,44 @@ describe('heatResult', () => {
   })
 })
 
+describe('heatResult in a heat shared by divisions', () => {
+  it('sends the top N of each division', () => {
+    const lanes = [
+      lane({ athleteId: 1, divisionId: 1, rawScore: 60 }), lane({ athleteId: 2, divisionId: 1, rawScore: 70 }), lane({ athleteId: 3, divisionId: 1, rawScore: 80 }),
+      lane({ athleteId: 4, divisionId: 2, rawScore: 90 }), lane({ athleteId: 5, divisionId: 2, rawScore: 95 }), lane({ athleteId: 6, divisionId: 2, rawScore: 99 }),
+    ]
+    const r = heatResult(lanes, wk)
+    expect([...r.advancing].map((id) => lanes.find((l) => l.id === id)!.athleteId).sort()).toEqual([1, 2, 4, 5])
+    expect(r.problem).toBeNull()
+  })
+
+  it('sends everyone from a division with N or fewer in the heat', () => {
+    const lanes = [lane({ athleteId: 1, divisionId: 1, rawScore: 60 }), lane({ athleteId: 2, divisionId: 2, rawScore: 99 })]
+    expect(heatResult(lanes, wk).advancing.size).toBe(2)
+  })
+
+  it('asks for scores when one division has none', () => {
+    const lanes = [lane({ athleteId: 1, divisionId: 1, rawScore: 60, heatNumber: 4 }), lane({ athleteId: 2, divisionId: 2, heatNumber: 4 })]
+    expect(heatResult(lanes, wk).problem).toBe('Heat 4 has no scores in one of its divisions and no one is ticked to advance.')
+  })
+
+  it('asks for a decision on a tie in one division', () => {
+    const lanes = [
+      lane({ athleteId: 1, divisionId: 1, rawScore: 50 }), lane({ athleteId: 2, divisionId: 1, rawScore: 60 }), lane({ athleteId: 3, divisionId: 1, rawScore: 60 }),
+      lane({ athleteId: 4, divisionId: 2, rawScore: 70 }),
+    ]
+    expect(heatResult(lanes, wk).problem).toMatch(/tie for the last advancing spot in one of its divisions/)
+  })
+})
+
 describe('seeding', () => {
   it('deals seeds across heats in a snake', () => {
     expect(snakeHeats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 4)).toEqual([[1, 6, 7], [2, 5, 8], [3, 4, 9, 10]])
   })
 
   it('fills from the middle lane out', () => {
-    expect(middleOutLanes(5)).toEqual([3, 2, 4, 1, 5])
+    expect(middleOutLanes(5)).toEqual([3, 4, 2, 5, 1])
+    expect(middleOutLanes(6)).toEqual([3, 4, 2, 5, 1, 6])
   })
 
   it('numbers heats on from the first, the top seed\'s heat last, divisions in turn', () => {
@@ -79,6 +110,40 @@ describe('seeding', () => {
     expect(placed.filter((p) => p.athleteId === 11)[0]).toMatchObject({ heatNumber: 8, round: 2, lane: 2 })
     expect(placed.filter((p) => p.athleteId === 12)[0]).toMatchObject({ heatNumber: 7 })
     expect(placed.filter((p) => p.athleteId === 21)[0]).toMatchObject({ heatNumber: 9, lane: 2 })
+  })
+})
+
+describe('sharing heats between divisions', () => {
+  const heatsOf = (placed: ReturnType<typeof buildRound>) => {
+    const heats = new Map<number, number[]>()
+    for (const p of placed) heats.set(p.heatNumber, [...(heats.get(p.heatNumber) ?? []), p.athleteId])
+    return [...heats.values()].map((h) => h.sort((a, b) => a - b))
+  }
+
+  it('puts small divisions together when the lanes allow', () => {
+    const placed = buildRound([{ seeded: [11, 12, 13] }, { seeded: [21, 22, 23, 24] }, { seeded: [31, 32, 33, 34, 35] }], 8, 1, 1)
+    expect(heatsOf(placed)).toEqual([[11, 12, 13, 21, 22, 23, 24], [31, 32, 33, 34, 35]])
+  })
+
+  it('gives each division its own block of lanes, best seed in its middle', () => {
+    const placed = buildRound([{ seeded: [11, 12, 13] }, { seeded: [21, 22, 23, 24] }], 8, 1, 1)
+    const laneOf = (id: number) => placed.find((p) => p.athleteId === id)!.lane
+    expect([11, 12, 13].map(laneOf)).toEqual([2, 3, 1])
+    expect([21, 22, 23, 24].map(laneOf)).toEqual([5, 6, 4, 7])
+  })
+
+  it('keeps each division\'s groups as if it ran alone', () => {
+    // RX 10 in 8 lanes is two heats of 5 on its own; Scaled 3 joins the second.
+    const placed = buildRound([{ seeded: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }, { seeded: [21, 22, 23] }], 8, 1, 1)
+    const heats = heatsOf(placed)
+    expect(heats).toHaveLength(2)
+    expect(heats.map((h) => h.filter((id) => id < 20).length)).toEqual([5, 5])
+    expect(heats[1].filter((id) => id > 20)).toEqual([21, 22, 23])
+  })
+
+  it('never puts two of one division\'s heats together', () => {
+    const placed = buildRound([{ seeded: [1, 2, 3, 4, 5] }], 4, 1, 1)
+    expect(heatsOf(placed)).toHaveLength(2)
   })
 })
 
@@ -93,6 +158,16 @@ describe('advancers', () => {
     expect(problems).toEqual([])
     expect(byDivision.get(1)).toEqual([4, 1, 2, 5])
     expect(byDivision.get(2)).toEqual([7])
+  })
+
+  it('counts places within each division in a shared heat', () => {
+    const lanes = [
+      lane({ athleteId: 1, heatNumber: 1, divisionId: 1, rawScore: 70 }), lane({ athleteId: 2, heatNumber: 1, divisionId: 1, rawScore: 80 }),
+      lane({ athleteId: 3, heatNumber: 1, divisionId: 2, rawScore: 90 }), lane({ athleteId: 4, heatNumber: 1, divisionId: 2, rawScore: 99 }),
+      lane({ athleteId: 5, heatNumber: 2, divisionId: 2, rawScore: 95 }),
+    ]
+    // Athlete 3 won their division's group in heat 1, so seeds ahead of 4.
+    expect(advancers(lanes, wk).byDivision.get(2)).toEqual([3, 5, 4])
   })
 
   it('reports every heat that cannot be settled', () => {
