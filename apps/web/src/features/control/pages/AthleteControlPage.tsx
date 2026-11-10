@@ -168,21 +168,23 @@ export function AthleteControlPage() {
         cell: (heat) => {
           const key = heatKey(workout.id, heat.heatNumber)
           const lanes = [...heat.entries].sort((a, b) => a.lane - b.lane)
-          // The ghost button pads itself, so a hairline is gap enough.
+          // Lanes beside the label on a wide screen, under it on a phone.
           return (
-            <Inline gap="hairline" className={styles.oneLine}>
-              <Text as="span" variant="label" tone="accent">Heat {heat.heatNumber}</Text>
-              {heat.isComplete && (
-                <Text as="span" variant="meta" tone="success">
-                  <VisuallyHidden>Complete</VisuallyHidden>✓
-                </Text>
-              )}
-              {/* v1 drew a red border around the row and nothing else, which
-                  says nothing to a reader who cannot see it. The row still
-                  takes the danger tint (COM-117); this says why. */}
-              {conflicts.has(key) && <Badge tone="danger">Overlap</Badge>}
+            <div className={styles.pair}>
+              <span className={styles.first}>
+                <Text as="span" variant="label" tone="accent">Heat {heat.heatNumber}</Text>
+                {heat.isComplete && (
+                  <Text as="span" variant="meta" tone="success">
+                    <VisuallyHidden>Complete</VisuallyHidden>✓
+                  </Text>
+                )}
+                {/* v1 drew a red border around the row and nothing else, which
+                    says nothing to a reader who cannot see it. The row still
+                    takes the danger tint (COM-117); this says why. */}
+                {conflicts.has(key) && <Badge tone="danger">Overlap</Badge>}
+              </span>
               {lanes.length > 0 && <LanesButton heatNumber={heat.heatNumber} lanes={lanes} />}
-            </Inline>
+            </div>
           )
         },
       },
@@ -194,7 +196,7 @@ export function AthleteControlPage() {
           const ms = getHeatMs(workout, heat.heatNumber)
           const c = getChecks(key)
           return (
-            <Inline gap="tight">
+            <Inline gap="tight" className={styles.tick}>
               <Checkbox
                 label={`Corral heat ${heat.heatNumber}`}
                 labelHidden
@@ -216,7 +218,7 @@ export function AthleteControlPage() {
           const ms = getHeatMs(workout, heat.heatNumber)
           const c = getChecks(key)
           return (
-            <Inline gap="tight">
+            <Inline gap="tight" className={styles.tick}>
               <Checkbox
                 label={`Walk Out heat ${heat.heatNumber}`}
                 labelHidden
@@ -237,42 +239,41 @@ export function AthleteControlPage() {
           const ms = getHeatMs(workout, heat.heatNumber)
           const editing =
             editingHeat?.workoutId === workout.id && editingHeat?.heatNumber === heat.heatNumber
-          // Editing needs room for the time box and two buttons, so only then
-          // may it wrap; the time and its Edit button stay on one line.
-          return (
-            <Inline gap={editing ? 'tight' : 'hairline'} wrap={editing} className={editing ? undefined : styles.oneLine}>
-              {editing ? (
-                <>
-                  <Input
-                    type="time"
+          // Editing needs room for the time box and two buttons, so it wraps;
+          // otherwise Edit sits beside the time, or under it on a phone.
+          if (!editing) {
+            return (
+              <div className={styles.pair}>
+                <span className={styles.first}><Text as="span" variant="meta">{fmtMs(ms)}</Text></span>
+                {ms != null && (
+                  <Button
                     size="sm"
-                    aria-label={`Heat ${heat.heatNumber} start time`}
-                    value={heatTimeInput}
-                    onChange={(e) => setHeatTimeInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveHeatTime()
-                      if (e.key === 'Escape') setEditingHeat(null)
-                    }}
-                    autoFocus
-                  />
-                  <Button size="sm" disabled={setHeatTime.isPending} onClick={saveHeatTime}>Save</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingHeat(null)}>Cancel</Button>
-                </>
-              ) : (
-                <>
-                  <Text as="span" variant="meta">{fmtMs(ms)}</Text>
-                  {ms != null && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Edit heat ${heat.heatNumber} start time`}
-                      onClick={() => startEditHeatTime(workout, heat.heatNumber)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </>
-              )}
+                    variant="ghost"
+                    aria-label={`Edit heat ${heat.heatNumber} start time`}
+                    onClick={() => startEditHeatTime(workout, heat.heatNumber)}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </div>
+            )
+          }
+          return (
+            <Inline gap="tight" wrap>
+              <Input
+                type="time"
+                size="sm"
+                aria-label={`Heat ${heat.heatNumber} start time`}
+                value={heatTimeInput}
+                onChange={(e) => setHeatTimeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveHeatTime()
+                  if (e.key === 'Escape') setEditingHeat(null)
+                }}
+                autoFocus
+              />
+              <Button size="sm" disabled={setHeatTime.isPending} onClick={saveHeatTime}>Save</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingHeat(null)}>Cancel</Button>
             </Inline>
           )
         },
@@ -341,6 +342,7 @@ export function AthleteControlPage() {
           <Heading level={2} variant="subtitle">
             Workout {workout.number}: {workout.name}
           </Heading>
+          <div className={styles.heats}>
           <DataTable
             label={`Workout ${workout.number} heats`}
             columns={heatColumns(workout)}
@@ -354,6 +356,7 @@ export function AthleteControlPage() {
             rowTone={(heat) => (conflicts.has(heatKey(workout.id, heat.heatNumber)) ? 'danger' : undefined)}
             empty="No heats assigned."
           />
+          </div>
         </Stack>
       ))}
 

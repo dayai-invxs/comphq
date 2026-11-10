@@ -1,7 +1,75 @@
-/* A heat's label and the time in Start keep their button on the same line.
-   Allowed to wrap, a phone's narrow column dropped the button underneath and
-   pushed the text up out of line with the rest of the row; the table pans
-   sideways instead. */
-.oneLine {
+/* A heat's label and its start time each carry a button: Lanes and Edit.
+   On a phone there is not the width for four columns and two buttons beside
+   their text, so each button sits on a second line under its text and the
+   table fits without panning sideways. From 600px up they sit side by side. */
+
+.pair {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   white-space: nowrap;
+}
+
+/* The first line is as tall as a checkbox, so the heat label, both tick
+   times and the start time all sit on one line across the row. */
+.first {
+  display: flex;
+  align-items: center;
+  gap: var(--mds-gap-tight);
+  min-height: var(--mds-check-size);
+}
+
+/* A ghost button pads its own label; pulled back by that padding, the label
+   lines up under the text above it. */
+.pair > button {
+  margin-inline-start: calc(-1 * var(--mds-pad-button-sm));
+}
+
+/* Tops, not middles: a two-line cell beside a one-line cell would put the
+   one-line cell between the two lines. */
+.heats td {
+  vertical-align: top;
+  padding-inline: var(--mds-pad-tight);
+}
+
+.heats th {
+  padding-inline: var(--mds-pad-tight);
+}
+
+.tick {
+  gap: var(--mds-gap-hairline);
+  align-items: flex-start;
+}
+
+/* On the narrowest phones the time can break before AM. Each line is the
+   height of the checkbox, so "08:45" stays level with the box and the heat
+   label, and AM sits under it rather than dragging the box down. */
+.tick > :last-child {
+  line-height: var(--mds-check-size);
+}
+
+@media (min-width: 600px) {
+  .pair {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--mds-gap-hairline);
+  }
+
+  .pair > button {
+    margin-inline-start: 0;
+  }
+
+  .heats td {
+    vertical-align: middle;
+    padding-inline: var(--mds-pad-control);
+  }
+
+  .heats th {
+    padding-inline: var(--mds-pad-control);
+  }
+
+  .tick {
+    gap: var(--mds-gap-tight);
+    align-items: center;
+  }
 }
