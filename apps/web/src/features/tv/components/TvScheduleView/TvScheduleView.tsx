@@ -100,7 +100,7 @@ export function TvScheduleView({ data, error, checks }: Props) {
                 .sort((a, b) => a.lane - b.lane)
                 .map((e) => (
                   <ListItem
-                    key={e.athleteId}
+                    key={e.lane}
                     className={styles.lane}
                     leading={<span className={styles.laneNumber}>L{e.lane}</span>}
                     title={<span className={styles.athlete}>{e.athleteName}</span>}

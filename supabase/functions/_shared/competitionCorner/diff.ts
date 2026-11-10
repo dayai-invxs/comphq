@@ -224,6 +224,16 @@ function athleteChanges(
   return { changes, matched }
 }
 
+/** One warning per athlete/team the source places more than once in a workout.
+ *  It is imported as listed; the heat cards mark the repeats. */
+function duplicateWarnings(heats: PlanHeat[], name: Map<string, string>): string[] {
+  const heatsOf = new Map<string, number[]>()
+  for (const h of heats) for (const l of h.lanes) heatsOf.set(l.athleteExternalId, [...(heatsOf.get(l.athleteExternalId) ?? []), h.heatNumber])
+  return [...heatsOf]
+    .filter(([, nums]) => nums.length > 1)
+    .map(([ext, nums]) => `${name.get(ext) ?? `#${ext}`} is in this workout ${nums.length} times (heats ${nums.join(', ')}).`)
+}
+
 function heatChanges(
   plan: ImportPlan, current: Current,
   workouts: ReturnType<typeof workoutChanges>, athletes: ReturnType<typeof athleteChanges>,
@@ -237,6 +247,8 @@ function heatChanges(
 
   const byWorkout = new Map<string, PlanHeat[]>()
   for (const h of plan.heats) byWorkout.set(h.workoutExternalId, [...(byWorkout.get(h.workoutExternalId) ?? []), h])
+
+  const planName = new Map(plan.athletes.map((a) => [a.externalId, a.name]))
 
   const changes: Change[] = []
   for (const w of plan.workouts) {
@@ -254,6 +266,7 @@ function heatChanges(
     const warnings = handPlaced.length
       ? [`Replaces ${plural(handPlaced.length, 'lane')} placed by hand (${handPlaced.map((a) => athleteName.get(a.athleteId)).join(', ')}).`]
       : []
+    warnings.push(...duplicateWarnings(heats, planName))
     const athleteKeys = new Set(heats.flatMap((h) => h.lanes.map((l) => `athlete:${l.athleteExternalId}`)))
     const requires = [`workout:${w.externalId}`, ...athleteKeys].filter((k) => pending.has(k))
 

@@ -72,7 +72,7 @@ function LanesButton({ heatNumber, lanes }: { heatNumber: number; lanes: Heat['e
           <ListGroup>
             {lanes.map((e) => (
               <ListItem
-                key={e.athleteId}
+                key={e.lane}
                 leading={
                   <Text as="span" variant="meta" tone="accent">
                     <VisuallyHidden>Lane </VisuallyHidden>

@@ -211,6 +211,14 @@ describe('diffPlan — heats', () => {
     expect(c).toMatchObject({ key: 'heats:10', kind: 'update', id: 7 })
     expect(c.warnings).toContain('Replaces 1 lane placed by hand (Walk-in).')
   })
+
+  it('keeps an athlete/team placed in two heats and warns about it', () => {
+    const twice = [...heats, { workoutExternalId: '10', heatNumber: 3, startTime: null, lanes: [{ lane: 1, athleteExternalId: '101' }] }]
+    const [c] = diffPlan(plan({ workouts: [planWorkout()], athletes: planAthletes, heats: twice }), { ...empty, athletes, workouts: [currentWorkout()] })
+
+    expect(c).toMatchObject({ key: 'heats:10', label: 'WOD 1 — 2 heats, 3 lanes' })
+    expect(c.warnings).toEqual(['Bo is in this workout 2 times (heats 1, 3).'])
+  })
 })
 
 describe('diffPlan — dependencies', () => {

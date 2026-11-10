@@ -137,7 +137,7 @@ function HeatRow({
             <Text variant="meta" tone="muted">Lane assignments</Text>
             <ul className={styles.items}>
               {entries.map((e) => (
-                <li key={e.athleteId}>
+                <li key={e.lane}>
                   <Text as="span" variant="meta" className={styles.laneNumber}>Lane {e.lane}</Text>{' '}
                   <Text as="span" variant="meta" tone="muted">{e.divisionName ?? 'No Division'}</Text>
                 </li>

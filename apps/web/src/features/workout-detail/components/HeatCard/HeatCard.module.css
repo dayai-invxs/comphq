@@ -35,6 +35,12 @@
   width: var(--mds-space-10);
 }
 
+/* An athlete/team placed more than once in the workout. Allowed, but marked
+   so it is not missed. */
+.repeat td {
+  background: var(--mds-status-warning-soft);
+}
+
 .row:hover td {
   background: var(--mds-surface-sunken);
 }

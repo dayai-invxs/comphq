@@ -100,7 +100,9 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
     }
 
     const assignments: { athleteId: number; heatNumber: number; lane: number }[] = []
-    const seen = new Set<string>()
+    // A team listed more than once is allowed (some sheets run a team in two
+    // heats); it is placed every time and reported as a warning.
+    const heatsByAthlete = new Map<number, { name: string; heats: number[] }>()
 
     for (const row of rows) {
       const athleteId = athleteByName.get(row.athleteName.toLowerCase().trim())
@@ -108,13 +110,15 @@ async function runImport(csvText: string, competitionId: number): Promise<Respon
         result.errors.push({ line: row.lineIndex, message: `Athlete not found: "${row.athleteName}"` })
         continue
       }
-      const key = `${workoutId}:${athleteId}`
-      if (seen.has(key)) {
-        result.errors.push({ line: row.lineIndex, message: `Duplicate athlete "${row.athleteName}" in workout #${workoutNumber}` })
-        continue
-      }
-      seen.add(key)
+      const placed = heatsByAthlete.get(athleteId) ?? { name: row.athleteName, heats: [] }
+      placed.heats.push(row.heatNumber)
+      heatsByAthlete.set(athleteId, placed)
       assignments.push({ athleteId, heatNumber: row.heatNumber, lane: row.laneNumber })
+    }
+
+    for (const { name, heats } of heatsByAthlete.values()) {
+      if (heats.length < 2) continue
+      result.warnings.push({ message: `"${name}" is in workout #${workoutNumber} ${heats.length} times (heats ${heats.join(', ')})` })
     }
 
     if (assignments.length === 0) continue

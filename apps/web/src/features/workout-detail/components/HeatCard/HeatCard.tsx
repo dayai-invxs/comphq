@@ -60,6 +60,8 @@ interface Props {
   judgesByLane?: Map<number, JudgeInfo>
   onJudgeChange?: (heatNumber: number, lane: number, volunteerId: number | null) => void
   onPointsOverride?: (athleteId: number, points: number) => Promise<void>
+  /** Athletes/teams placed more than once in this workout → every heat they are in. */
+  repeats?: Map<number, number[]>
 }
 
 function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
@@ -77,7 +79,7 @@ function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
 export function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
   onSaveHeat, onCompleteHeat, onUndoHeat, onDeleteHeat, deleteLocked, onReorder, onSaveHeatTime, isSaving,
-  judges, judgesByLane, onJudgeChange, onPointsOverride,
+  judges, judgesByLane, onJudgeChange, onPointsOverride, repeats,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
   const [editingHeatTime, setEditingHeatTime] = useState(false)
@@ -313,6 +315,7 @@ export function HeatCard({
 
             {!isSaving && sorted.map((a) => {
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
+              const repeatHeats = repeats?.get(a.athlete.id)
               return (
                 <tr
                   key={a.id}
@@ -321,7 +324,7 @@ export function HeatCard({
                     else rowRefs.current.delete(a.id)
                   }}
                   data-assignment-id={a.id}
-                  className={isComplete ? undefined : styles.row}
+                  className={[isComplete ? undefined : styles.row, repeatHeats && styles.repeat].filter(Boolean).join(' ') || undefined}
                 >
                   {isTouch && (
                     <td className={styles.handleCell}>
@@ -339,6 +342,7 @@ export function HeatCard({
                     <Stack gap="hairline">
                       <Text as="span" variant="label">{a.athlete.name}</Text>
                       <MemberNames members={a.athlete.members} />
+                      {repeatHeats && <Text as="span" variant="meta" tone="warning">{repeatLabel(repeatHeats, heatNumber)}</Text>}
                     </Stack>
                   </td>
                   <td><Text as="span" variant="meta" tone="muted">{a.athlete.division?.name ?? '—'}</Text></td>
@@ -467,6 +471,17 @@ export function HeatCard({
       </CardBody>
     </Card>
   )
+}
+
+/** "Duplicate: also in heat 3" / "Duplicate: twice in this heat, also in heat 3". */
+export function repeatLabel(heats: number[], heatNumber: number): string {
+  const here = heats.filter((h) => h === heatNumber).length
+  const others = [...new Set(heats.filter((h) => h !== heatNumber))]
+  const parts = [
+    ...(here > 1 ? [`${here}× in this heat`] : []),
+    ...(others.length ? [`also in heat${others.length > 1 ? 's' : ''} ${others.join(', ')}`] : []),
+  ]
+  return `Duplicate: ${parts.join(', ')}`
 }
 
 /** v1 painted the podium: gold for a win, accent for a medal, plain otherwise. */

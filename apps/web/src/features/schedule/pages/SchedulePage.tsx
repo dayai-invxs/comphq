@@ -28,7 +28,7 @@ function Lanes({ now, showBib }: { now: PendingHeat; showBib: boolean }) {
   return (
     <ul className={styles.lanes} aria-label={`Heat ${now.heat.heatNumber} lanes`}>
       {lanes.map((e) => (
-        <li key={e.athleteId} className={styles.lane}>
+        <li key={e.lane} className={styles.lane}>
           <Text as="span" variant="label" className={styles.laneNumber}>
             <VisuallyHidden>Lane </VisuallyHidden>{e.lane}
           </Text>

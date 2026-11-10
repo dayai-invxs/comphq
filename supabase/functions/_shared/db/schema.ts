@@ -149,7 +149,7 @@ export const heatAssignment = pgTable('HeatAssignment', {
   heatNumber: integer('heatNumber').notNull(),
   lane: integer('lane').notNull(),
 }, (t) => [
-  uniqueIndex('HeatAssignment_workoutId_athleteId_key').on(t.workoutId, t.athleteId),
+  index('HeatAssignment_workoutId_athleteId_idx').on(t.workoutId, t.athleteId),
   uniqueIndex('heat_assignment_lane_unique').on(t.workoutId, t.heatNumber, t.lane),
 ])
 

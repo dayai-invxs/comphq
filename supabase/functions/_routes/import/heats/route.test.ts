@@ -43,6 +43,19 @@ describe('POST /api/import/heats', () => {
     expect(mock.calls.some((c) => c.method === 'execute')).toBe(true)
   })
 
+  it('places an athlete/team listed in two heats of a workout, with a warning', async () => {
+    mock.queueResult([{ id: 10, number: 1 }])
+    mock.queueResult([{ id: 100, name: 'Team A' }, { id: 101, name: 'Team B' }])
+    mock.queueResult(undefined)
+
+    const csv = 'workout,heat,lane,athlete\n1,1,1,Team A\n1,1,2,Team B\n1,2,1,team a'
+    const body = await (await POST(jsonReq(csv))).json()
+
+    expect(body.imported).toBe(3)
+    expect(body.errors).toEqual([])
+    expect(body.warnings).toEqual([{ message: '"Team A" is in workout #1 2 times (heats 1, 2)' }])
+  })
+
   it('rejects malformed numeric cells', async () => {
     mock.queueResult([])
     mock.queueResult([])

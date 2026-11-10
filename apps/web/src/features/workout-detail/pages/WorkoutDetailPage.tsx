@@ -96,11 +96,19 @@ export function WorkoutDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail.workout])
 
-  const { byHeat, heatNums, scoredCount, totalAthletes, someScored, completedHeatNums } = useMemo(() => {
+  const { byHeat, heatNums, scoredCount, totalAthletes, someScored, completedHeatNums, repeats } = useMemo(() => {
     const w = detail.workout
     if (!w) {
-      return { byHeat: {}, heatNums: [], scoredCount: 0, totalAthletes: 0, someScored: false, completedHeatNums: [] as number[] }
+      return {
+        byHeat: {}, heatNums: [], scoredCount: 0, totalAthletes: 0, someScored: false,
+        completedHeatNums: [] as number[], repeats: new Map<number, number[]>(),
+      }
     }
+    // An import may place a team in more than one heat. It shares one score;
+    // the heat cards mark each of its rows.
+    const heatsOf = new Map<number, number[]>()
+    for (const a of w.assignments) heatsOf.set(a.athlete.id, [...(heatsOf.get(a.athlete.id) ?? []), a.heatNumber])
+    const repeated = new Map([...heatsOf].filter(([, hs]) => hs.length > 1).map(([id, hs]) => [id, hs.sort((x, y) => x - y)]))
     const grouped = w.assignments.reduce<Record<number, typeof w.assignments>>((acc, a) => {
       ;(acc[a.heatNumber] ??= []).push(a)
       return acc
@@ -111,9 +119,10 @@ export function WorkoutDetailPage() {
       byHeat: grouped,
       heatNums: nums,
       scoredCount: scored,
-      totalAthletes: w.assignments.length,
+      totalAthletes: heatsOf.size,
       someScored: scored > 0,
       completedHeatNums: w.completedHeats ?? [],
+      repeats: repeated,
     }
   }, [detail.workout])
 
@@ -222,11 +231,11 @@ export function WorkoutDetailPage() {
   }
 
   function heatAthleteIds(heatNum: number): number[] {
-    return (byHeat[heatNum] ?? []).map((a) => a.athlete.id)
+    return [...new Set((byHeat[heatNum] ?? []).map((a) => a.athlete.id))]
   }
 
   function allAthleteIds(): number[] {
-    return workout.assignments.map((a) => a.athlete.id)
+    return [...new Set(workout.assignments.map((a) => a.athlete.id))]
   }
 
   async function saveAllScores() {
@@ -460,6 +469,12 @@ export function WorkoutDetailPage() {
           <div className={styles.heats}>
             <HeatDndProvider>
               <Stack gap="base">
+                {repeats.size > 0 && (
+                  <Text variant="meta" tone="warning" role="status">
+                    {repeats.size === 1 ? '1 athlete/team is' : `${repeats.size} athletes/teams are`} placed
+                    in more than one heat (highlighted below). Each shares one score for this workout.
+                  </Text>
+                )}
                 {heatNums.map((heatNum) => (
                   <section key={heatNum} id={`heat-${heatNum}`} aria-label={`Heat ${heatNum}`}>
                     <HeatCard
@@ -481,6 +496,7 @@ export function WorkoutDetailPage() {
                       judgesByLane={judges.judgesByLane(heatNum)}
                       onJudgeChange={judges.setJudge}
                       onPointsOverride={handlePointsOverride}
+                      repeats={repeats}
                     />
                   </section>
                 ))}

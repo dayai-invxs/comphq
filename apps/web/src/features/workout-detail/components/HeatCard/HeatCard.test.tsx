@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeatDndProvider } from '../heat-dnd-context'
 import type { Assignment, Score, Workout } from '../../useWorkoutDetail'
-import { HeatCard } from './HeatCard'
+import { HeatCard, repeatLabel } from './HeatCard'
 
 // v1: src/components/workout-detail/HeatCard.tsx. One heat — its clock, its
 // lanes, the boxes a score is typed into and the two buttons that end it.
@@ -131,6 +131,12 @@ describe('the lanes', () => {
     mount()
     expect(cells(1).slice(0, 4)).toEqual(['1', '1', 'Ann Adams', 'Rx'])
     expect(cells(2).slice(0, 4)).toEqual(['2', '1', 'Bob Brown', 'Rx'])
+  })
+
+  it('marks an athlete/team that is also in another heat', () => {
+    mount({ repeats: new Map([[2, [1, 3]]]) })
+    expect(screen.getByText('Duplicate: also in heat 3')).toBeInTheDocument()
+    expect(screen.queryAllByText(/^Duplicate/)).toHaveLength(1)
   })
 
   it('draws a dash for an athlete with no division', () => {
@@ -428,5 +434,13 @@ describe('while a reorder is in flight', () => {
   it('arms one drag per row otherwise', () => {
     mount()
     expect(create).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('repeatLabel', () => {
+  it('names the other heats and repeats within this one', () => {
+    expect(repeatLabel([1, 2, 4], 1)).toBe('Duplicate: also in heats 2, 4')
+    expect(repeatLabel([1, 1], 1)).toBe('Duplicate: 2× in this heat')
+    expect(repeatLabel([1, 1, 2], 1)).toBe('Duplicate: 2× in this heat, also in heat 2')
   })
 })
