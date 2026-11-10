@@ -12,6 +12,7 @@ type WorkoutRow = {
   partBEnabled: boolean
   partBScoreType: string
   status: string
+  knockout: boolean
 }
 
 async function getCompetitionAndAthlete(slug: string, id: number) {
@@ -46,6 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         partBEnabled: workout.partBEnabled,
         partBScoreType: workout.partBScoreType,
         status: workout.status,
+        knockout: workout.knockout,
       })
       .from(workout)
       .where(eq(workout.competitionId, competition.id))
@@ -59,7 +61,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .where(and(eq(score.athleteId, a.id), inArray(score.workoutId, workoutIds)))
 
     const scoredIds = new Set(existingScores.map((s) => s.workoutId))
-    const unscoredWorkouts = workouts.filter((w) => !scoredIds.has(w.id))
+    // A knockout places people by the round they reached; one more last-place
+    // score would be re-ranked by its number and scramble the placings. A
+    // withdrawn athlete not yet in one is simply left out when it starts.
+    const unscoredWorkouts = workouts.filter((w) => !scoredIds.has(w.id) && !w.knockout)
 
     if (unscoredWorkouts.length > 0) {
       await db.insert(score).values(

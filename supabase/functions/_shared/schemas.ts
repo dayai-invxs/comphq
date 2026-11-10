@@ -151,6 +151,9 @@ export const WorkoutCreate = z.object({
   partBScoreType: ScoreType.optional(),
   halfWeight: z.boolean().optional(),
   secret: z.boolean().optional(),
+  knockout: z.boolean().optional(),
+  knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
+  knockoutAdvance: NumericInt.pipe(z.number().int().min(1).max(19)).nullable().optional(),
   locationId: Id.nullable().optional(),
 })
 
@@ -173,6 +176,9 @@ export const WorkoutUpdate = z.object({
   number: NumericInt.pipe(z.number().int().positive()).optional(),
   halfWeight: z.boolean().optional(),
   secret: z.boolean().optional(),
+  knockout: z.boolean().optional(),
+  knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
+  knockoutAdvance: NumericInt.pipe(z.number().int().min(1).max(19)).nullable().optional(),
   locationId: Id.nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
 
@@ -186,6 +192,8 @@ export const WorkoutEquipmentCreate = z.object({
 export const LaneScore = z.object({
   assignmentId: Id,
   rawScore: z.number(),
+  /** Knockout lanes only; a split team's lane is never capped. */
+  capped: z.boolean().optional(),
   tiebreakRawScore: z.number().nullable().optional(),
   partBRawScore: z.number().nullable().optional(),
 })
@@ -205,7 +213,13 @@ export const ScoreUpsert = z.object({
 /** Pick (or clear) the member running one lane of a split team. */
 export const LaneMemberSet = z.object({
   assignmentId: Id,
-  teamMemberId: Id.nullable(),
+  teamMemberId: Id.nullable().optional(),
+  /** Knockout: advance by hand (true/false), or null to go by score. */
+  advanced: z.boolean().nullable().optional(),
+}).refine((v) => v.teamMemberId !== undefined || v.advanced !== undefined, 'teamMemberId or advanced is required')
+
+export const KnockoutAction = z.object({
+  action: z.enum(['start', 'advance', 'finish']),
 })
 
 export const ScorePointsOverride = z.object({

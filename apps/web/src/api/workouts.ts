@@ -28,6 +28,10 @@ export type Workout = {
   halfWeight: boolean
   /** Off the public Workouts screen until it is active. */
   secret: boolean
+  /** A knockout tournament: rounds of heats, top N per heat advance. */
+  knockout?: boolean
+  knockoutRounds?: number | null
+  knockoutAdvance?: number | null
   heatStartOverrides: Record<string, string>
   locationId: number | null
 }

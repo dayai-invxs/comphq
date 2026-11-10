@@ -100,8 +100,8 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
 
     const laneSets = mock.calls.filter((c) => c.method === 'set').map((c) => c.args[0])
     expect(laneSets.slice(0, 2)).toEqual([
-      { rawScore: 60_000, tiebreakRawScore: null, partBRawScore: null },
-      { rawScore: 90_500, tiebreakRawScore: 1, partBRawScore: null },
+      { rawScore: 60_000, tiebreakRawScore: null, partBRawScore: null, capped: false },
+      { rawScore: 90_500, tiebreakRawScore: 1, partBRawScore: null, capped: false },
     ])
     const values = mock.calls.find((c) => c.method === 'values')!.args[0]
     expect(values).toMatchObject({ athleteId: 2, workoutId: 1, rawScore: 150_500, tiebreakRawScore: 3, capped: false, points: null })
@@ -135,6 +135,18 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
   it('needs a score or lanes', async () => {
     const res = await POST(req('POST', { athleteId: 2 }), params('1'))
     expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /api/workouts/[id]/scores, a knockout round', () => {
+  it('keeps the lane\'s own result, capped where timed, and writes no team score', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time', knockout: true }])
+    mock.queueResult([{ id: 31 }])
+
+    const res = await POST(req('POST', { athleteId: 2, lanes: [{ assignmentId: 31, rawScore: 40012, capped: true }] }), params('1'))
+    expect(await res.json()).toEqual({ athleteId: 2, workoutId: 1, lanes: 1 })
+    expect(mock.calls.find((c) => c.method === 'set')!.args[0]).toEqual({ rawScore: 40012, tiebreakRawScore: null, partBRawScore: null, capped: true })
+    expect(mock.calls.some((c) => c.method === 'values')).toBe(false)
   })
 })
 

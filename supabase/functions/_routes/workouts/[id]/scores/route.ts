@@ -62,9 +62,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
-    const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string }>(workoutId, competition.id)
+    const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string; knockout: boolean }>(workoutId, competition.id)
 
-    if (parsed.data.lanes) return await saveLanes(workoutId, parsed.data.athleteId, parsed.data.lanes)
+    if (parsed.data.lanes) {
+      return await saveLanes(workoutId, parsed.data.athleteId, parsed.data.lanes, {
+        knockout: wk.knockout === true,
+        canCap: wk.scoreType === 'time',
+      })
+    }
 
     // Only a time can be capped; anything else has no finish to miss.
     const capped = wk.scoreType === 'time' && (parsed.data.capped ?? false)
@@ -103,16 +108,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 }
 
-type LaneInput = { assignmentId: number; rawScore: number; tiebreakRawScore?: number | null; partBRawScore?: number | null }
+type LaneInput = {
+  assignmentId: number; rawScore: number; capped?: boolean; tiebreakRawScore?: number | null; partBRawScore?: number | null
+}
 
 /**
- * A team placed in more than one heat: each member's lane is scored on its own
- * and the team's Score is the sum, written once every lane has a score.
+ * Scores kept per lane. Two cases:
+ * - A team placed in more than one heat: each member's lane is scored on its
+ *   own and the team's Score is the sum, written once every lane has a score.
+ * - A knockout workout: each lane is that round's result. Nothing is summed;
+ *   the Score row is written when the tournament is finished.
  * Lanes not sent keep what they had, so saving one heat leaves the others.
  */
-async function saveLanes(workoutId: number, athleteId: number, lanes: LaneInput[]): Promise<Response> {
+async function saveLanes(
+  workoutId: number, athleteId: number, lanes: LaneInput[], opts: { knockout: boolean; canCap: boolean },
+): Promise<Response> {
   try {
-    return await writeLanes(workoutId, athleteId, lanes)
+    return await writeLanes(workoutId, athleteId, lanes, opts)
   } catch (e) {
     if (e instanceof ForeignLane) return new Response(e.message, { status: 400 })
     throw e
@@ -121,12 +133,20 @@ async function saveLanes(workoutId: number, athleteId: number, lanes: LaneInput[
 
 class ForeignLane extends Error {}
 
-function writeLanes(workoutId: number, athleteId: number, lanes: LaneInput[]): Promise<Response> {
+function writeLanes(
+  workoutId: number, athleteId: number, lanes: LaneInput[], opts: { knockout: boolean; canCap: boolean },
+): Promise<Response> {
   return db.transaction(async (tx) => {
     for (const l of lanes) {
       const updated = await tx
         .update(heatAssignment)
-        .set({ rawScore: l.rawScore, tiebreakRawScore: l.tiebreakRawScore ?? null, partBRawScore: l.partBRawScore ?? null })
+        .set({
+          rawScore: l.rawScore,
+          tiebreakRawScore: l.tiebreakRawScore ?? null,
+          partBRawScore: opts.knockout ? null : l.partBRawScore ?? null,
+          // Only a knockout lane on a timed workout can be capped.
+          capped: opts.knockout && opts.canCap && l.capped === true,
+        })
         .where(and(
           eq(heatAssignment.id, l.assignmentId),
           eq(heatAssignment.workoutId, workoutId),
@@ -136,6 +156,8 @@ function writeLanes(workoutId: number, athleteId: number, lanes: LaneInput[]): P
       // Thrown, so the lanes already written in this call roll back.
       if (updated.length === 0) throw new ForeignLane(`Lane ${l.assignmentId} is not this athlete's in this workout`)
     }
+
+    if (opts.knockout) return Response.json({ athleteId, workoutId, lanes: lanes.length })
 
     const all = await tx
       .select({ rawScore: heatAssignment.rawScore, tiebreakRawScore: heatAssignment.tiebreakRawScore, partBRawScore: heatAssignment.partBRawScore })

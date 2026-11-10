@@ -28,6 +28,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           tiebreakRawScore: heatAssignment.tiebreakRawScore,
           partBRawScore: heatAssignment.partBRawScore,
           teamMemberId: heatAssignment.teamMemberId,
+          round: heatAssignment.round,
+          capped: heatAssignment.capped,
+          advanced: heatAssignment.advanced,
           athleteName: athleteTable.name,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
@@ -76,6 +79,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       tiebreakRawScore: r.tiebreakRawScore,
       partBRawScore: r.partBRawScore,
       teamMemberId: r.teamMemberId,
+      // Knockout: the heat's round, whether the result is capped, and an
+      // advance decided by hand (null: by score).
+      round: r.round,
+      capped: r.capped,
+      advanced: r.advanced,
       athlete: {
         id: r.athleteId,
         name: r.athleteName,
@@ -148,6 +156,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.number !== undefined) patch.number = d.number
     if (d.halfWeight !== undefined) patch.halfWeight = d.halfWeight
     if (d.secret !== undefined) patch.secret = d.secret
+    if (d.knockout !== undefined) patch.knockout = d.knockout
+    if (d.knockoutRounds !== undefined) patch.knockoutRounds = d.knockoutRounds
+    if (d.knockoutAdvance !== undefined) patch.knockoutAdvance = d.knockoutAdvance
+    // A knockout heat has one result per lane; Part B does not apply.
+    if (d.knockout === true) patch.partBEnabled = false
     if ('locationId' in d) patch.locationId = d.locationId ?? null
 
     const [updated] = await db

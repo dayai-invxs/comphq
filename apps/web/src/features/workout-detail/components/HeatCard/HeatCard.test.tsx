@@ -172,6 +172,45 @@ describe('the lanes', () => {
     expect(onLaneMemberChange).toHaveBeenCalledWith(95, null)
   })
 
+  it('shows a knockout heat\'s round and who advances, and passes a tick on', () => {
+    const onToggle = vi.fn()
+    mount({
+      knockout: {
+        label: 'Round 2', isFinal: false, editable: true, byHand: false, problem: 'Heat 1 has a tie for the last advancing spot. Tick who advances.',
+        advancing: (a) => a.athlete.id === 1, onToggle, onUseScores: vi.fn(),
+      },
+    })
+    expect(screen.getByText('Round 2 · Heat 1')).toBeInTheDocument()
+    expect(screen.getByText(/tie for the last advancing spot/)).toBeInTheDocument()
+    const boxes = screen.getAllByRole('checkbox', { name: 'Advances' }) as HTMLInputElement[]
+    expect(boxes.map((b) => b.checked)).toEqual([true, false])
+    fireEvent.click(boxes[1])
+    expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ id: 91 }), true)
+  })
+
+  it('calls the final\'s tick Winner and offers to go back to scores', () => {
+    const onUseScores = vi.fn()
+    mount({
+      knockout: {
+        label: 'Final', isFinal: true, editable: true, byHand: true, problem: null,
+        advancing: () => false, onToggle: vi.fn(), onUseScores,
+      },
+    })
+    expect(screen.getAllByRole('checkbox', { name: 'Winner' })).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Go by scores' }))
+    expect(onUseScores).toHaveBeenCalled()
+  })
+
+  it('locks the ticks of a round already advanced from', () => {
+    mount({
+      knockout: {
+        label: 'Round 1', isFinal: false, editable: false, byHand: false, problem: null,
+        advancing: () => true, onToggle: vi.fn(), onUseScores: vi.fn(),
+      },
+    })
+    expect((screen.getAllByRole('checkbox', { name: 'Advances' }) as HTMLInputElement[]).every((b) => b.disabled)).toBe(true)
+  })
+
   it('draws a dash for an athlete with no division', () => {
     mount({ entries: [{ id: 92, heatNumber: 1, lane: 1, athlete: athlete(3, 'Cal Cook', null) }] })
     expect(cells(1)[3]).toBe('—')

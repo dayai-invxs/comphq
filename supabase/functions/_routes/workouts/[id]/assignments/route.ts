@@ -177,8 +177,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 // GET helper kept in sync with the embed shape used by the workout detail UI.
 export { fetchAssignmentsWithEmbeds as _fetchAssignmentsWithEmbeds }
 
-// PATCH /api/workouts/[id]/assignments — say which member of a split team
-// runs one lane (or clear it). Display only; scores never read it.
+// PATCH /api/workouts/[id]/assignments — change one lane: which member of a
+// split team runs it (display only), and/or a knockout advance decided by
+// hand (true/false; null goes back to deciding by score).
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const parsed = await parseJson(req, LaneMemberSet)
@@ -189,7 +190,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)
-    const { assignmentId, teamMemberId } = parsed.data
+    const { assignmentId, teamMemberId, advanced } = parsed.data
 
     const [lane] = await db
       .select({ athleteId: heatAssignment.athleteId })
@@ -207,7 +208,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (!member) return new Response('That person is not on this team', { status: 400 })
     }
 
-    await db.update(heatAssignment).set({ teamMemberId }).where(eq(heatAssignment.id, assignmentId))
+    await db.update(heatAssignment).set({
+      ...(teamMemberId !== undefined && { teamMemberId }),
+      ...(advanced !== undefined && { advanced }),
+    }).where(eq(heatAssignment.id, assignmentId))
     return new Response(null, { status: 204 })
   } catch (e) {
     return authErrorResponse(e)

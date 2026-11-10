@@ -26,6 +26,7 @@ import { WorkoutDescription } from '../components/WorkoutDescription/WorkoutDesc
 import { WorkoutEditForm } from '../components/WorkoutEditForm/WorkoutEditForm'
 import { WorkoutEquipmentPopover } from '../components/WorkoutEquipmentPopover/WorkoutEquipmentPopover'
 import { WorkoutLeaderboard } from '../components/WorkoutLeaderboard/WorkoutLeaderboard'
+import { useKnockoutHeats } from '../useKnockoutHeats'
 import { useScoreInputs } from '../useScoreInputs'
 import { useWorkoutDetail, type AnyScorePayload, type Assignment } from '../useWorkoutDetail'
 import { useWorkoutJudges } from '../useWorkoutJudges'
@@ -88,6 +89,7 @@ export function WorkoutDetailPage() {
   const locations = useWorkoutLocations(slug)
   const settings = useSettings(slug)
   const override = useSetScorePoints(slug)
+  const knockout = useKnockoutHeats(detail.workout, inputs, detail.setLaneAdvanced)
 
   // Member picks for split teams' lanes, shown at once and saved in the
   // background. A reload carries the saved picks, so these start over.
@@ -109,17 +111,23 @@ export function WorkoutDetailPage() {
         completedHeatNums: [] as number[], repeats: new Map<number, number[]>(),
       }
     }
-    // An import may place a team in more than one heat. It shares one score;
-    // the heat cards mark each of its rows.
+    // An import may place a team in more than one heat: a split team, scored
+    // per lane and summed; the heat cards mark each of its rows. In a knockout
+    // everyone is in a heat of every round they reach, which is not that.
     const heatsOf = new Map<number, number[]>()
     for (const a of w.assignments) heatsOf.set(a.athlete.id, [...(heatsOf.get(a.athlete.id) ?? []), a.heatNumber])
-    const repeated = new Map([...heatsOf].filter(([, hs]) => hs.length > 1).map(([id, hs]) => [id, hs.sort((x, y) => x - y)]))
+    const repeated = w.knockout
+      ? new Map<number, number[]>()
+      : new Map([...heatsOf].filter(([, hs]) => hs.length > 1).map(([id, hs]) => [id, hs.sort((x, y) => x - y)]))
     const grouped = w.assignments.reduce<Record<number, typeof w.assignments>>((acc, a) => {
       ;(acc[a.heatNumber] ??= []).push(a)
       return acc
     }, {})
     const nums = Object.keys(grouped).map(Number).sort((a, b) => a - b)
-    const scored = w.scores.filter((s) => s.rawScore != null).length
+    // A knockout's results are per lane until the tournament is finished.
+    const scored = w.knockout
+      ? new Set(w.assignments.filter((a) => a.rawScore != null).map((a) => a.athlete.id)).size
+      : w.scores.filter((s) => s.rawScore != null).length
     return {
       byHeat: grouped,
       heatNums: nums,
@@ -233,11 +241,12 @@ export function WorkoutDetailPage() {
 
   // One payload per athlete/team. A team placed in more than one heat sends
   // the scores of its lanes among `entries`; the server adds up all its lanes.
+  // A knockout sends every lane's own result.
   function payloadsFor(entries: Assignment[]): AnyScorePayload[] {
     const lanesOf = new Map<number, number[]>()
     for (const a of entries) lanesOf.set(a.athlete.id, [...(lanesOf.get(a.athlete.id) ?? []), a.id])
     return [...lanesOf]
-      .map(([athleteId, laneIds]) => repeats.has(athleteId)
+      .map(([athleteId, laneIds]) => repeats.has(athleteId) || knockout.enabled
         ? inputs.buildLanePayload(athleteId, laneIds)
         : inputs.buildPayload(athleteId))
       .filter((p): p is AnyScorePayload => p !== null)
@@ -287,7 +296,7 @@ export function WorkoutDetailPage() {
   // be unlocked, and the workout must have no scores (the server refuses too).
   function askToDeleteHeats(key: 'deleteHeat' | 'clearHeats', heatNum?: number) {
     if (!heatsUnlocked) { setPrompt('unlockFirst'); return }
-    if (workout.scores.length > 0) { setPrompt('scoresFirst'); return }
+    if (hasScores) { setPrompt('scoresFirst'); return }
     setHeatToDelete(heatNum ?? null)
     setPrompt(key)
   }
@@ -304,6 +313,10 @@ export function WorkoutDetailPage() {
   const failure = detail.error || (override.error ? message(override.error) : '')
   const asked = prompt ? prompts[prompt] : null
   const locked = heatNums.length > 0 && !heatsUnlocked
+  // Lane results count: a knockout's rounds keep theirs before any score row.
+  const hasScores = workout.scores.length > 0 || workout.assignments.some((a) => a.rawScore != null)
+  const heatsOfRound = (r: number) => workout.assignments.filter((a) => (a.round ?? 1) === r)
+  const stageName = (r: number) => (r >= knockout.rounds ? 'the Final' : `Round ${r}`)
 
   const heatItems: HeatSummary[] = heatNums.map((heatNum) => {
     const entries = byHeat[heatNum] ?? []
@@ -317,12 +330,57 @@ export function WorkoutDetailPage() {
           ))
         : null,
       athletes: entries.length,
-      scored: workout.scores.filter((s) => inHeat.has(s.athleteId) && s.rawScore != null).length,
+      scored: knockout.enabled
+        ? entries.filter((a) => a.rawScore != null).length
+        : workout.scores.filter((s) => inHeat.has(s.athleteId) && s.rawScore != null).length,
       complete: completedHeatNums.includes(heatNum),
     }
   })
 
-  const generators = (
+  const knockoutControls = (
+    <>
+      {(heatNums.length === 0 || !locked) && (
+        <Button size="sm" onClick={() => detail.runKnockout('start')} disabled={detail.loading || locked}>
+          {heatNums.length === 0 ? 'Start Tournament' : 'Restart Tournament'}
+        </Button>
+      )}
+      {knockout.round > 0 && knockout.round < knockout.rounds && (
+        <Button
+          size="sm"
+          onClick={() => detail.runKnockout('advance', payloadsFor(heatsOfRound(knockout.round)))}
+          disabled={detail.loading || knockout.problems.length > 0}
+          title={knockout.problems.length ? 'Settle every heat first' : undefined}
+        >
+          Complete Round {knockout.round} → {stageName(knockout.round + 1)}
+        </Button>
+      )}
+      {knockout.round > 0 && knockout.round >= knockout.rounds && (
+        <Button size="sm" onClick={() => detail.runKnockout('finish', payloadsFor(heatsOfRound(knockout.round)))} disabled={detail.loading}>
+          Finish Tournament
+        </Button>
+      )}
+      {knockout.round > 1 && (
+        <Button size="sm" variant="secondary" onClick={() => detail.runKnockout('undo')} disabled={detail.loading}>
+          Undo Round {knockout.round}
+        </Button>
+      )}
+      {heatNums.length > 0 && (
+        <Button
+          size="sm"
+          variant={locked ? 'primary' : 'danger'}
+          onClick={() => askToDeleteHeats('clearHeats')}
+          disabled={detail.loading || locked}
+        >
+          Clear All Heats
+        </Button>
+      )}
+      {locked && (
+        <Button size="sm" variant="secondary" onClick={() => setPrompt('unlock')}>Unlock to Restart</Button>
+      )}
+    </>
+  )
+
+  const generators = knockout.enabled ? knockoutControls : (
     <>
       <Button
         size="sm"
@@ -362,7 +420,9 @@ export function WorkoutDetailPage() {
       description={
         <Inline gap="tight" align="center" wrap>
           <Text variant="meta" tone="muted">
-            {workout.lanes} lanes · {scoreTypeLabel(workout.scoreType)} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(between / 60)}m {between % 60 > 0 ? `${between % 60}s ` : ''}between heats
+            {workout.lanes} lanes · {knockout.enabled
+              ? `Knockout (${scoreTypeLabel(workout.scoreType)}), ${knockout.rounds} rounds, top ${workout.knockoutAdvance ?? 1} per heat advance`
+              : scoreTypeLabel(workout.scoreType)} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(between / 60)}m {between % 60 > 0 ? `${between % 60}s ` : ''}between heats
           </Text>
           {workout.startTime && (
             <Text variant="meta" tone="muted">Starts {new Date(workout.startTime).toLocaleString()}</Text>
@@ -407,7 +467,9 @@ export function WorkoutDetailPage() {
       {heatNums.length === 0 ? (
         <EmptyState
           title="No heats yet"
-          description="Best athletes are placed in the last heat. Existing assignments are replaced."
+          description={knockout.enabled
+            ? 'Round 1 places everyone, each division seeded by the overall leaderboard and spread across heats.'
+            : 'Best athletes are placed in the last heat. Existing assignments are replaced.'}
           action={<Inline gap="tight" wrap>{generators}</Inline>}
         />
       ) : (
@@ -427,7 +489,7 @@ export function WorkoutDetailPage() {
                   )}
                 </Inline>
                 <div className={styles.controls}>
-                  <Button
+                  {!knockout.enabled && <Button
                     size="sm"
                     onClick={calculate}
                     disabled={detail.loading || !someScored}
@@ -438,7 +500,7 @@ export function WorkoutDetailPage() {
                         : ''}
                   >
                     Calculate Rankings &amp; Complete
-                  </Button>
+                  </Button>}
                   <Button size="sm" variant="secondary" onClick={saveAllScores} disabled={detail.loading}>
                     Save All Scores
                   </Button>
@@ -446,7 +508,7 @@ export function WorkoutDetailPage() {
                     size="sm"
                     variant="danger"
                     onClick={() => setPrompt('clearScores')}
-                    disabled={detail.loading || workout.scores.length === 0}
+                    disabled={detail.loading || !hasScores}
                   >
                     Clear All Scores
                   </Button>
@@ -473,12 +535,19 @@ export function WorkoutDetailPage() {
               </Stack>
 
               <Stack gap="tight">
-                <Text variant="eyebrow" tone="muted">Heat assignments</Text>
+                <Text variant="eyebrow" tone="muted">
+                  {knockout.enabled
+                    ? knockout.round > 0 ? `Knockout · Round ${knockout.round} of ${knockout.rounds}` : 'Knockout'
+                    : 'Heat assignments'}
+                </Text>
+                {knockout.problems.map((p) => <Text key={p} variant="meta" tone="warning">{p}</Text>)}
                 <div className={styles.controls}>
                   {generators}
                 </div>
                 <Text variant="meta" tone="muted">
-                  Best athletes are placed in the last heat. Existing assignments are replaced.
+                  {knockout.enabled
+                    ? `The top ${workout.knockoutAdvance ?? 1} of each heat advance by score. Tick or untick Advances to decide by hand. Completing a round saves the scores typed.`
+                    : 'Best athletes are placed in the last heat. Existing assignments are replaced.'}
                 </Text>
               </Stack>
             </Stack>
@@ -494,8 +563,17 @@ export function WorkoutDetailPage() {
                     team&apos;s score is the lanes added together once every lane has a score.
                   </Text>
                 )}
-                {heatNums.map((heatNum) => (
+                {heatNums.map((heatNum, i) => {
+                  const entries = byHeat[heatNum] ?? []
+                  const heatRound = entries[0]?.round ?? 1
+                  const prevRound = i > 0 ? (byHeat[heatNums[i - 1]]?.[0]?.round ?? 1) : null
+                  return (
                   <section key={heatNum} id={`heat-${heatNum}`} aria-label={`Heat ${heatNum}`}>
+                    {knockout.enabled && heatRound !== prevRound && (
+                      <Text variant="eyebrow" tone="muted" className={styles.roundHeading}>
+                        {heatRound >= knockout.rounds ? 'Final' : `Round ${heatRound}`}
+                      </Text>
+                    )}
                     <HeatCard
                       workout={workout}
                       heatNumber={heatNum}
@@ -518,9 +596,11 @@ export function WorkoutDetailPage() {
                       repeats={repeats}
                       laneMember={(a) => (a.id in memberPicks ? memberPicks[a.id] : a.teamMemberId ?? null)}
                       onLaneMemberChange={pickLaneMember}
+                      knockout={knockout.heat(entries)}
                     />
                   </section>
-                ))}
+                  )
+                })}
               </Stack>
             </HeatDndProvider>
           </div>

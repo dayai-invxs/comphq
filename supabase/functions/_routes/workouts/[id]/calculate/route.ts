@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, score, workout } from '@/db/schema'
 import { rankAndPersist } from '@/lib/scoring'
+import { finishTournament, KnockoutRefusal, type KnockoutWorkoutRow } from '@/lib/knockoutStore'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 
 type RankableWorkout = {
@@ -20,7 +21,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
-    const wk = await requireWorkoutInCompetition<RankableWorkout>(workoutId, competition.id)
+    const wk = await requireWorkoutInCompetition<RankableWorkout & { knockout: boolean }>(workoutId, competition.id)
+
+    // A knockout ranks by how far each got, not by one score.
+    if (wk.knockout) {
+      try {
+        const count = await finishTournament(wk as unknown as KnockoutWorkoutRow)
+        return Response.json({ message: 'Rankings calculated', count })
+      } catch (e) {
+        if (e instanceof KnockoutRefusal) return new Response(e.message, { status: 409 })
+        throw e
+      }
+    }
 
     const scores = await db
       .select({

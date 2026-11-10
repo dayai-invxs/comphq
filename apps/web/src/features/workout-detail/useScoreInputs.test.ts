@@ -90,8 +90,8 @@ describe('a team split across heats', () => {
     expect(result.current.buildLanePayload(2, [31, 32, 33])).toEqual({
       athleteId: 2,
       lanes: [
-        { assignmentId: 31, rawScore: 60_000, tiebreakRawScore: null, partBRawScore: null },
-        { assignmentId: 33, rawScore: 150_000, tiebreakRawScore: null, partBRawScore: null },
+        { assignmentId: 31, rawScore: 60_000, capped: false, tiebreakRawScore: null, partBRawScore: null },
+        { assignmentId: 33, rawScore: 150_000, capped: false, tiebreakRawScore: null, partBRawScore: null },
       ],
     })
     expect(result.current.buildLanePayload(2, [32])).toBeNull()

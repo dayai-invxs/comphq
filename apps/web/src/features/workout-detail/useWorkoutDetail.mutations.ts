@@ -75,9 +75,17 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
       return apiPut(`${base}/heat-times${qs}`, { heatNumber, isoTime })
     },
 
-    /** Which member runs a split team's lane; null clears it. */
-    async setLaneMember(assignmentId: number, teamMemberId: number | null) {
-      return apiPatch(`${base}/assignments${qs}`, { assignmentId, teamMemberId })
+    /** One lane: a split team's member, and/or a knockout advance by hand. */
+    async patchLane(patch: { assignmentId: number; teamMemberId?: number | null; advanced?: boolean | null }) {
+      return apiPatch(`${base}/assignments${qs}`, patch)
+    },
+
+    async knockout(action: 'start' | 'advance' | 'finish') {
+      return apiPost(`${base}/knockout${qs}`, { action })
+    },
+
+    async undoKnockoutRound() {
+      return apiDel(`${base}/knockout${qs}`)
     },
 
     async reorderAssignments(updates: AssignmentUpdate[]) {

@@ -2,6 +2,7 @@ import { useGSAP } from '@gsap/react'
 import {
   Button,
   Card,
+  Checkbox,
   CardBody,
   CardHeader,
   Inline,
@@ -39,6 +40,24 @@ type ScoreInputs = ReturnType<typeof useScoreInputs>
 
 type JudgeInfo = { volunteerId: number; assignmentId: number; judgeName: string }
 
+/** A heat of a knockout tournament. */
+export type KnockoutHeat = {
+  /** "Round 2" or "Final". */
+  label: string
+  isFinal: boolean
+  /** Whether this lane is shown as advancing (or, in the final, as the winner). */
+  advancing: (a: Assignment) => boolean
+  /** Ticks were set by hand rather than taken from the scores. */
+  byHand: boolean
+  /** Why the heat cannot be settled yet. */
+  problem: string | null
+  /** False once a later round has been built from this one. */
+  editable: boolean
+  onToggle: (a: Assignment, advancing: boolean) => void
+  /** Go back to deciding by score. */
+  onUseScores: () => void
+}
+
 interface Props {
   workout: Workout
   heatNumber: number
@@ -65,6 +84,8 @@ interface Props {
   /** The member shown for a split team's lane (assignment id → member id). */
   laneMember?: (a: Assignment) => number | null
   onLaneMemberChange?: (assignmentId: number, teamMemberId: number | null) => void
+  /** Set on a knockout workout: every row is scored on its own lane. */
+  knockout?: KnockoutHeat
 }
 
 function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
@@ -82,7 +103,7 @@ function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
 export function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
   onSaveHeat, onCompleteHeat, onUndoHeat, onDeleteHeat, deleteLocked, onReorder, onSaveHeatTime, isSaving,
-  judges, judgesByLane, onJudgeChange, onPointsOverride, repeats, laneMember, onLaneMemberChange,
+  judges, judgesByLane, onJudgeChange, onPointsOverride, repeats, laneMember, onLaneMemberChange, knockout,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
   const [editingHeatTime, setEditingHeatTime] = useState(false)
@@ -205,7 +226,7 @@ export function HeatCard({
   }
 
   const columnCount =
-    (isTouch ? 6 : 5) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0) + 1
+    (isTouch ? 6 : 5) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0) + 1 + (knockout ? 1 : 0)
 
   return (
     <Card
@@ -215,7 +236,9 @@ export function HeatCard({
     >
       <CardHeader>
       <Inline gap="base" align="center" wrap>
-        <Text as="span" variant="label" tone={isComplete ? 'muted' : 'accent'}>Heat {heatNumber}</Text>
+        <Text as="span" variant="label" tone={isComplete ? 'muted' : 'accent'}>
+          {knockout ? `${knockout.label} · ` : ''}Heat {heatNumber}
+        </Text>
 
         {isComplete ? (
           <Button
@@ -283,6 +306,19 @@ export function HeatCard({
           )
         )}
       </Inline>
+      {knockout && (knockout.problem || knockout.byHand) && (
+        <Inline gap="tight" align="center" wrap>
+          {knockout.problem && <Text as="span" variant="meta" tone="warning">{knockout.problem}</Text>}
+          {knockout.byHand && !knockout.problem && (
+            <Text as="span" variant="meta" tone="muted">
+              {knockout.isFinal ? 'Winner ticked by hand.' : 'Advancing set by hand.'}
+            </Text>
+          )}
+          {knockout.byHand && knockout.editable && (
+            <Button variant="ghost" size="sm" onClick={knockout.onUseScores}>Go by scores</Button>
+          )}
+        </Inline>
+      )}
       </CardHeader>
 
       <CardBody className={styles.scroller}>
@@ -297,6 +333,7 @@ export function HeatCard({
               {showJudges && <th scope="col">Judge</th>}
               <th scope="col">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
               {workout.partBEnabled && <th scope="col">Part B</th>}
+              {knockout && <th scope="col" className={styles.narrow}><VisuallyHidden>{knockout.isFinal ? 'Winner' : 'Advances'}</VisuallyHidden></th>}
               <th scope="col" className={styles.narrow}>Points</th>
             </tr>
           </thead>
@@ -319,8 +356,9 @@ export function HeatCard({
             {!isSaving && sorted.map((a) => {
               const score = workout.scores.find((s) => s.athleteId === a.athlete.id)
               const repeatHeats = repeats?.get(a.athlete.id)
-              // A split team's lane has its own boxes; the team's score is the sum.
-              const inputKey = repeatHeats ? laneKey(a.id) : a.athlete.id
+              // A split team's lane has its own boxes (the team's score is the
+              // sum); so does every knockout lane (each round has its result).
+              const inputKey = repeatHeats || knockout ? laneKey(a.id) : a.athlete.id
               return (
                 <tr
                   key={a.id}
@@ -411,6 +449,20 @@ export function HeatCard({
                         setWeight={scoreInputs.setPartBWeightInputs}
                         capped={scoreInputs.partBCappedInputs}
                         setCapped={scoreInputs.setPartBCappedInputs}
+                      />
+                    </td>
+                  )}
+                  {knockout && (
+                    <td>
+                      <Checkbox
+                        label={knockout.isFinal ? 'Winner' : 'Advances'}
+                        checked={knockout.advancing(a)}
+                        disabled={!knockout.editable || loading}
+                        onChange={(e) => {
+                          // Read now: a controlled box is put back before the handler's work lands.
+                          const { checked } = e.target
+                          knockout.onToggle(a, checked)
+                        }}
                       />
                     </td>
                   )}

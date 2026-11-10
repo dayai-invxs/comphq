@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       scoreType: workout.scoreType,
       tiebreakEnabled: workout.tiebreakEnabled,
       tiebreakScoreType: workout.tiebreakScoreType,
+      knockout: workout.knockout,
       locationName: workoutLocation.name,
     })
     .from(workout)
@@ -55,6 +56,8 @@ export async function GET(req: Request) {
             heatNumber: heatAssignment.heatNumber,
             lane: heatAssignment.lane,
             memberName: teamMember.name,
+            laneRawScore: heatAssignment.rawScore,
+            laneCapped: heatAssignment.capped,
             athleteName: athlete.name,
             bibNumber: athlete.bibNumber,
             divisionName: division.name,
@@ -121,7 +124,10 @@ export async function GET(req: Request) {
           bibNumber: a.bibNumber,
           divisionName: a.divisionName ?? null,
           lane: a.lane,
-          scoreDisplay: scoreMap.get(`${a.athleteId}-${wk.id}`) ?? null,
+          // A knockout heat shows that round's result, not the final placing.
+          scoreDisplay: wk.knockout
+            ? (a.laneRawScore != null ? formatScore(a.laneRawScore, wk.scoreType, a.laneCapped) : null)
+            : scoreMap.get(`${a.athleteId}-${wk.id}`) ?? null,
           tiebreakDisplay: tiebreakMap.get(`${a.athleteId}-${wk.id}`) ?? null,
         }))
       return {

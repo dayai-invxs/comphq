@@ -38,3 +38,9 @@
     flex-wrap: nowrap;
   }
 }
+
+/* A knockout's heats are grouped by round; the round's name sits above its first heat. */
+.roundHeading {
+  display: block;
+  margin-block-end: var(--mds-space-2);
+}

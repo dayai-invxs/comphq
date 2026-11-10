@@ -27,7 +27,7 @@ describe('POST /api/workouts/[id]/reset', () => {
     expect(mock.calls.filter(c => c.method === 'delete')).toHaveLength(2)
     const sets = mock.calls.filter(c => c.method === 'set').map(c => c.args[0])
     // Split teams' lane scores go with the team scores.
-    expect(sets).toEqual([{ rawScore: null, tiebreakRawScore: null, partBRawScore: null }, { status: 'draft' }])
+    expect(sets).toEqual([{ rawScore: null, tiebreakRawScore: null, partBRawScore: null, capped: false, advanced: null }, { status: 'draft' }])
   })
 
   // Heat assignments survive a reset — the lane draw is kept, only results go.

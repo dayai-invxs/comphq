@@ -10,6 +10,7 @@ import { POST as workouts__id_heats__heatNum_complete_POST, DELETE as workouts__
 import { DELETE as workouts__id_heats__heatNum_DELETE } from '../_routes/workouts/[id]/heats/[heatNum]/route.ts'
 import { POST as workouts__id_judge_assignments_generate_POST } from '../_routes/workouts/[id]/judge-assignments/generate/route.ts'
 import { GET as workouts__id_judge_assignments_GET, POST as workouts__id_judge_assignments_POST, DELETE as workouts__id_judge_assignments_DELETE } from '../_routes/workouts/[id]/judge-assignments/route.ts'
+import { POST as workouts__id_knockout_POST, DELETE as workouts__id_knockout_DELETE } from '../_routes/workouts/[id]/knockout/route.ts'
 import { POST as workouts__id_reset_POST } from '../_routes/workouts/[id]/reset/route.ts'
 import { GET as workouts__id_GET, PUT as workouts__id_PUT, DELETE as workouts__id_DELETE } from '../_routes/workouts/[id]/route.ts'
 import { GET as workouts__id_scores_GET, POST as workouts__id_scores_POST, PATCH as workouts__id_scores_PATCH, DELETE as workouts__id_scores_DELETE } from '../_routes/workouts/[id]/scores/route.ts'
@@ -33,6 +34,8 @@ export const handle = createRouter('workouts', [
   { method: 'GET', pattern: '/workouts/:id/judge-assignments', handler: workouts__id_judge_assignments_GET },
   { method: 'POST', pattern: '/workouts/:id/judge-assignments', handler: workouts__id_judge_assignments_POST },
   { method: 'DELETE', pattern: '/workouts/:id/judge-assignments', handler: workouts__id_judge_assignments_DELETE },
+  { method: 'POST', pattern: '/workouts/:id/knockout', handler: workouts__id_knockout_POST },
+  { method: 'DELETE', pattern: '/workouts/:id/knockout', handler: workouts__id_knockout_DELETE },
   { method: 'POST', pattern: '/workouts/:id/reset', handler: workouts__id_reset_POST },
   { method: 'GET', pattern: '/workouts/:id', handler: workouts__id_GET },
   { method: 'PUT', pattern: '/workouts/:id', handler: workouts__id_PUT },

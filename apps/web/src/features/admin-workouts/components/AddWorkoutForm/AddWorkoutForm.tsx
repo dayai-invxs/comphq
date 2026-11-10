@@ -7,6 +7,7 @@ import type { WorkoutDraft } from '@/api/workouts'
 import { toIsoOrNull } from '@/lib/datetime'
 import { parseMinSec } from '@/lib/minSec'
 import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
+import { KnockoutFields, knockoutPatch, type KnockoutSettings } from '@/components/KnockoutFields/KnockoutFields'
 import styles from './AddWorkoutForm.module.css'
 
 // v1's create form, box for box. Every box ships with a value, so a create
@@ -66,7 +67,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
   const [number, setNumber] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [scoreType, setScoreType] = useState('time')
+  const [format, setFormat] = useState<KnockoutSettings>({ knockout: false, scoreType: 'time', rounds: '3', advance: '2' })
   const [lanes, setLanes] = useState('5')
   const [heatInterval, setHeatInterval] = useState('10:00')
   const [timeBetweenHeats, setTimeBetweenHeats] = useState('2:00')
@@ -88,7 +89,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
       number: Number(number),
       name: name.trim(),
       description: description.trim() || null,
-      scoreType,
+      ...knockoutPatch(format),
       lanes: Number(lanes),
       heatIntervalSecs: parseMinSec(heatInterval),
       timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
@@ -98,7 +99,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
       mixedHeats,
       tiebreakEnabled,
       tiebreakScoreType,
-      partBEnabled,
+      partBEnabled: partBEnabled && !format.knockout,
       partBScoreType,
       halfWeight,
       secret,
@@ -151,13 +152,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
                 />
               </Field>
 
-              <Field label="Score Type">
-                <Select value={scoreType} onChange={(e) => setScoreType(e.target.value)}>
-                  {SCORE_TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </Select>
-              </Field>
+              <KnockoutFields value={format} onChange={setFormat} lanes={Number(lanes) || 0} wideClassName={styles.full} />
 
               {locations.length > 0 && (
                 <Field label="Location">
@@ -210,13 +205,15 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
                 />
               )}
 
-              <Toggle
-                label="Part A / Part B"
-                hint="Add a second score (Part B) to each athlete"
-                checked={partBEnabled}
-                onChange={setPartBEnabled}
-              />
-              {partBEnabled && (
+              {!format.knockout && (
+                <Toggle
+                  label="Part A / Part B"
+                  hint="Add a second score (Part B) to each athlete"
+                  checked={partBEnabled}
+                  onChange={setPartBEnabled}
+                />
+              )}
+              {partBEnabled && !format.knockout && (
                 <ScoreType
                   label="Part B Score Type"
                   value={partBScoreType}

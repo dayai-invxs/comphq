@@ -18,6 +18,8 @@
     "@/lib/heatCompletion": "./_shared/heatCompletion.ts",
     "@/lib/heatDeletion": "./_shared/heatDeletion.ts",
     "@/lib/heatTime": "./_shared/heatTime.ts",
+    "@/lib/knockout": "./_shared/knockout.ts",
+    "@/lib/knockoutStore": "./_shared/knockoutStore.ts",
     "@/lib/laneScores": "./_shared/laneScores.ts",
     "@/lib/parseJson": "./_shared/parseJson.ts",
     "@/lib/rate-limit": "./_shared/rate-limit.ts",

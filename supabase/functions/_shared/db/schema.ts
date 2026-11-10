@@ -132,6 +132,10 @@ export const workout = pgTable('Workout', {
   halfWeight: boolean('halfWeight').notNull().default(false),
   /** Kept off the public Workouts screen until the workout is active. */
   secret: boolean('secret').notNull().default(false),
+  /** A knockout tournament: rounds of heats, top N per heat advance, last round is the final. */
+  knockout: boolean('knockout').notNull().default(false),
+  knockoutRounds: integer('knockoutRounds'),
+  knockoutAdvance: integer('knockoutAdvance'),
   heatStartOverrides: jsonb('heatStartOverrides').$type<Record<string, string>>().notNull().default({}),
   locationId: integer('locationId').references(() => workoutLocation.id, { onDelete: 'set null' }),
   externalId: text('externalId'),
@@ -155,6 +159,12 @@ export const heatAssignment = pgTable('HeatAssignment', {
   partBRawScore: doublePrecision('partBRawScore'),
   /** The member running this lane of a split team. Display only. */
   teamMemberId: integer('teamMemberId').references((): AnyPgColumn => teamMember.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+  /** Knockout round of this heat; null reads as round 1. */
+  round: integer('round'),
+  /** A knockout lane's result is capped (rawScore holds rounds and reps). */
+  capped: boolean('capped').notNull().default(false),
+  /** A knockout advance decided by hand; null leaves it to the scores. */
+  advanced: boolean('advanced'),
 }, (t) => [
   index('HeatAssignment_workoutId_athleteId_idx').on(t.workoutId, t.athleteId),
   uniqueIndex('heat_assignment_lane_unique').on(t.workoutId, t.heatNumber, t.lane),
@@ -180,6 +190,8 @@ export const score = pgTable('Score', {
   capped: boolean('capped').notNull().default(false),
   /** The same, for partBRawScore. */
   partBCapped: boolean('partBCapped').notNull().default(false),
+  /** A knockout result as shown, e.g. "Out in Round 2 · 1:42". */
+  knockoutLabel: text('knockoutLabel'),
 }, (t) => [
   uniqueIndex('Score_athleteId_workoutId_key').on(t.athleteId, t.workoutId),
 ])

@@ -79,9 +79,9 @@ describe('calcCumulativePoints', () => {
       {
         id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null, withdrawn: false, externalId: null, gender: null,
         scores: [
-          { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false },
-          { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false },
-          { id: 3, athleteId: 1, workoutId: 99, rawScore: 0, tiebreakRawScore: null, points: 100, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false },
+          { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null },
+          { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null },
+          { id: 3, athleteId: 1, workoutId: 99, rawScore: 0, tiebreakRawScore: null, points: 100, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null },
         ],
       },
     ]

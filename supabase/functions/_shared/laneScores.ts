@@ -32,10 +32,11 @@ export function sumLaneScores(lanes: LaneScoreRow[]): TeamTotal | null {
   }
 }
 
-/** Clearing a workout's scores clears its split teams' lane scores too. */
+/** Clearing a workout's scores clears lane scores too (split teams, knockout rounds). */
 export async function clearLaneScores(workoutId: number) {
   await db
     .update(heatAssignment)
-    .set({ rawScore: null, tiebreakRawScore: null, partBRawScore: null })
+    // A knockout's hand-made advance ticks go with the results they settled.
+    .set({ rawScore: null, tiebreakRawScore: null, partBRawScore: null, capped: false, advanced: null })
     .where(eq(heatAssignment.workoutId, workoutId))
 }

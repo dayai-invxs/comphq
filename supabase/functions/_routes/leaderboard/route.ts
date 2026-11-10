@@ -65,6 +65,7 @@ export async function GET(req: Request) {
           capped: score.capped,
           tiebreakRawScore: score.tiebreakRawScore,
           partBPoints: score.partBPoints,
+          knockoutLabel: score.knockoutLabel,
         })
         .from(score)
         .where(inArray(score.workoutId, workoutIds))
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
   // A team shows its members under its name; an individual has none.
   const members = await memberNamesByAthlete(athletes.map((a) => a.id))
 
-  const scoreMap = new Map<string, { points: number; rawScore: number; capped: boolean; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null }>()
+  const scoreMap = new Map<string, { points: number; rawScore: number; capped: boolean; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null; knockoutLabel: string | null }>()
   for (const s of scores) {
     if (s.points != null) {
       const wo = visibleWorkouts.find((w) => w.id === s.workoutId)
@@ -86,6 +87,7 @@ export async function GET(req: Request) {
         tiebreakEnabled: wo?.tiebreakEnabled ?? false,
         tiebreakScoreType: wo?.tiebreakScoreType ?? 'time',
         partBPoints: s.partBPoints ?? null,
+        knockoutLabel: s.knockoutLabel ?? null,
       })
     }
   }
@@ -104,7 +106,7 @@ export async function GET(req: Request) {
         const tiebreakDisplay = !wo.partBEnabled && entry.tiebreakEnabled && entry.tiebreakRawScore != null
           ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
           : null
-        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: formatScore(entry.rawScore, entry.scoreType, entry.capped), tiebreakDisplay, partBPoints: entry.partBPoints }
+        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: entry.knockoutLabel ?? formatScore(entry.rawScore, entry.scoreType, entry.capped), tiebreakDisplay, partBPoints: entry.partBPoints }
       } else {
         workoutScores[wo.id] = null
       }

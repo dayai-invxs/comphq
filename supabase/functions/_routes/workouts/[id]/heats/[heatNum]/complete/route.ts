@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id, heatNum } = await params
     const workoutId = Number(id)
     const heatNumber = Number(heatNum)
-    const wk = await requireWorkoutInCompetition<RankableWorkout>(workoutId, competition.id)
+    const wk = await requireWorkoutInCompetition<RankableWorkout & { knockout: boolean }>(workoutId, competition.id)
 
     // Idempotent insert: unique (workoutId, heatNumber) makes concurrent clicks
     // race-safe. onConflictDoNothing is the Drizzle equivalent of ignoreDuplicates.
@@ -53,6 +53,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         .where(eq(heatAssignment.workoutId, workoutId)),
       getCompletedHeats(workoutId),
     ])
+
+    // A knockout is ranked once, when the tournament is finished; finishing
+    // every heat of a round is not the end of the workout.
+    if (wk.knockout) return Response.json({ completedHeats, workoutCompleted: false })
 
     const rankResult = await rankAndPersist(workoutId, wk, scores)
     if (rankResult.error) return new Response(rankResult.error, { status: 500 })

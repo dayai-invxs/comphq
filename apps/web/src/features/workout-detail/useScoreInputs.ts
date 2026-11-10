@@ -82,12 +82,16 @@ export function useScoreInputs(workout: Workout | null) {
         }
       }
     }
-    // A split team's lanes: plain entries, never capped (a member's time is
-    // entered as their total, penalties included).
+    // Lane scores: a split team's lanes (never capped; a member's time is
+    // entered as their total) and a knockout's rounds (may be capped).
     for (const a of w.assignments ?? []) {
       const k = laneKey(a.id)
       if (a.rawScore != null) {
-        if (w.scoreType === 'time') tI[k] = formatTimeInput(a.rawScore)
+        if (a.capped) {
+          const rr = scoreToRoundsReps(a.rawScore)
+          cI[k] = true
+          rI[k] = { rounds: String(rr.rounds), reps: String(rr.reps) }
+        } else if (w.scoreType === 'time') tI[k] = formatTimeInput(a.rawScore)
         else if (w.scoreType === 'rounds_reps') {
           const rr = scoreToRoundsReps(a.rawScore)
           rI[k] = { rounds: String(rr.rounds), reps: String(rr.reps) }
@@ -175,7 +179,7 @@ export function useScoreInputs(workout: Workout | null) {
     const lanes: LaneScorePayload[] = []
     for (const id of assignmentIds) {
       const p = buildPayload(laneKey(id))
-      if (p) lanes.push({ assignmentId: id, rawScore: p.rawScore, tiebreakRawScore: p.tiebreakRawScore, partBRawScore: p.partBRawScore })
+      if (p) lanes.push({ assignmentId: id, rawScore: p.rawScore, capped: p.capped, tiebreakRawScore: p.tiebreakRawScore, partBRawScore: p.partBRawScore })
     }
     return lanes.length ? { athleteId, lanes } : null
   }, [buildPayload])

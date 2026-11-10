@@ -47,10 +47,14 @@ export async function POST(req: Request) {
         mixedHeats: d.mixedHeats !== false,
         tiebreakEnabled: d.tiebreakEnabled === true,
         tiebreakScoreType: d.tiebreakScoreType ?? 'time',
-        partBEnabled: d.partBEnabled === true,
+        // A knockout heat has one result per lane; Part B does not apply.
+        partBEnabled: d.partBEnabled === true && d.knockout !== true,
         partBScoreType: d.partBScoreType ?? 'time',
         halfWeight: d.halfWeight === true,
         secret: d.secret === true,
+        knockout: d.knockout === true,
+        knockoutRounds: d.knockout === true ? (d.knockoutRounds ?? 2) : null,
+        knockoutAdvance: d.knockout === true ? (d.knockoutAdvance ?? 1) : null,
         locationId: d.locationId ?? null,
       })
       .select('*')

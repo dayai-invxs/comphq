@@ -19,6 +19,7 @@ import { toIsoOrNull } from '@/lib/datetime'
 import { formatMinSec, parseMinSec } from '@/lib/minSec'
 import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
 import type { Workout } from '../../useWorkoutDetail'
+import { KnockoutFields, knockoutPatch, type KnockoutSettings } from '@/components/KnockoutFields/KnockoutFields'
 import styles from './WorkoutEditForm.module.css'
 
 // v1: src/components/workout-detail/WorkoutEditForm.tsx. Every setting a
@@ -102,7 +103,12 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
   const [name, setName] = useState(workout.name)
   const [description, setDescription] = useState(workout.description ?? '')
   const [number, setNumber] = useState(String(workout.number))
-  const [scoreType, setScoreType] = useState(workout.scoreType)
+  const [format, setFormat] = useState<KnockoutSettings>({
+    knockout: workout.knockout ?? false,
+    scoreType: workout.scoreType,
+    rounds: String(workout.knockoutRounds ?? 3),
+    advance: String(workout.knockoutAdvance ?? 2),
+  })
   const [lanes, setLanes] = useState(String(workout.lanes))
   const [heatInterval, setHeatInterval] = useState(formatMinSec(workout.heatIntervalSecs))
   const [timeBetweenHeats, setTimeBetweenHeats] = useState(formatMinSec(workout.timeBetweenHeatsSecs))
@@ -124,7 +130,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
       name: name.trim(),
       description: description.trim() || null,
       number: Number(number),
-      scoreType,
+      ...knockoutPatch(format),
       lanes: Number(lanes),
       heatIntervalSecs: parseMinSec(heatInterval),
       timeBetweenHeatsSecs: parseMinSec(timeBetweenHeats),
@@ -134,7 +140,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
       mixedHeats,
       tiebreakEnabled,
       tiebreakScoreType,
-      partBEnabled,
+      partBEnabled: partBEnabled && !format.knockout,
       partBScoreType,
       halfWeight,
       secret,
@@ -169,7 +175,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
             />
           </Field>
 
-          <ScoreTypeField label="Score Type" value={scoreType} onChange={setScoreType} />
+          <KnockoutFields value={format} onChange={setFormat} lanes={Number(lanes) || 0} wideClassName={styles.wide} />
 
           {locations.length > 0 && (
             <Field label="Location">
@@ -220,13 +226,15 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
             />
           )}
 
-          <Toggle
-            on={partBEnabled}
-            onToggle={() => setPartBEnabled((v) => !v)}
-            title="Part A / Part B"
-            subtitle="Add a second score (Part B) to each athlete"
-          />
-          {partBEnabled && (
+          {!format.knockout && (
+            <Toggle
+              on={partBEnabled}
+              onToggle={() => setPartBEnabled((v) => !v)}
+              title="Part A / Part B"
+              subtitle="Add a second score (Part B) to each athlete"
+            />
+          )}
+          {partBEnabled && !format.knockout && (
             <div className={styles.wide}>
               <ScoreTypeField
                 label="Part B Score Type"

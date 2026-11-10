@@ -21,6 +21,11 @@ export type Assignment = {
   rawScore?: number | null; tiebreakRawScore?: number | null; partBRawScore?: number | null
   /** The member running this lane of a split team. */
   teamMemberId?: number | null
+  /** Knockout: the heat's round (null reads as 1), a capped result, and an
+   *  advance decided by hand (null: by score). */
+  round?: number | null
+  capped?: boolean
+  advanced?: boolean | null
 }
 export type Score = {
   id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null
@@ -31,7 +36,9 @@ export type Workout = {
   id: number; number: number; name: string; description: string | null; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
-  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; secret?: boolean; locationId: number | null; heatStartOverrides: Record<string, string> | string
+  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; secret?: boolean
+  knockout?: boolean; knockoutRounds?: number | null; knockoutAdvance?: number | null
+  locationId: number | null; heatStartOverrides: Record<string, string> | string
   completedHeats: number[]
   assignments: Assignment[]; scores: Score[]
 }
@@ -47,6 +54,7 @@ export type ScorePayload = {
 
 export type LaneScorePayload = {
   assignmentId: number; rawScore: number; tiebreakRawScore: number | null; partBRawScore: number | null
+  capped?: boolean
 }
 
 /** A team placed in more than one heat: its lanes' scores; the server sums them. */
@@ -311,16 +319,45 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
 
   // Saved without reloading the workout: a reload re-fills every score box and
   // would drop scores typed but not saved yet. The page keeps the pick shown.
-  const setLaneMember = useCallback(async (assignmentId: number, teamMemberId: number | null) => {
+  const patchLane = useCallback(async (patch: { assignmentId: number; teamMemberId?: number | null; advanced?: boolean | null }) => {
     setError('')
     try {
-      await api.setLaneMember(assignmentId, teamMemberId)
+      await api.patchLane(patch)
       return true
     } catch (e) {
       setError(errorMessage(e))
       return false
     }
   }, [api])
+  const setLaneMember = useCallback(
+    (assignmentId: number, teamMemberId: number | null) => patchLane({ assignmentId, teamMemberId }), [patchLane])
+  const setLaneAdvanced = useCallback(
+    (assignmentId: number, advanced: boolean | null) => patchLane({ assignmentId, advanced }), [patchLane])
+
+  // Knockout steps. Typed scores are saved first, so the round is settled on
+  // what is on screen; then the workout reloads.
+  const knockoutMutation = useMutation({
+    mutationFn: async ({ action, payloads }: { action: 'start' | 'advance' | 'finish' | 'undo'; payloads: AnyScorePayload[] }) => {
+      if (action === 'undo') return api.undoKnockoutRound()
+      if (payloads.length) await api.saveAll(payloads)
+      return api.knockout(action)
+    },
+    onMutate: () => setError(''),
+    onSuccess: async (_d, { action }) => {
+      await load()
+      onSuccess({
+        start: 'Tournament started: round 1 heats placed.',
+        advance: 'Next round placed.',
+        finish: 'Tournament finished. Placings saved as points.',
+        undo: 'Latest round removed.',
+      }[action])
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+  const { mutateAsync: knockoutAsync } = knockoutMutation
+  const runKnockout = useCallback(
+    (action: 'start' | 'advance' | 'finish' | 'undo', payloads: AnyScorePayload[] = []) =>
+      knockoutAsync({ action, payloads }).then(() => undefined, () => undefined), [knockoutAsync])
 
   const { mutateAsync: saveManyAsync } = saveManyMutation
   const saveMany = useCallback(
@@ -374,7 +411,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     completeHeatMutation.isPending || undoHeatMutation.isPending ||
     calculateMutation.isPending || clearScoresMutation.isPending ||
     resetWorkoutMutation.isPending || updateSettingsMutation.isPending ||
-    deleteHeatMutation.isPending || clearHeatsMutation.isPending
+    deleteHeatMutation.isPending || clearHeatsMutation.isPending || knockoutMutation.isPending
 
   return {
     workout,
@@ -390,6 +427,8 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     saveHeatTime,
     reorderAssignments,
     setLaneMember,
+    setLaneAdvanced,
+    runKnockout,
     saveMany,
     completeHeat,
     undoHeat,

@@ -137,6 +137,9 @@ describe('what it sends', () => {
       name: 'Fran',
       description: null,
       scoreType: 'time',
+      knockout: false,
+      knockoutRounds: null,
+      knockoutAdvance: null,
       lanes: 5,
       heatIntervalSecs: 600,
       timeBetweenHeatsSecs: 120,
@@ -152,6 +155,20 @@ describe('what it sends', () => {
       secret: false,
       locationId: null,
     })
+  })
+
+  it('sends a knockout tournament with what it is measured by, its rounds and how many advance', () => {
+    const { onCreate } = form()
+    fillRequired()
+    fireEvent.change(screen.getByLabelText('Score Type'), { target: { value: 'knockout' } })
+    fireEvent.change(screen.getByLabelText('Measured by'), { target: { value: 'rounds_reps' } })
+    fireEvent.change(screen.getByLabelText('Rounds'), { target: { value: '4' } })
+    fireEvent.change(screen.getByLabelText('Advance per heat'), { target: { value: '3' } })
+    expect(screen.queryByText('Part A / Part B')).toBeNull()
+    submit()
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
+      scoreType: 'rounds_reps', knockout: true, knockoutRounds: 4, knockoutAdvance: 3, partBEnabled: false,
+    }))
   })
 
   // The button lives in the sheet's footer, outside the form it submits, so
