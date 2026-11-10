@@ -62,7 +62,7 @@ describe('the list', () => {
     const r = await row('Summer Throwdown')
     expect(r.getByRole('link', { name: 'Summer Throwdown' })).toHaveAttribute('href', '/summer/admin')
     expect(r.getByRole('link', { name: 'Manage' })).toHaveAttribute('href', '/summer/admin')
-    expect(r.getByRole('link', { name: 'Competition Schedule' })).toHaveAttribute('href', '/summer')
+    expect(r.getByRole('link', { name: 'Schedule' })).toHaveAttribute('href', '/summer')
   })
 
   it('shows the slug, which is the address people are given', async () => {

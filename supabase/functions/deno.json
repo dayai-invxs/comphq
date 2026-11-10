@@ -32,6 +32,7 @@
     "@/lib/supabase-server": "./_shared/supabase-server.ts",
     "@/lib/supabase": "./_shared/supabase.ts",
     "@/lib/teamMembers": "./_shared/teamMembers.ts",
+    "@/lib/unannounced": "./_shared/unannounced.ts",
     "@/lib/workoutEnums": "./_shared/workoutEnums.ts",
     "@/db/schema": "./_shared/db/schema.ts",
     "drizzle-orm": "npm:drizzle-orm@^0.45.2",

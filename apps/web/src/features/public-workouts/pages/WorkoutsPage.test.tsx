@@ -46,6 +46,14 @@ describe('the workout list', () => {
     expect(screen.getByText(/Thrusters 95\/65/)).toHaveTextContent('21-15-9 Thrusters 95/65 Pull-ups')
   })
 
+  it('shows a secret workout not yet live as "Event N - TBA", with nothing to open', async () => {
+    apiGet.mockResolvedValue([...WORKOUTS, { id: 14, number: 4, name: 'TBA', description: null, status: 'draft', tba: true }])
+    mount('/summer/workouts')
+    const list = await screen.findByRole('list', { name: 'Workouts' })
+    expect(within(list).getByText('Event 4 - TBA')).toBeInTheDocument()
+    expect(within(list).queryByRole('link', { name: /TBA/ })).not.toBeInTheDocument()
+  })
+
   it('says so when nothing is announced yet', async () => {
     apiGet.mockResolvedValue([])
     mount('/summer/workouts')

@@ -31,14 +31,31 @@ export interface AdminShellProps {
   groups: NavGroup[]
   /** Destinations out of the admin tree — the public screens, the other shell. */
   extras?: Destination[]
+  /** Groups drawn last, after the public screens and just above Sign out. */
+  trailing?: NavGroup[]
   onSignOut: () => void
   children: ReactNode
 }
 
-export function AdminShell({ title, groups, extras = [], onSignOut, children }: AdminShellProps) {
+export function AdminShell({ title, groups, extras = [], trailing = [], onSignOut, children }: AdminShellProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const flat = [...groups.flatMap((g) => g.items), ...extras]
+  const flat = [...groups.flatMap((g) => g.items), ...extras, ...trailing.flatMap((g) => g.items)]
+
+  const group = (g: NavGroup) => (
+    <SideNavGroup key={g.label} label={g.label}>
+      {g.items.map((d) => (
+        <SideNavItem
+          key={d.to}
+          as={RouterAnchor}
+          href={d.to}
+          icon={<Glyph name={d.icon} />}
+          label={d.label}
+          active={pathname === d.to}
+        />
+      ))}
+    </SideNavGroup>
+  )
 
   return (
     <Screen>
@@ -59,34 +76,9 @@ export function AdminShell({ title, groups, extras = [], onSignOut, children }: 
       <div className={styles.body}>
         <div className={styles.rail}>
           <SideNav label="Admin">
-            {groups.map((group) => (
-              <SideNavGroup key={group.label} label={group.label}>
-                {group.items.map((d) => (
-                  <SideNavItem
-                    key={d.to}
-                    as={RouterAnchor}
-                    href={d.to}
-                    icon={<Glyph name={d.icon} />}
-                    label={d.label}
-                    active={pathname === d.to}
-                  />
-                ))}
-              </SideNavGroup>
-            ))}
-            {extras.length > 0 && (
-              <SideNavGroup label="Public">
-                {extras.map((d) => (
-                  <SideNavItem
-                    key={d.to}
-                    as={RouterAnchor}
-                    href={d.to}
-                    icon={<Glyph name={d.icon} />}
-                    label={d.label}
-                    active={pathname === d.to}
-                  />
-                ))}
-              </SideNavGroup>
-            )}
+            {groups.map(group)}
+            {extras.length > 0 && group({ label: 'Public', items: extras })}
+            {trailing.map(group)}
             <SideNavGroup>
               <SideNavItem label="Sign out" onClick={onSignOut} />
             </SideNavGroup>

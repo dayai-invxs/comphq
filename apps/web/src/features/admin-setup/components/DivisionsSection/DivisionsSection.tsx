@@ -1,4 +1,4 @@
-import { Button, ConfirmDialog, DataTable, EmptyState, Select, Text } from '@mond-design-system/react'
+import { Button, ConfirmDialog, DataTable, EmptyState, Select, Stack, Text } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
 import { useState } from 'react'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
@@ -77,7 +77,7 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
     {
       key: 'order',
       header: 'Runs',
-      width: '7rem',
+      width: '5rem',
       cell: (d) => (
         <Select
           size="sm"
@@ -92,12 +92,14 @@ export function DivisionsSection({ rows, busy, onAdd, onSave, onMove, onDelete, 
     {
       key: 'name',
       header: 'Division',
-      cell: (d) => <Text as="span" variant="label">{d.name}</Text>,
-    },
-    {
-      key: 'format',
-      header: 'Entries',
-      cell: (d) => <Text as="span" tone="muted">{divisionFormat(d)}</Text>,
+      // What enters it sits under the name rather than in a column of its
+      // own, so the table fits a phone without panning.
+      cell: (d) => (
+        <Stack gap="hairline">
+          <Text as="span" variant="label">{d.name}</Text>
+          <Text as="span" variant="meta" tone="muted">{divisionFormat(d)}</Text>
+        </Stack>
+      ),
     },
   ]
 

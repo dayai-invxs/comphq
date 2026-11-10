@@ -19,6 +19,7 @@ import { JudgeGate } from '@/components/JudgeGate/JudgeGate'
 import { Notice } from '@/components/Notice/Notice'
 import { OperatorShell } from '@/layouts/OperatorShell'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
+import { TbaWorkout } from '@/components/TbaWorkout/TbaWorkout'
 import { useWorkoutEquipment, type EquipmentItem } from '../api'
 import styles from './EquipmentPage.module.css'
 
@@ -32,7 +33,7 @@ import styles from './EquipmentPage.module.css'
 
 type HeatEntry = { athleteId: number; lane: number; divisionName: string | null }
 type Heat = { heatNumber: number; isComplete: boolean; entries: HeatEntry[] }
-type WorkoutData = { id: number; number: number; name: string; status: string; heats: Heat[] }
+type WorkoutData = { id: number; number: number; name: string; status: string; tba?: boolean; heats: Heat[] }
 type OpsData = { workouts: WorkoutData[]; showBib: boolean }
 
 const NO_DIVISION = '__none__'
@@ -156,7 +157,7 @@ function EquipmentControl({ slug }: { slug: string }) {
   const equipChecks = checksData?.equipChecks ?? {}
   const workouts = data?.workouts ?? []
   const setEquipChecks = useSetEquipChecks(slug)
-  const equipmentByWorkout = useWorkoutEquipment(slug, workouts.map((w) => w.id))
+  const equipmentByWorkout = useWorkoutEquipment(slug, workouts.filter((w) => !w.tba).map((w) => w.id))
   const [resetting, setResetting] = useState(false)
 
   const realtimeKeys = useMemo(() => [queryKeys.ops(slug), queryKeys.checks(slug)], [slug])
@@ -210,7 +211,7 @@ function EquipmentControl({ slug }: { slug: string }) {
         />
       )}
 
-      {pending.map((workout) => (
+      {pending.map((workout) => workout.tba ? <TbaWorkout key={workout.id} number={workout.number} /> : (
         <DataPanel key={workout.id} title={`Workout ${workout.number}: ${workout.name}`}>
           {workout.heats.length === 0 ? (
             <Text variant="meta" tone="muted">No heats assigned.</Text>

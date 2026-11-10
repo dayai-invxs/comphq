@@ -23,6 +23,7 @@ import { fmtHeatTime } from '@/lib/heatTime'
 import { getHeatMs, type Heat, type HeatEntry, type OpsData, type WorkoutData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { statusBadge } from '@/lib/workoutStatus'
+import { TbaWorkout } from '@/components/TbaWorkout/TbaWorkout'
 import { athletesIn, matchAthletes, type Athlete } from '../athleteTimeline'
 import styles from './AthleteOverviewPage.module.css'
 
@@ -247,6 +248,7 @@ export function AthleteOverviewPage() {
       )}
 
       {!selected && !search && data?.workouts.map((workout) => {
+        if (workout.tba) return <TbaWorkout key={workout.id} number={workout.number} />
         const badge = statusBadge(workout.status)
         return (
           <DataPanel

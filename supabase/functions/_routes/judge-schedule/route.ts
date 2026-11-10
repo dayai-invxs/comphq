@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { heatAssignment, heatCompletion, judgeAssignment, volunteer, volunteerRole, workout, workoutLocation } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
+import { isUnannounced, TBA } from '@/lib/unannounced'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -42,6 +43,8 @@ export async function GET(req: Request) {
         heatStartOverrides: workout.heatStartOverrides,
         callTimeSecs: workout.callTimeSecs,
         walkoutTimeSecs: workout.walkoutTimeSecs,
+        status: workout.status,
+        secret: workout.secret,
         locationName: workoutLocation.name,
       })
       .from(workout)
@@ -49,8 +52,11 @@ export async function GET(req: Request) {
       .where(eq(workout.competitionId, competition.id))
       .orderBy(asc(workout.number))
 
-    const workoutIds = workouts.map(w => w.id)
-    if (workoutIds.length === 0) return Response.json({ judges, workouts: [] })
+    // An unannounced secret workout sends only its number (see unannounced.ts).
+    const tba = (wk: { id: number; number: number }) =>
+      ({ id: wk.id, number: wk.number, name: TBA, locationName: null, tba: true, heats: [] })
+    const workoutIds = workouts.filter(w => !isUnannounced(w)).map(w => w.id)
+    if (workoutIds.length === 0) return Response.json({ judges, workouts: workouts.map(tba) })
 
     // All judge assignments
     const assignments = await db
@@ -90,6 +96,7 @@ export async function GET(req: Request) {
     const judgeMap = new Map(allVolunteerRows.map(v => [v.id, v.name]))
 
     const result = workouts.map(wk => {
+      if (isUnannounced(wk)) return tba(wk)
       const heatNums = [...(heatsByWorkout.get(wk.id) ?? [])].sort((a, b) => a - b)
       const wkAssignments = assignments.filter(a => a.workoutId === wk.id)
 
@@ -116,9 +123,10 @@ export async function GET(req: Request) {
         number: wk.number,
         name: wk.name,
         locationName: wk.locationName ?? null,
+        tba: false,
         heats,
       }
-    }).filter(wk => wk.heats.some(h => h.assignments.length > 0))
+    }).filter(wk => wk.tba || wk.heats.some(h => h.assignments.length > 0))
 
     return Response.json({ judges, workouts: result })
   } catch (e) {

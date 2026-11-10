@@ -7,7 +7,7 @@ import { PublicShell } from './PublicShell'
 function mount(at = '/rugged') {
   return renderRoutes(
     <Route path="/:slug" element={<PublicShell slug="rugged" brand="Rugged Rumble" />}>
-      <Route index element={<h1>Competition Schedule</h1>} />
+      <Route index element={<h1>Schedule</h1>} />
       <Route path="leaderboard" element={<h1>Leaderboard</h1>} />
       <Route path="workouts/:workoutId" element={<h1>Fran</h1>} />
     </Route>,
@@ -25,7 +25,7 @@ const rail = () =>
 describe('PublicShell', () => {
   it('renders the matched screen in the main region', async () => {
     mount()
-    const heading = await screen.findByRole('heading', { name: 'Competition Schedule' })
+    const heading = await screen.findByRole('heading', { name: 'Schedule' })
     expect(heading.closest('main')).not.toBeNull()
   })
 

@@ -2,8 +2,11 @@
    swaps its bottom bar for a rail the two stack, list first; above it they run
    side by side and the list is the narrower column. */
 
+/* One column the width of the screen. Left to size itself, the column grew to
+   its widest content and pushed the page off the right edge of a phone. */
 .layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--mds-stack-section);
 }
 

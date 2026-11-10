@@ -18,6 +18,18 @@ describe('GET /api/workouts/[id]/equipment', () => {
     expect((await GET(getReq(), params('1'))).status).toBe(200)
   })
 
+  it('refuses an anonymous caller a secret workout that is not active yet', async () => {
+    setAuthUser(null)
+    mock.queueResult({ data: { id: 1, secret: true, status: 'draft' }, error: null })
+    expect((await GET(getReq(), params('1'))).status).toBe(401)
+  })
+
+  it('serves an anonymous caller a secret workout once it is active', async () => {
+    setAuthUser(null)
+    mock.queueResults({ data: { id: 1, secret: true, status: 'active' }, error: null }, { data: [], error: null })
+    expect((await GET(getReq(), params('1'))).status).toBe(200)
+  })
+
   it('404s when the slug does not resolve', async () => {
     const res = await GET(getReq(''), params('1'))
     expect(res.status).toBe(404)

@@ -90,7 +90,7 @@ export function AdminHomePage() {
       header: 'Public page',
       cell: (c) => (
         <Link as={RouterAnchor} href={`/${c.slug}`}>
-          <Text as="span" variant="meta">Competition Schedule</Text>
+          <Text as="span" variant="meta">Schedule</Text>
         </Link>
       ),
     },

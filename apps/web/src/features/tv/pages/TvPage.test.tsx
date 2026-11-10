@@ -90,7 +90,7 @@ it('reads the three things the board is drawn from, for the competition in the a
 
 it('opens on the schedule', async () => {
   mount()
-  expect(await screen.findByRole('heading', { name: 'Competition Schedule', level: 1 })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Schedule', level: 1 })).toBeInTheDocument()
   expect(await drawn()).toBeInTheDocument()
 })
 
@@ -104,13 +104,13 @@ it('turns to the leaderboard on its own, and back again', async () => {
   expect(screen.getByRole('list', { name: 'RX standings' })).toBeInTheDocument()
 
   turn()
-  expect(screen.getByRole('heading', { name: 'Competition Schedule', level: 1 })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Schedule', level: 1 })).toBeInTheDocument()
 })
 
 it('says which of the two halves is up', async () => {
   mount()
   await drawn()
-  expect(showing()).toHaveTextContent('Competition Schedule')
+  expect(showing()).toHaveTextContent('Schedule')
   turn()
   expect(showing()).toHaveTextContent('Leaderboard')
 })

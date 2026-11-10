@@ -35,6 +35,8 @@ export type WorkoutData = {
   callTimeSecs: number
   walkoutTimeSecs: number
   heatStartOverrides: Record<string, string> | string
+  /** A secret workout not yet active: only its number is real; no heats. */
+  tba?: boolean
   heats: Heat[]
 }
 

@@ -52,7 +52,7 @@ export function TvLeaderboardSection({
     {
       key: 'position',
       header: 'Position',
-      width: '8rem',
+      width: '5rem',
       cell: (d) => (
         <Select
           size="sm"
@@ -68,7 +68,7 @@ export function TvLeaderboardSection({
     {
       key: 'percent',
       header: 'Show',
-      width: '8rem',
+      width: '7rem',
       cell: (d) => (
         <Inline gap="hairline" align="center">
           <Input

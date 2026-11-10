@@ -1,6 +1,7 @@
 /* Below the step where the shell swaps its bottom bar for a rail, the list runs
-   along the top of the page and scrolls sideways; above it, the list stands
-   beside the regions and stays put while they scroll. */
+   along the top of the page and wraps onto a second line rather than running
+   off the screen; above it, the list stands beside the regions and stays put
+   while they scroll. */
 
 .nav {
   position: sticky;
@@ -16,7 +17,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 
 .link {
@@ -48,7 +49,7 @@
 
   .list {
     flex-direction: column;
+    flex-wrap: nowrap;
     gap: var(--mds-gap-hairline);
-    overflow-x: visible;
   }
 }

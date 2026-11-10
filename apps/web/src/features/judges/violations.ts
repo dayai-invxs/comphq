@@ -25,6 +25,8 @@ export interface JudgeWorkout {
   number: number
   name: string
   locationName: string | null
+  /** A secret workout not yet active: only its number is real; no heats. */
+  tba?: boolean
   heats: JudgeHeat[]
 }
 

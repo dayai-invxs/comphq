@@ -105,17 +105,17 @@ export function CompetitionAdminApp() {
           label: 'Setup',
           items: [{ to: `${base}/setup`, label: 'Setup', icon: 'setup' }],
         },
-        // Last, because a super admin is here to run this competition; the
-        // site screens are the way back out, not the work.
-        ...(isSuper ? [SITE_GROUP] : []),
       ]}
       extras={[
-        { to: `/${slug}`, label: 'Competition Schedule', icon: 'schedule' },
-        { to: `/${slug}/athlete-overview`, label: 'Athlete/Team Overview', icon: 'athletes' },
+        { to: `/${slug}`, label: 'Schedule', icon: 'schedule' },
+        { to: `/${slug}/athlete-overview`, label: 'Athletes/Teams', icon: 'athletes' },
         { to: `/${slug}/judges`, label: 'Judges', icon: 'judges' },
         { to: `/${slug}/equipment`, label: 'Equipment', icon: 'equipment' },
         { to: `/${slug}/control`, label: 'Control', icon: 'control' },
       ]}
+      // At the very bottom, above Sign out: a super admin is here to run this
+      // competition; the site screens are the way back out, not the work.
+      trailing={isSuper ? [SITE_GROUP] : []}
       onSignOut={handleSignOut}
     >
       <Outlet />

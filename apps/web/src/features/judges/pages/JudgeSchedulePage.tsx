@@ -13,6 +13,7 @@ import { useSettings } from '@/api/settings'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { JudgeGate } from '@/components/JudgeGate/JudgeGate'
 import { OperatorShell } from '@/layouts/OperatorShell'
+import { TbaWorkout } from '@/components/TbaWorkout/TbaWorkout'
 import { useJudgeSchedule } from '../api'
 import { findViolations } from '../violations'
 import styles from './JudgeSchedulePage.module.css'
@@ -117,7 +118,7 @@ function JudgeSchedule({ slug }: { slug: string }) {
         />
       )}
 
-      {filtered?.map((wk) => (
+      {filtered?.map((wk) => wk.tba ? <TbaWorkout key={wk.id} number={wk.number} /> : (
         <DataPanel
           key={wk.id}
           title={`Workout ${wk.number}: ${wk.name}`}

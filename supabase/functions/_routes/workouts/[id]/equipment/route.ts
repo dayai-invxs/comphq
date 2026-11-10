@@ -3,6 +3,7 @@ import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competit
 import { resolveCompetition } from '@/lib/competition'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutEquipmentCreate } from '@/lib/schemas'
+import { isUnannounced } from '@/lib/unannounced'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -11,8 +12,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params
   const { data: workout } = await supabase
-    .from('Workout').select('id').eq('id', Number(id)).eq('competitionId', competition.id).maybeSingle()
+    .from('Workout').select('id, secret, status').eq('id', Number(id)).eq('competitionId', competition.id).maybeSingle()
   if (!workout) return new Response('Not found', { status: 404 })
+  // An unannounced secret workout's equipment would give it away: only the
+  // competition's own staff may read it.
+  if (isUnannounced(workout)) {
+    try {
+      await requireCompetitionAccess(slug)
+    } catch (e) {
+      return authErrorResponse(e)
+    }
+  }
 
   const { data, error } = await supabase
     .from('WorkoutEquipment')

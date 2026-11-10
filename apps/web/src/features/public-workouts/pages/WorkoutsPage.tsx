@@ -5,7 +5,8 @@ import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { RouterAnchor } from '@/components/RouterAnchor'
 
 // The spectator's list of workouts, as "Event N - Name". Each opens to its full
-// description. Secret workouts are left out by the server until they go live.
+// description. A secret workout not yet live is just "Event N - TBA", with
+// nothing to open: the server sends no more than its number.
 export function WorkoutsPage() {
   const { slug = '' } = useParams()
   const workouts = usePublicWorkouts(slug)
@@ -20,7 +21,9 @@ export function WorkoutsPage() {
         <EmptyState title="No workouts yet" description="Workouts appear here once they are announced." />
       ) : (
         <ListGroup aria-label="Workouts">
-          {workouts.data.map((w) => (
+          {workouts.data.map((w) => w.tba ? (
+            <ListItem key={w.id} title={`Event ${w.number} - TBA`} />
+          ) : (
             <ListItem
               key={w.id}
               as={RouterAnchor}

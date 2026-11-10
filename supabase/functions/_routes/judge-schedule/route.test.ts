@@ -147,6 +147,29 @@ describe('GET /api/judge-schedule', () => {
     expect(body.workouts.map((w: { id: number }) => w.id)).toEqual([1])
   })
 
+  it('sends a secret workout that is not active yet as only its number, named TBA', async () => {
+    mock.queueResults(
+      [{ id: 1, name: 'Alex' }],
+      [{ id: 1, name: 'Alex', roleName: 'Judge' }],
+      [wk({ id: 1 }), wk({ id: 4, number: 4, name: 'The Surprise', secret: true, status: 'draft', locationName: 'Pool' })],
+      [{ workoutId: 1, volunteerId: 1, heatNumber: 1, lane: 1 }, { workoutId: 4, volunteerId: 1, heatNumber: 1, lane: 1 }],
+      [{ workoutId: 1, heatNumber: 1, lane: 1 }, { workoutId: 4, heatNumber: 1, lane: 1 }],
+      [],
+    )
+    const body = await (await GET(req())).json()
+    expect(body.workouts[1]).toEqual({ id: 4, number: 4, name: 'TBA', locationName: null, tba: true, heats: [] })
+  })
+
+  it('keeps the TBA line when every workout is still secret', async () => {
+    mock.queueResults(
+      [{ id: 1, name: 'Alex' }],
+      [{ id: 1, name: 'Alex', roleName: 'Judge' }],
+      [wk({ id: 4, number: 4, secret: true, status: 'draft' })],
+    )
+    const body = await (await GET(req())).json()
+    expect(body.workouts).toEqual([{ id: 4, number: 4, name: 'TBA', locationName: null, tba: true, heats: [] }])
+  })
+
   it('computes heat and walkout times from the workout schedule', async () => {
     mock.queueResults(
       [{ id: 1, name: 'Alex' }],

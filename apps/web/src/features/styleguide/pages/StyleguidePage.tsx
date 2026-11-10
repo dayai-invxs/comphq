@@ -55,7 +55,7 @@ const COLOUR_RULE: [string, string][] = [
 
 const TYPE: [string, string][] = [
   ['display', 'Rugged Rumble'],
-  ['title', 'Competition Schedule'],
+  ['title', 'Schedule'],
   ['subtitle', 'Heat Assignments'],
   ['item-title', 'Alice Adams'],
   ['label', 'Lane 3'],

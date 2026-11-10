@@ -68,7 +68,7 @@ export function DivisionFormatFields({ value, onChange }: {
               onBlur={() => setSizeText(String(value.teamSize))}
             />
           </Field>
-          <Inline gap="base">
+          <Inline gap="base" wrap>
             <Field label="Male" hint="Blank for any">
               <Input
                 type="number"

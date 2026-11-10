@@ -12,6 +12,8 @@ export interface PublicWorkout {
   name: string
   description: string | null
   status: string
+  /** A secret workout not yet active: only its number is real. */
+  tba?: boolean
 }
 
 export function usePublicWorkouts(slug: string) {

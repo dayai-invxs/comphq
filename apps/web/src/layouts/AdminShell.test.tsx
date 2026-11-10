@@ -19,7 +19,7 @@ const groups: NavGroup[] = [
   },
 ]
 
-function mount(at = '/rugged/admin', onSignOut = vi.fn()) {
+function mount(at = '/rugged/admin', onSignOut = vi.fn(), trailing: NavGroup[] = []) {
   renderRoutes(
     <Route
       path="/rugged/admin/*"
@@ -28,6 +28,7 @@ function mount(at = '/rugged/admin', onSignOut = vi.fn()) {
           title="comphq"
           groups={groups}
           extras={[{ to: '/rugged', label: 'Schedule', icon: 'schedule' }]}
+          trailing={trailing}
           onSignOut={onSignOut}
         >
           <h1>Dashboard</h1>
@@ -50,6 +51,14 @@ describe('AdminShell', () => {
       'Dashboard', 'Workouts',
     ])
     expect(within(nav).getByRole('group', { name: 'People' })).toBeTruthy()
+  })
+
+  it('draws trailing groups last, after Public and just above Sign out', () => {
+    mount('/rugged/admin', vi.fn(), [{ label: 'Site', items: [{ to: '/admin', label: 'Competitions', icon: 'dashboard' }] }])
+    const nav = screen.getByRole('navigation', { name: 'Admin' })
+    expect(within(within(nav).getByRole('group', { name: 'Site' })).getByRole('link', { name: 'Competitions' })).toBeTruthy()
+    const items = within(nav).getAllByRole('link').map((l) => l.textContent)
+    expect(items.slice(-2)).toEqual(['Schedule', 'Competitions'])
   })
 
   it('keeps the way out of the admin tree separate from the work in it', () => {

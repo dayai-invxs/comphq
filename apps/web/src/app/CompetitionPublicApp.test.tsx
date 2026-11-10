@@ -10,7 +10,7 @@ vi.mock('@/lib/api', () => ({ apiGet }))
 function mount(at = '/rugged') {
   return renderRoutes(
     <Route path="/:slug" element={<CompetitionPublicApp />}>
-      <Route index element={<h1>Competition Schedule</h1>} />
+      <Route index element={<h1>Schedule</h1>} />
     </Route>,
     [at],
   )
@@ -26,7 +26,7 @@ beforeEach(() => {
 describe('CompetitionPublicApp', () => {
   it('draws the matched screen inside the public frame', async () => {
     mount()
-    const heading = await screen.findByRole('heading', { name: 'Competition Schedule' })
+    const heading = await screen.findByRole('heading', { name: 'Schedule' })
     expect(heading.closest('main')).not.toBeNull()
   })
 

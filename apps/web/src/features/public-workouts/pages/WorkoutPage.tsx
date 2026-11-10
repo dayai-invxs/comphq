@@ -10,7 +10,7 @@ import styles from './WorkoutPage.module.css'
 export function WorkoutPage() {
   const { slug = '', workoutId = '' } = useParams()
   const workouts = usePublicWorkouts(slug)
-  const workout = workouts.data?.find((w) => String(w.id) === workoutId)
+  const workout = workouts.data?.find((w) => String(w.id) === workoutId && !w.tba)
 
   const back = <Link as={RouterAnchor} href={`/${slug}/workouts`}>All workouts</Link>
 

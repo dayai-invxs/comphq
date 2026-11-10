@@ -28,7 +28,7 @@ function qrTarget(slug: string) {
 }
 
 const VIEWS = {
-  schedule: 'Competition Schedule',
+  schedule: 'Schedule',
   leaderboard: 'Leaderboard',
 } as const
 

@@ -21,7 +21,7 @@ import { MAIN_ID, SkipLink } from './SkipLink'
 import styles from './PublicShell.module.css'
 
 // The spectator and athlete frame. v1 put seven links in one row — Competition
-// Schedule, Leaderboard, Athlete Overview, Judges, Equipment, Control, Admin —
+// Schedule, Leaderboard, Athletes/Teams, Judges, Equipment, Control, Admin —
 // which mixes a spectator's three screens with the crew's three and the site
 // admin's one. On a phone that collapsed into a hamburger where everything was
 // equally buried.

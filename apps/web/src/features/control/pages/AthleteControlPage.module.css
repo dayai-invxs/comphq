@@ -1,0 +1,7 @@
+/* A heat's label and the time in Start keep their button on the same line.
+   Allowed to wrap, a phone's narrow column dropped the button underneath and
+   pushed the text up out of line with the rest of the row; the table pans
+   sideways instead. */
+.oneLine {
+  white-space: nowrap;
+}

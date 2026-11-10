@@ -6,6 +6,7 @@ import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { isUnannounced, TBA } from '@/lib/unannounced'
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
       tiebreakEnabled: workout.tiebreakEnabled,
       tiebreakScoreType: workout.tiebreakScoreType,
       knockout: workout.knockout,
+      secret: workout.secret,
       locationName: workoutLocation.name,
     })
     .from(workout)
@@ -43,7 +45,9 @@ export async function GET(req: Request) {
     .where(eq(workout.competitionId, competition.id))
     .orderBy(asc(workout.number))
 
-  const workoutIds = workouts.map((w) => w.id)
+  // An unannounced secret workout sends nothing but its number: no name,
+  // place, times or heats, so its lineup cannot give it away.
+  const workoutIds = workouts.filter((w) => !isUnannounced(w)).map((w) => w.id)
 
   // Assignments + athletes + divisions. Separate queries keep each query
   // focused; the cost is a couple of extra round-trips vs. one giant join.
@@ -103,6 +107,13 @@ export async function GET(req: Request) {
   }
 
   const result = workouts.map((wk) => {
+    if (isUnannounced(wk)) {
+      return {
+        id: wk.id, number: wk.number, name: TBA, status: wk.status, tba: true,
+        locationName: null, startTime: null, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+        callTimeSecs: 0, walkoutTimeSecs: 0, heatStartOverrides: {}, heats: [],
+      }
+    }
     const completedHeats = completedByWorkout.get(wk.id) ?? []
     const wAssignments = assignmentRows.filter((a) => a.workoutId === wk.id)
     const heatNums = [...new Set(wAssignments.map((a) => a.heatNumber))].sort((a, b) => a - b)
@@ -152,6 +163,7 @@ export async function GET(req: Request) {
       callTimeSecs: wk.callTimeSecs,
       walkoutTimeSecs: wk.walkoutTimeSecs,
       heatStartOverrides: wk.heatStartOverrides,
+      tba: false,
       heats,
     }
   })

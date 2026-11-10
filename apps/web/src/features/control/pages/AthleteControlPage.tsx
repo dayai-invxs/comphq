@@ -29,8 +29,10 @@ import { OperatorShell } from '@/layouts/OperatorShell'
 import { fmtHeatTime as fmtMs } from '@/lib/heatTime'
 import { getCorralMs, getHeatMs, getWalkoutMs, type Heat, type OpsData, type WorkoutData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
+import { TbaWorkout } from '@/components/TbaWorkout/TbaWorkout'
 import { useSetHeatTime } from '../api'
 import { findConflicts, heatKey } from '../conflicts'
+import styles from './AthleteControlPage.module.css'
 
 // v1: src/components/AthleteControl.tsx, served at /[slug]/control. The desk's
 // own screen — the one page on the public side that asks for a sign-in. It
@@ -166,8 +168,9 @@ export function AthleteControlPage() {
         cell: (heat) => {
           const key = heatKey(workout.id, heat.heatNumber)
           const lanes = [...heat.entries].sort((a, b) => a.lane - b.lane)
+          // The ghost button pads itself, so a hairline is gap enough.
           return (
-            <Inline gap="tight" wrap>
+            <Inline gap="hairline" className={styles.oneLine}>
               <Text as="span" variant="label" tone="accent">Heat {heat.heatNumber}</Text>
               {heat.isComplete && (
                 <Text as="span" variant="meta" tone="success">
@@ -234,8 +237,10 @@ export function AthleteControlPage() {
           const ms = getHeatMs(workout, heat.heatNumber)
           const editing =
             editingHeat?.workoutId === workout.id && editingHeat?.heatNumber === heat.heatNumber
+          // Editing needs room for the time box and two buttons, so only then
+          // may it wrap; the time and its Edit button stay on one line.
           return (
-            <Inline gap="tight" wrap>
+            <Inline gap={editing ? 'tight' : 'hairline'} wrap={editing} className={editing ? undefined : styles.oneLine}>
               {editing ? (
                 <>
                   <Input
@@ -326,7 +331,7 @@ export function AthleteControlPage() {
 
       {/* Not a DataPanel around the table: DataTable draws its own card, and a
           panel around it would be the card-in-card the panel exists to end. */}
-      {workouts.map((workout) => (
+      {workouts.map((workout) => workout.tba ? <TbaWorkout key={workout.id} number={workout.number} /> : (
         <Stack
           key={workout.id}
           as="section"
