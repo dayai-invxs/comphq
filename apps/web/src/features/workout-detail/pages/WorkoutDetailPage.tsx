@@ -89,8 +89,13 @@ export function WorkoutDetailPage() {
   const settings = useSettings(slug)
   const override = useSetScorePoints(slug)
 
+  // Member picks for split teams' lanes, shown at once and saved in the
+  // background. A reload carries the saved picks, so these start over.
+  const [memberPicks, setMemberPicks] = useState<Record<number, number | null>>({})
+
   // Re-hydrate input fields every time the workout reloads.
   useEffect(() => {
+    setMemberPicks({})
     if (detail.workout) inputs.hydrate(detail.workout)
     // inputs.hydrate is stable (useCallback with []); depending on detail.workout identity is what we want.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,6 +241,19 @@ export function WorkoutDetailPage() {
         ? inputs.buildLanePayload(athleteId, laneIds)
         : inputs.buildPayload(athleteId))
       .filter((p): p is AnyScorePayload => p !== null)
+  }
+
+  async function pickLaneMember(assignmentId: number, teamMemberId: number | null) {
+    const had = assignmentId in memberPicks, prior = memberPicks[assignmentId]
+    setMemberPicks((p) => ({ ...p, [assignmentId]: teamMemberId }))
+    if (await detail.setLaneMember(assignmentId, teamMemberId)) return
+    // Refused: put back what this lane showed before (the error is in the banner).
+    setMemberPicks((p) => {
+      const next = { ...p }
+      if (had) next[assignmentId] = prior
+      else delete next[assignmentId]
+      return next
+    })
   }
 
   async function saveAllScores() {
@@ -498,6 +516,8 @@ export function WorkoutDetailPage() {
                       onJudgeChange={judges.setJudge}
                       onPointsOverride={handlePointsOverride}
                       repeats={repeats}
+                      laneMember={(a) => (a.id in memberPicks ? memberPicks[a.id] : a.teamMemberId ?? null)}
+                      onLaneMemberChange={pickLaneMember}
                     />
                   </section>
                 ))}

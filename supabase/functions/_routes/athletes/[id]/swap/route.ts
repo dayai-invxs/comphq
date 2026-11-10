@@ -66,7 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const assignmentIds = oldAssignments.map((a) => a.id)
     await db
       .update(heatAssignment)
-      .set({ athleteId: newAthleteId })
+      .set({ athleteId: newAthleteId, teamMemberId: null })
       .where(inArray(heatAssignment.id, assignmentIds))
 
     return Response.json({ swapped: oldAssignments.length })

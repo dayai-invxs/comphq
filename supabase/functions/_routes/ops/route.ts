@@ -1,7 +1,7 @@
 import { and, eq, inArray, asc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
-import { athlete, division, heatAssignment, score, setting, workout, workoutLocation } from '@/db/schema'
+import { athlete, division, heatAssignment, score, setting, teamMember, workout, workoutLocation } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
@@ -54,6 +54,7 @@ export async function GET(req: Request) {
             athleteId: heatAssignment.athleteId,
             heatNumber: heatAssignment.heatNumber,
             lane: heatAssignment.lane,
+            memberName: teamMember.name,
             athleteName: athlete.name,
             bibNumber: athlete.bibNumber,
             divisionName: division.name,
@@ -61,6 +62,8 @@ export async function GET(req: Request) {
           .from(heatAssignment)
           .innerJoin(athlete, eq(athlete.id, heatAssignment.athleteId))
           .leftJoin(division, eq(division.id, athlete.divisionId))
+          // A split team's lane may name the member running it.
+          .leftJoin(teamMember, eq(teamMember.id, heatAssignment.teamMemberId))
           .where(inArray(heatAssignment.workoutId, workoutIds))
           .orderBy(asc(heatAssignment.heatNumber), asc(heatAssignment.lane))
       : Promise.resolve([]),
@@ -114,7 +117,7 @@ export async function GET(req: Request) {
         .map((a) => ({
           athleteId: a.athleteId,
           athleteName: a.athleteName,
-          members: members.get(a.athleteId) ?? [],
+          members: a.memberName ? [a.memberName] : members.get(a.athleteId) ?? [],
           bibNumber: a.bibNumber,
           divisionName: a.divisionName ?? null,
           lane: a.lane,

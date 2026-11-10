@@ -202,6 +202,12 @@ export const ScoreUpsert = z.object({
   lanes: z.array(LaneScore).min(1).optional(),
 }).refine((s) => s.rawScore !== undefined || s.lanes !== undefined, { message: 'rawScore or lanes is required' })
 
+/** Pick (or clear) the member running one lane of a split team. */
+export const LaneMemberSet = z.object({
+  assignmentId: Id,
+  teamMemberId: Id.nullable(),
+})
+
 export const ScorePointsOverride = z.object({
   slug: Slug,
   athleteId: Id,

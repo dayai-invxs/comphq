@@ -12,11 +12,15 @@ type Athlete = {
   id: number; name: string; bibNumber: string | null; division: Division | null
   /** A team's members; empty or absent for an individual. */
   members?: string[]
+  /** The same people with ids, for picking who runs a split team's lane. */
+  memberList?: { id: number; name: string }[]
 }
 export type Assignment = {
   id: number; heatNumber: number; lane: number; athlete: Athlete
   /** This lane's own score, for a team placed in more than one heat. */
   rawScore?: number | null; tiebreakRawScore?: number | null; partBRawScore?: number | null
+  /** The member running this lane of a split team. */
+  teamMemberId?: number | null
 }
 export type Score = {
   id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null
@@ -305,6 +309,19 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     (heatNumber: number, isoTime: string) =>
       saveHeatTimeAsync({ heatNumber, isoTime }).then(() => undefined, () => undefined), [saveHeatTimeAsync])
 
+  // Saved without reloading the workout: a reload re-fills every score box and
+  // would drop scores typed but not saved yet. The page keeps the pick shown.
+  const setLaneMember = useCallback(async (assignmentId: number, teamMemberId: number | null) => {
+    setError('')
+    try {
+      await api.setLaneMember(assignmentId, teamMemberId)
+      return true
+    } catch (e) {
+      setError(errorMessage(e))
+      return false
+    }
+  }, [api])
+
   const { mutateAsync: saveManyAsync } = saveManyMutation
   const saveMany = useCallback(
     (payloads: AnyScorePayload[], successMsg: string) =>
@@ -372,6 +389,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     generateAssignments,
     saveHeatTime,
     reorderAssignments,
+    setLaneMember,
     saveMany,
     completeHeat,
     undoHeat,

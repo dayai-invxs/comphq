@@ -1,4 +1,4 @@
-import { apiDel, apiGet, apiPost, apiPut } from '@/lib/api'
+import { apiDel, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api'
 import type { AnyScorePayload } from './useWorkoutDetail'
 import type { AssignmentUpdate } from '@/lib/heat-reorder'
 
@@ -73,6 +73,11 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
 
     async saveHeatTime(heatNumber: number, isoTime: string) {
       return apiPut(`${base}/heat-times${qs}`, { heatNumber, isoTime })
+    },
+
+    /** Which member runs a split team's lane; null clears it. */
+    async setLaneMember(assignmentId: number, teamMemberId: number | null) {
+      return apiPatch(`${base}/assignments${qs}`, { assignmentId, teamMemberId })
     },
 
     async reorderAssignments(updates: AssignmentUpdate[]) {

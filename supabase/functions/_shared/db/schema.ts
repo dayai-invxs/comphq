@@ -153,6 +153,8 @@ export const heatAssignment = pgTable('HeatAssignment', {
   rawScore: doublePrecision('rawScore'),
   tiebreakRawScore: doublePrecision('tiebreakRawScore'),
   partBRawScore: doublePrecision('partBRawScore'),
+  /** The member running this lane of a split team. Display only. */
+  teamMemberId: integer('teamMemberId').references((): AnyPgColumn => teamMember.id, { onDelete: 'set null', onUpdate: 'cascade' }),
 }, (t) => [
   index('HeatAssignment_workoutId_athleteId_idx').on(t.workoutId, t.athleteId),
   uniqueIndex('heat_assignment_lane_unique').on(t.workoutId, t.heatNumber, t.lane),

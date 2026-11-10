@@ -62,6 +62,9 @@ interface Props {
   onPointsOverride?: (athleteId: number, points: number) => Promise<void>
   /** Athletes/teams placed more than once in this workout → every heat they are in. */
   repeats?: Map<number, number[]>
+  /** The member shown for a split team's lane (assignment id → member id). */
+  laneMember?: (a: Assignment) => number | null
+  onLaneMemberChange?: (assignmentId: number, teamMemberId: number | null) => void
 }
 
 function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
@@ -79,7 +82,7 @@ function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
 export function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
   onSaveHeat, onCompleteHeat, onUndoHeat, onDeleteHeat, deleteLocked, onReorder, onSaveHeatTime, isSaving,
-  judges, judgesByLane, onJudgeChange, onPointsOverride, repeats,
+  judges, judgesByLane, onJudgeChange, onPointsOverride, repeats, laneMember, onLaneMemberChange,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
   const [editingHeatTime, setEditingHeatTime] = useState(false)
@@ -343,7 +346,19 @@ export function HeatCard({
                   <td>
                     <Stack gap="hairline">
                       <Text as="span" variant="label">{a.athlete.name}</Text>
-                      <MemberNames members={a.athlete.members} />
+                      {repeatHeats && a.athlete.memberList?.length ? (
+                        <Select
+                          size="sm"
+                          aria-label={`Team member in lane ${a.lane}`}
+                          value={laneMember?.(a) ?? ''}
+                          onChange={(e) => onLaneMemberChange?.(a.id, e.target.value ? Number(e.target.value) : null)}
+                        >
+                          <option value="">— which member? —</option>
+                          {a.athlete.memberList.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        </Select>
+                      ) : (
+                        <MemberNames members={a.athlete.members} />
+                      )}
                       {repeatHeats && <Text as="span" variant="meta" tone="warning">{repeatLabel(repeatHeats, heatNumber)}</Text>}
                     </Stack>
                   </td>

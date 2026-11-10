@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { drizzleMock as mock, setAuthUser } from '@/test/setup'
-import { DELETE, GET, POST } from './route'
+import { DELETE, GET, PATCH, POST } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
 const url = '?slug=default'
@@ -104,5 +104,38 @@ describe('DELETE /api/workouts/[id]/assignments', () => {
     expect(mock.calls.some((c) => c.method === 'transaction')).toBe(true)
     expect(mock.calls.filter((c) => c.method === 'delete')).toHaveLength(3)
     expect(mock.calls.filter((c) => c.method === 'set').map((c) => c.args[0])).toContainEqual({ heatStartOverrides: {} })
+  })
+})
+
+describe('PATCH /api/workouts/[id]/assignments (lane member)', () => {
+  const patch = (body: unknown) => new Request('http://test/api/workouts/1/assignments?slug=default', {
+    method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  })
+  const p = { params: Promise.resolve({ id: '1' }) }
+
+  it('sets the member when they are on the lane\'s team', async () => {
+    mock.queueResults([{ id: 1, competitionId: 1 }], [{ athleteId: 5 }], [{ id: 7 }], [])
+    const res = await PATCH(patch({ assignmentId: 31, teamMemberId: 7 }), p)
+    expect(res.status).toBe(204)
+    expect(mock.calls.find((c) => c.method === 'set')!.args[0]).toEqual({ teamMemberId: 7 })
+  })
+
+  it('refuses someone from another team', async () => {
+    mock.queueResults([{ id: 1, competitionId: 1 }], [{ athleteId: 5 }], [])
+    const res = await PATCH(patch({ assignmentId: 31, teamMemberId: 99 }), p)
+    expect(res.status).toBe(400)
+    expect(mock.calls.some((c) => c.method === 'set')).toBe(false)
+  })
+
+  it('clears the member', async () => {
+    mock.queueResults([{ id: 1, competitionId: 1 }], [{ athleteId: 5 }], [])
+    const res = await PATCH(patch({ assignmentId: 31, teamMemberId: null }), p)
+    expect(res.status).toBe(204)
+    expect(mock.calls.find((c) => c.method === 'set')!.args[0]).toEqual({ teamMemberId: null })
+  })
+
+  it('404s a lane from another workout', async () => {
+    mock.queueResults([{ id: 1, competitionId: 1 }], [])
+    expect((await PATCH(patch({ assignmentId: 31, teamMemberId: 7 }), p)).status).toBe(404)
   })
 })

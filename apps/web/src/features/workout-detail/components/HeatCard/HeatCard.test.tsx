@@ -139,6 +139,21 @@ describe('the lanes', () => {
     expect(screen.queryAllByText(/^Duplicate/)).toHaveLength(1)
   })
 
+  it('offers a split team\'s members for each of its lanes', () => {
+    const onLaneMemberChange = vi.fn()
+    const team = { ...athlete(2, 'Team B', 'Rx'), memberList: [{ id: 7, name: 'Jo' }, { id: 8, name: 'Sam' }] }
+    mount({
+      entries: [{ id: 95, heatNumber: 1, lane: 1, athlete: team }],
+      repeats: new Map([[2, [1, 2]]]),
+      laneMember: () => 8,
+      onLaneMemberChange,
+    })
+    const pick = screen.getByLabelText('Team member in lane 1') as HTMLSelectElement
+    expect(pick.value).toBe('8')
+    fireEvent.change(pick, { target: { value: '7' } })
+    expect(onLaneMemberChange).toHaveBeenCalledWith(95, 7)
+  })
+
   it('draws a dash for an athlete with no division', () => {
     mount({ entries: [{ id: 92, heatNumber: 1, lane: 1, athlete: athlete(3, 'Cal Cook', null) }] })
     expect(cells(1)[3]).toBe('—')

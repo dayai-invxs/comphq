@@ -72,7 +72,7 @@ describe('POST /api/athletes/[id]/swap', () => {
     expect(await res.json()).toEqual({ swapped: 2 })
 
     expect(mock.calls.some(c => c.method === 'update')).toBe(true)
-    expect(mock.calls.find(c => c.method === 'set')!.args[0]).toEqual({ athleteId: 2 })
+    expect(mock.calls.find(c => c.method === 'set')!.args[0]).toEqual({ athleteId: 2, teamMemberId: null })
   })
 
   // Scores are keyed on athleteId and are deliberately left alone: the swap
@@ -81,6 +81,6 @@ describe('POST /api/athletes/[id]/swap', () => {
     mock.queueResults([{ id: 1 }], [{ id: 2 }], [{ id: 10, workoutId: 5 }], [], [])
     await POST(req({ newAthleteId: 2 }), params('1'))
     const sets = mock.calls.filter(c => c.method === 'set').map(c => c.args[0])
-    expect(sets).toEqual([{ athleteId: 2 }])
+    expect(sets).toEqual([{ athleteId: 2, teamMemberId: null }])
   })
 })

@@ -1,13 +1,13 @@
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
-import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, workout } from '@/db/schema'
+import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, teamMember, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
 import { score as scoreTable } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
-import { AssignmentRegen } from '@/lib/schemas'
+import { AssignmentRegen, LaneMemberSet } from '@/lib/schemas'
 import { SCORES_BLOCK_MESSAGE, workoutHasScores } from '@/lib/heatDeletion'
 
 // GET /api/workouts/[id]/assignments — returns heat assignments with
@@ -176,3 +176,40 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
 // GET helper kept in sync with the embed shape used by the workout detail UI.
 export { fetchAssignmentsWithEmbeds as _fetchAssignmentsWithEmbeds }
+
+// PATCH /api/workouts/[id]/assignments — say which member of a split team
+// runs one lane (or clear it). Display only; scores never read it.
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const slug = new URL(req.url).searchParams.get('slug') ?? ''
+  const parsed = await parseJson(req, LaneMemberSet)
+  if (!parsed.ok) return parsed.response
+
+  try {
+    const { competition } = await requireCompetitionAccess(slug)
+    const { id } = await params
+    const workoutId = Number(id)
+    await requireWorkoutInCompetition(workoutId, competition.id)
+    const { assignmentId, teamMemberId } = parsed.data
+
+    const [lane] = await db
+      .select({ athleteId: heatAssignment.athleteId })
+      .from(heatAssignment)
+      .where(and(eq(heatAssignment.id, assignmentId), eq(heatAssignment.workoutId, workoutId)))
+      .limit(1)
+    if (!lane) return new Response('Lane not found', { status: 404 })
+
+    if (teamMemberId != null) {
+      const [member] = await db
+        .select({ id: teamMember.id })
+        .from(teamMember)
+        .where(and(eq(teamMember.id, teamMemberId), eq(teamMember.athleteId, lane.athleteId)))
+        .limit(1)
+      if (!member) return new Response('That person is not on this team', { status: 400 })
+    }
+
+    await db.update(heatAssignment).set({ teamMemberId }).where(eq(heatAssignment.id, assignmentId))
+    return new Response(null, { status: 204 })
+  } catch (e) {
+    return authErrorResponse(e)
+  }
+}

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
+import { membersByAthlete } from '@/lib/teamMembers'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutUpdate } from '@/lib/schemas'
 
@@ -26,6 +27,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           rawScore: heatAssignment.rawScore,
           tiebreakRawScore: heatAssignment.tiebreakRawScore,
           partBRawScore: heatAssignment.partBRawScore,
+          teamMemberId: heatAssignment.teamMemberId,
           athleteName: athleteTable.name,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
@@ -59,6 +61,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       getCompletedHeats(workoutId),
     ])
 
+    // A team's people: printed under its name, and offered per lane when the
+    // team is split across heats.
+    const members = await membersByAthlete([...new Set(assignments.map((a) => a.athleteId))])
+
     const assignmentsOut = assignments.map((r) => ({
       id: r.id,
       heatNumber: r.heatNumber,
@@ -69,9 +75,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       rawScore: r.rawScore,
       tiebreakRawScore: r.tiebreakRawScore,
       partBRawScore: r.partBRawScore,
+      teamMemberId: r.teamMemberId,
       athlete: {
         id: r.athleteId,
         name: r.athleteName,
+        members: (members.get(r.athleteId) ?? []).map((m) => m.name),
+        memberList: (members.get(r.athleteId) ?? []).map((m) => ({ id: m.id, name: m.name })),
         bibNumber: r.bibNumber,
         divisionId: r.divisionId,
         division: r.divisionId != null
