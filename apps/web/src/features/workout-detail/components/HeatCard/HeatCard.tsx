@@ -225,8 +225,12 @@ export function HeatCard({
     }
   }
 
+  // A knockout round has an Advances box per lane. The final has none: its
+  // scores place it, and a tie for first is a shared placing.
+  const advanceBoxes = !!knockout && !knockout.isFinal
+
   const columnCount =
-    (isTouch ? 6 : 5) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0) + 1 + (knockout ? 1 : 0)
+    (isTouch ? 6 : 5) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0) + 1 + (advanceBoxes ? 1 : 0)
 
   return (
     <Card
@@ -333,7 +337,7 @@ export function HeatCard({
               {showJudges && <th scope="col">Judge</th>}
               <th scope="col">{workout.partBEnabled ? 'Part A' : 'Score'}</th>
               {workout.partBEnabled && <th scope="col">Part B</th>}
-              {knockout && <th scope="col" className={styles.narrow}><VisuallyHidden>{knockout.isFinal ? 'Winner' : 'Advances'}</VisuallyHidden></th>}
+              {advanceBoxes && <th scope="col" className={styles.narrow}><VisuallyHidden>Advances</VisuallyHidden></th>}
               <th scope="col" className={styles.narrow}>Ranking</th>
             </tr>
           </thead>
@@ -452,10 +456,10 @@ export function HeatCard({
                       />
                     </td>
                   )}
-                  {knockout && (
+                  {knockout && advanceBoxes && (
                     <td>
                       <Checkbox
-                        label={knockout.isFinal ? 'Winner' : 'Advances'}
+                        label="Advances"
                         checked={knockout.advancing(a)}
                         disabled={!knockout.editable || loading}
                         onChange={(e) => {

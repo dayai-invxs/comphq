@@ -188,7 +188,20 @@ describe('the lanes', () => {
     expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ id: 91 }), true)
   })
 
-  it('calls the final\'s tick Winner and offers to go back to scores', () => {
+  // The final is placed by its scores; it has no box to tick.
+  it('gives the final no tick box', () => {
+    mount({
+      knockout: {
+        label: 'Final', isFinal: true, editable: true, byHand: false, problem: null,
+        advancing: () => false, onToggle: vi.fn(), onUseScores: vi.fn(),
+      },
+    })
+    expect(screen.queryByRole('checkbox', { name: 'Winner' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'Advances' })).not.toBeInTheDocument()
+  })
+
+  // A winner ticked before the box went still counts until it is cleared.
+  it('still offers to go back to scores for a winner ticked earlier', () => {
     const onUseScores = vi.fn()
     mount({
       knockout: {
@@ -196,7 +209,6 @@ describe('the lanes', () => {
         advancing: () => false, onToggle: vi.fn(), onUseScores,
       },
     })
-    expect(screen.getAllByRole('checkbox', { name: 'Winner' })).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Go by scores' }))
     expect(onUseScores).toHaveBeenCalled()
   })

@@ -140,7 +140,7 @@ export async function finishTournament(wk: KnockoutWorkoutRow): Promise<number> 
   if (round < rounds) throw new KnockoutRefusal(`The tournament is in round ${round} of ${rounds}. Run the remaining rounds first.`)
   const final = lanes.filter((l) => roundOf(l) === round)
   if (!final.some((l) => l.rawScore != null || l.advanced === true)) {
-    throw new KnockoutRefusal('Enter the final\'s results (or tick its winner) first.')
+    throw new KnockoutRefusal('Enter the final\'s results first.')
   }
 
   const placed = placings(lanes, wk)
