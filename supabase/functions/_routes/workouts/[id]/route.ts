@@ -57,9 +57,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           athleteName: athleteTable.name,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
+          divisionName: divisionTable.name,
+          divisionOrder: divisionTable.order,
         })
         .from(score)
         .innerJoin(athleteTable, eq(athleteTable.id, score.athleteId))
+        .leftJoin(divisionTable, eq(divisionTable.id, athleteTable.divisionId))
         .where(eq(score.workoutId, workoutId)),
       getCompletedHeats(workoutId),
     ])
@@ -113,6 +116,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         name: s.athleteName,
         bibNumber: s.bibNumber,
         divisionId: s.divisionId,
+        // The workout's leaderboard is drawn one division at a time.
+        division: s.divisionId != null
+          ? { id: s.divisionId, name: s.divisionName ?? '', order: s.divisionOrder ?? 0 }
+          : null,
       },
     }))
 

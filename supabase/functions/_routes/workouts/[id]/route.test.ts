@@ -36,6 +36,22 @@ describe('GET /api/workouts/[id]', () => {
     expect(body.completedHeats).toEqual([1])
   })
 
+  // The workout's own leaderboard is split by division, so a score carries it.
+  it('sends each score with its athlete\'s division', async () => {
+    // The mock hands results out in the order the reads settle: the workout,
+    // the completed heats, the assignments, then the scores.
+    mock.queueResult([{ id: 1, name: 'WOD 1' }])
+    mock.queueResult([])
+    mock.queueResult([])
+    mock.queueResult([
+      { id: 20, athleteId: 1, workoutId: 1, rawScore: 100, points: 1, athleteName: 'Alice', bibNumber: null, divisionId: 3, divisionName: 'Rx', divisionOrder: 2 },
+      { id: 21, athleteId: 2, workoutId: 1, rawScore: 90, points: 1, athleteName: 'Bo', bibNumber: null, divisionId: null, divisionName: null, divisionOrder: null },
+    ])
+    const body = await (await GET(getReq(), params('1'))).json()
+    expect(body.scores[0].athlete.division).toEqual({ id: 3, name: 'Rx', order: 2 })
+    expect(body.scores[1].athlete.division).toBeNull()
+  })
+
   it('returns 404 when not found in caller competition', async () => {
     mock.queueResult([]) // requireWorkoutInCompetition → no row
     const res = await GET(getReq(), params('999'))
