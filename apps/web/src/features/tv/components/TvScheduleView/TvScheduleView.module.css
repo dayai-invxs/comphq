@@ -26,11 +26,13 @@
   overflow: hidden;
 }
 
-/* The heat on the floor. One amber edge, because a card painted amber all
-   over stops the names on it being the brightest thing in the room. */
+/* The heat on the floor: an amber frame of even width all round, the card's
+   own border coloured and doubled inward. Not the card painted amber all
+   over, which would stop the names on it being the brightest thing in the
+   room. (It used to have a thick bar down the left side only.) */
 .now {
   border-color: var(--mds-highlight);
-  box-shadow: inset var(--mds-space-1) 0 0 0 var(--mds-highlight);
+  box-shadow: inset 0 0 0 var(--mds-border-width) var(--mds-highlight);
 }
 
 .workout,
