@@ -42,4 +42,20 @@ describe('GET /api/export', () => {
     expect(body).toMatch(/OVERALL LEADERBOARD/)
     expect(body).toMatch(/Alice/)
   })
+
+  // A finished workout with no score is last place, as on the leaderboard,
+  // so the export's totals agree with it.
+  it('counts a skipped workout as last place', async () => {
+    mock.queueResults(
+      [{ id: 10, number: 1, name: 'WOD 1', scoreType: 'time', status: 'completed', lanes: 3, halfWeight: false }],
+      [{ id: 1, name: 'Alice', bibNumber: null, divisionId: 1 }, { id: 2, name: 'Bob', bibNumber: null, divisionId: 1 }],
+      [{ id: 1, name: 'Rx', order: 0 }],
+      [],
+      [{ athleteId: 1, workoutId: 10, rawScore: 210, points: 1, partBRawScore: null, partBPoints: null, tiebreakRawScore: null }],
+    )
+    const body = await (await GET(req())).text()
+    const leaderboard = body.slice(body.indexOf('OVERALL LEADERBOARD'))
+    expect(leaderboard).toMatch(/2,"?Bob"?,"?Rx"?,"?#2 \(DNS\)"?,2/)
+  })
 })
+

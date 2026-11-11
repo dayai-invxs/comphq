@@ -1,9 +1,10 @@
 import { Button, Card, CardBody, Heading, PasswordInput, Stack, Text } from '@mond-design-system/react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Centered } from '@/components/Centered/Centered'
 import { apiPost } from '@/lib/api'
 import { HttpError } from '@/lib/http'
+import { judgeToken, onJudgeTokenForgotten, rememberJudgeToken } from '@/lib/judgeToken'
 import { useSession } from '@/lib/session'
 import styles from './JudgeGate.module.css'
 
@@ -14,22 +15,24 @@ import styles from './JudgeGate.module.css'
 // answers yes or no. It used to be read out of the public settings and
 // compared here, so anyone could read it.
 //
-// Remembered per competition, for the tab: an unlock for one competition
-// used to open every competition's judge screens.
-
-const sessionKey = (slug: string) => `judgeUnlocked:${slug}`
-
-function rememberedUnlock(slug: string): boolean {
-  try { return sessionStorage.getItem(sessionKey(slug)) === '1' } catch { return false }
-}
+// A yes comes with a token (lib/judgeToken.ts), remembered per competition
+// for the tab, which the screen's ticks carry back to the server. An unlock
+// for one competition used to open every competition's judge screens. When
+// the server stops taking the token — the password was changed — the screen
+// locks and asks again.
 
 export function JudgeGate({ title, children }: { title: string; children: ReactNode }) {
   const { slug = '' } = useParams()
   const { user, loading } = useSession()
-  const [unlocked, setUnlocked] = useState(() => rememberedUnlock(slug))
+  const [unlocked, setUnlocked] = useState(() => judgeToken(slug) != null)
   const [value, setValue] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+
+  useEffect(() => onJudgeTokenForgotten(slug, () => {
+    setUnlocked(false)
+    setProblem('The password has changed. Enter the new one.')
+  }), [slug])
 
   // Nothing is drawn while the session is unknown: a signed-in judge who is
   // shown a password box for a frame has been asked a question v1 never asked.
@@ -41,12 +44,14 @@ export function JudgeGate({ title, children }: { title: string; children: ReactN
     if (checking) return
     setChecking(true)
     try {
-      await apiPost('/api/settings/judge', { slug, password: value })
-      try { sessionStorage.setItem(sessionKey(slug), '1') } catch { /* this visit only */ }
+      const { token } = await apiPost<{ ok: true; token: string }>('/api/settings/judge', { slug, password: value })
+      rememberJudgeToken(slug, token)
       setUnlocked(true)
     } catch (e) {
       setProblem(e instanceof HttpError && e.status === 403
         ? 'Incorrect password'
+        : e instanceof HttpError && e.status === 429
+        ? 'Too many tries. Wait a minute and try again.'
         : 'Could not check the password. Check the connection and try again.')
       setValue('')
     } finally {

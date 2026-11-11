@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { drizzleMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthRole, setAuthUser } from '@/test/setup'
 import { POST, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -191,5 +191,15 @@ describe('DELETE /api/athletes/[id]/withdraw', () => {
   it('is idempotent for an athlete who is not withdrawn', async () => {
     mock.queueResults([{ id: 1, withdrawn: false }], [])
     expect((await DELETE(req('DELETE'), params('1'))).status).toBe(200)
+  })
+})
+
+// A withdrawal rewrites every workout's placings: the admin's call.
+describe('withdrawing as a competition user', () => {
+  it('is refused both ways, and changes nothing', async () => {
+    setAuthRole('user')
+    expect((await POST(req('POST'), params('1'))).status).toBe(403)
+    expect((await DELETE(req('DELETE'), params('1'))).status).toBe(403)
+    expect(mock.calls.some((c) => c.method === 'update')).toBe(false)
   })
 })

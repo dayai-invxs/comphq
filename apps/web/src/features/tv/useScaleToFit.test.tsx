@@ -129,3 +129,19 @@ it('does not count the container padding as room', () => {
   rerender(<Probe tick={1} />)
   expect(content().style.transform).toBe(`scale(${900 / 950})`)
 })
+
+// A panel spanning more of a grid's tracks than the screen has runs off the
+// side, which no amount of shrinking puts back, so that arrangement is passed
+// over even though it is short enough.
+it('passes over an arrangement that runs off the side of the screen', () => {
+  const { rerender } = arranged(1000, [2000, 900, 950])
+  const box = content()
+  Object.defineProperty(box, 'clientWidth', { value: 1000, configurable: true })
+  Object.defineProperty(box, 'scrollWidth', {
+    configurable: true,
+    get(this: HTMLElement) { return this.dataset.layout === '1' ? 1400 : 1000 },
+  })
+  rerender(<Arranged tick={1} heights={[2000, 900, 950]} />)
+  expect(drawnLayout()).toBe(2)
+  expect(content().style.transform).toBe('')
+})

@@ -5,9 +5,11 @@ the repository rather than in a plan file because plans are replaced when the
 next one is written, and a defect ledger that disappears with its plan has to
 be re-discovered by the next person to read the code.
 
-Each open item is also locked by a test that says the behaviour is deliberate.
-That is the point of the ledger: a defect that no test pins is a defect that a
-later change can silently "fix" and break the parity proof with v1.
+v3 has been production since 2026-09-29 and has moved on from v1 on purpose,
+so the old reason for leaving a defect open — "functionality is frozen for the
+v1 parity proof" — no longer holds. An item stays open now because nobody has
+fixed it yet, or because it was decided to be the intended behaviour; each says
+which.
 
 ## v1 defects fixed in the redesign
 
@@ -25,94 +27,76 @@ later change can silently "fix" and break the parity proof with v1.
 | 27 | The TV QR code was compiled in as `https://www.comphq.pro/ruggedrumble/athlete-overview`, so every board sent the room to one competition's athlete list. | `TvPage.tsx:22` — the board builds its own address. |
 | 28 | Rank colours clamped, so everyone from third down was painted bronze. | `TvLeaderboardView.tsx:18` — every place carries its own number and rank is not a medal. |
 
-## v1 defects still open, by decision
+## Fixed on 2026-11-11
 
-These are server-side or business behaviour, not presentation. The redesign
-froze functionality, so fixing them here would have broken the thing the
-golden-master differential exists to prove.
+| # | What was wrong | What it does now |
+|---|---|---|
+| 1 | `GET /api/settings` handed the judge password to any caller. | Fixed earlier (2026-11-10): only the competition's own people read it; judges check it through `POST /api/settings/judge`. |
+| 2 | `PATCH /api/checks` took writes from anyone who knew the address, so anyone could tick heats walked out and take them off the TV and schedule. | Takes ticks from the competition's signed-in people, or from a judge/equipment screen carrying the token the judge password unlock hands out (`_shared/judgeToken.ts`). Changing the password retires old tokens and the screen asks again. Tick values must be the shapes the screens write. |
+| 3 | `role='user'` members could change everything but users. | The role was redefined: a user runs the competition (entering scores, completing heats, workout status, starting and running a knockout), an admin sets it up (including withdrawals, clearing all scores and resetting a workout). Every write is listed with its check in `_routes/roles.test.ts`, so a new route fails until it is decided. The web hides setup from users (`lib/competitionRole.tsx`). |
+| 6 | Heat generation read every `Score` row in the database. | Reads only the competition's athletes' scores. |
+| 7 | Regenerating heats put withdrawn athletes back in lanes. | Withdrawn athletes are left out. |
+| 8 | The site logo lived on an orphan `competitionId = 0` row. | Fixed earlier: each competition has its own logo. |
+| 9 | Completing the final heat could report the workout not done. | Fixed earlier: the reads are sequential. |
+| 11 | `DELETE /api/workouts/[id]/judge-assignments` deleted ids from any workout or competition, and an unreadable body deleted every assignment. | Deletes only this workout's rows and reports how many went; an unreadable body is a 400. |
+| 14 | An athlete who skipped workouts could lead, because missing workouts added no points. | A completed workout with no score places the athlete last in it: one after the last of their division who scored, tied with the others who skipped (`_shared/skippedPlace.ts`). Leaderboard and CSV export agree. A running workout places nobody this way. |
+| 16 | `http.ts` spread `init` after its own headers, so headers handed in replaced the content-type. | `init` goes first and its headers join the helper's. |
+| 17 | `/admin` sent a member to the first competition on the install. | Fixed earlier: it reads `/api/competitions/mine`. |
+| — | The public leaderboard said "No athletes or teams match" (with Clear filters) while a workout was running and nobody had scored. | Says "No standings yet". |
+| — | The TV leaderboard ranked unscored athletes #1–#N at 0 points, by name. | Shows only athletes with a score; a division nobody has scored in says "No scores yet". |
+| — | A score could be saved for an athlete from another competition. | 404. |
+| — | The judge password check had no limit on guesses. | Ten a minute per caller and competition (`_shared/rate-limit.ts`, per warm instance). |
+| — | No index served "one workout's scores". | `Score_workoutId_idx`. |
+| — | Changes left no trail. | The router records every successful change by a signed-in person (`_shared/auditTrail.ts`); admins read it on the Activity page. Passwords are blanked; check ticks are not kept. |
 
-**Authorization.** The competition is protected by convention rather than by
-the database.
+## Still open
 
-- **1.** `GET /api/settings` returns `judgePassword` to any caller, which makes the
-  judge and equipment gates a courtesy rather than a lock.
-  `apps/web/src/api/settings.ts:6`
-- **2.** `GET`/`PATCH /api/checks` have no auth gate at all — anyone can flip check
-  state. `apps/web/src/api/checks.ts:13`,
-  `supabase/functions/_routes/checks/route.test.ts:10`
-- **3.** `role='user'` members can mutate athletes, workouts and scores. Only the
-  `comp-users` routes use `requireCompetitionAdmin`.
-  `CompetitionAdminApp.tsx:20`, `apps/web/src/api/compUsers.ts:7`
-- **4.** `GET /api/competitions` is public and lists every competition on the
-  install. `apps/web/src/api/competitions.ts:20`
-- **5.** RLS is enabled with no write policy at all on `Volunteer`, `VolunteerRole`,
-  `JudgeAssignment`, `WorkoutEquipment` and `WorkoutLocation`. Six tables are
-  readable and writable only because every server call uses the service-role
-  key. `supabase/tests/rls.test.sql:147`
-- **10.** `GET /api/workouts/[id]/equipment` has no session gate — it resolves the
-  competition from the slug and serves anyone. `POST` on the same route does
-  gate. `apps/web/src/features/equipment/api.ts:12`
-- **13.** `GET /api/judge-schedule` is public. Plausibly deliberate for a display
-  board, but undocumented; now pinned.
-  `apps/web/src/features/judges/api.ts:6`
+**Authorization.**
+
+- **5.** RLS is enabled with no write policy on `Volunteer`, `VolunteerRole`,
+  `JudgeAssignment`, `WorkoutEquipment` and `WorkoutLocation`. Every server
+  call uses the service-role key, and the web never reads tables directly
+  (public read policies were dropped 2026-11-10), so this is defence in depth
+  rather than a hole. `supabase/tests/rls.test.sql:147`
+- Every competition starts with the same judge password (`I'majudge`). Setup
+  should ask for one, or generate one, when the competition is created.
+- `JudgeGate` lets any signed-in person through, member or not. A non-member
+  sees the screen, and the server refuses their ticks.
+
+**By decision.**
+
+- **4.** `GET /api/competitions` is public: it is the comphq.pro home page list.
+  An unlisted competition (the Public switch on Setup) is left out of it.
+- **10.** `GET /api/workouts/[id]/equipment` is public, for the floor screens,
+  except for an unannounced secret workout, which needs a member.
+- **13.** `GET /api/judge-schedule` is public, for the judges' board.
+- Withdrawing and reinstating an athlete, clearing all of a workout's scores,
+  and resetting a workout are the admin's, not the user's (decided
+  2026-11-11). `_routes/roles.test.ts`
 
 **Correctness.**
 
-- **6.** `POST /api/workouts/[id]/assignments` reads every `Score` row in the
-  database, unscoped by competition. v1's own comment calls it intentional; it
-  is a correctness hazard the moment two competitions share an install.
-  `supabase/functions/_routes/workouts/[id]/assignments/route.ts:97`
-- **7.** Heat regeneration includes withdrawn athletes — the athlete query filters by
-  competition and nothing else.
-  `supabase/functions/_routes/workouts/[id]/assignments/route.ts:84`
-- **8.** The site logo is stored against `competitionId = 0`, an orphan row no
-  `Competition` matches. `apps/web/src/api/logo.ts:5`
-- **9.** `heats/[heatNum]/complete` reads `completedHeats` concurrently with its own
-  insert, so `workoutDone` can come back false on the final heat's first call.
-  `supabase/functions/_routes/workouts/[id]/heats/[heatNum]/complete/route.ts:35`
-- **11.** `DELETE /api/workouts/[id]/judge-assignments` treats an unparseable body the
-  same as an absent one, and an absent body means "delete every assignment for
-  this workout". `apps/web/src/lib/api.ts:69`
-- **12.** The CSV judge import trims every cell before rejoining a comma-bearing name,
-  so a judge stored as `Doe, Jane` can never match its own exported row — the
-  lookup key becomes `Doe,Jane`. The failure is reported as HTTP 200 with
-  `imported: 0`, so a caller watching status codes sees success.
-  `supabase/functions/_routes/import/judge-assignments/route.test.ts:74`
-- **14.** An athlete who did not start most of the competition can lead it. Missing
-  workouts contribute nothing to `totalPoints` and the lowest total wins, so
-  in the golden fixture Finn Fox scores one of four visible workouts, totals
-  6, and outranks Bob Brown on 6.5 who scored every one. There is no
-  participation floor and no DNS penalty. `tools/golden/seed.sql:92`
+- **12.** The CSV judge import splits an unquoted `Doe, Jane` into two cells and
+  trims both, so the name it looks up is `Doe,Jane` and never matches; the
+  row is reported as an error under HTTP 200. Quoted names work.
+  `supabase/functions/_routes/import/judge-assignments/route.ts:54`
 
-**Latent, in a frozen file.**
+**Code.**
 
-- **16.** `http.ts`'s write helpers spread `init` *after* the headers object is built,
-  so an `init` that carries headers replaces the `content-type` just set
-  rather than adding to it, and the `...(init?.headers ?? {})` merge inside
-  the object is dead whenever it would matter. Latent in v1 — none of its 46
-  call sites passes headers — and latent here, because `api.ts` passes auth
-  headers on every request and so sends the complete set whichever way the
-  spread resolves. The file is in `VERBATIM_APP` and cannot be edited without
-  leaving the parity proof. `apps/web/src/lib/http.ts:30`
+- Data access is split: 13 plain create/read/update/delete routes (divisions,
+  volunteers, volunteer roles, locations, athletes, workouts, equipment) use
+  the Supabase client; the rest use Drizzle. Moving them means rewriting about
+  1,250 lines of their tests for no change in behaviour, so it waits until one
+  of them is being changed anyway.
 
-**Presentation, deliberately not fixed.**
+**Presentation.**
 
-- **17.** `/admin` redirects a non-super admin using `GET /api/competitions` — the
-  public list of *every* competition rather than the ones that user
-  administers — and sends them to the first entry's `/{slug}/admin`. Combined
-  with defect 4, a member of one competition who visits `/admin` lands on a
-  stranger's competition, where the per-competition gate then refuses them.
-  The correct list is `/api/competitions/mine`, which the layout already calls
-  one level down. Left open because the fix changes which endpoint is called,
-  which is functionality rather than presentation, and functionality was
-  frozen for this pass. `AdminApp.tsx:31`, locked by `AdminApp.test.tsx:61`
 - **18.** The hero's per-character spans give the poster no usable accessible name.
   `dom-accessibility-api` trims each text node before concatenating, so
   `Rugged Rumble` computes as `RuggedRumble` and a screen reader walking the
   spans reads the title letter by letter. The animation needs one element per
   character, so the fix is a visually-hidden full-text copy plus
-  `aria-hidden` on the split — a markup change to a screen with no inbound
-  links. `HeroScene.test.tsx:57`
+  `aria-hidden` on the split. `HeroScene.test.tsx:57`
 
 ## Found during the redesign
 
@@ -169,22 +153,22 @@ the database.
   heat mounted at once. A selection model would be the better interaction and
   would cost the drag.
 
-## Live-stack status (was: blocked on credentials)
+## Live-stack status
 
-- The e2e suite runs green against `comphq-test`: 17/17 in 5 files, last run
-  2026-08-29 (`pnpm exec playwright test`). Assumes the `admin@test.local`
-  super account exists in the project `.env.local` points at.
-- The 21 Edge Functions are deployed to `comphq-test` and healthy
-  (`/functions/v1/health` returns 200). `supabase/config.toml` is generated by
-  `tools/gen-functions.mjs` and carries the per-function import map and
-  `verify_jwt = false`; deploy with
-  `npx supabase functions deploy --project-ref eestayvdywqiemimriqu --no-verify-jwt`.
+- CI (`.github/workflows/ci.yml`) runs lint, both type-checks, the Deno check
+  of the functions, the token and function-entry checks, vitest and the build.
+- The e2e suite is not in CI: it writes to the `comphq-test` project and would
+  need that project's keys as GitHub secrets. Last green 2026-08-29 (17/17);
+  much has changed since, so expect to update it before trusting a run.
+  Assumes the `admin@test.local` super account exists in the project
+  `.env.local` points at.
+- `pnpm test:parity` (golden-master against v1) and `pnpm test:sql` need a live
+  database. Both were green on 2026-08-29. The parity suite proves v3 matches
+  v1, which v3 now deliberately does not (skipped workouts, roles, judge
+  password, per-competition logos …); retire it or re-baseline it.
 - `comphq-test` public schema still holds empty snake_case tables (`athlete`,
   `competition`, …) from a pre-v3 experiment alongside the v3 PascalCase
   tables. Harmless but owed a wipe-and-repush
   (`pnpm db:wipe -- --confirm=… && pnpm db:push -- --confirm=…`).
-- `pnpm test:parity` and `pnpm test:sql` need a live database and are not part
-  of `pnpm verify` for that reason. Both green on 2026-08-29: SQL suite 62
-  assertions against comphq-test; golden-master parity 6/6 byte-identical
-  against the local `comphq_golden` fixture (postgres@17 on 5433, per
-  `tools/golden/README.md`).
+- Deploying is in `README.md`: migrations, then the (now 22) functions, then
+  push to `main`.

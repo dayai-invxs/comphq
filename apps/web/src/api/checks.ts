@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiPatch } from '@/lib/api'
+import { HttpError } from '@/lib/http'
+import { forgetJudgeToken, judgeHeaders, judgeToken } from '@/lib/judgeToken'
 import type { ChecksData } from './liveReads'
 import { queryKeys } from './queryKeys'
 
@@ -10,8 +12,11 @@ import { queryKeys } from './queryKeys'
 //
 // A tick is written to the cache first and sent after, because the person
 // ticking is standing on the floor and the box has to move under their finger.
-// PATCH /api/checks has no auth at all (defect 2). A refused write keeps the
-// tick and surfaces on `error`; the next poll is what corrects it.
+// PATCH /api/checks takes a tick from the competition's signed-in people, or
+// from a screen unlocked with the judge password, which sends the token it was
+// handed. A refused write keeps the tick and surfaces on `error`; the next
+// poll is what corrects it. A refusal of the token itself (the password was
+// changed) locks the screen so the judge can enter the new one.
 //
 // COM-116: a tick sends one entry, which the server merges into the stored
 // map, and ticks on one screen go out one at a time. v1 sent the whole map on
@@ -31,7 +36,10 @@ function useChecksWriter<F extends keyof ChecksData>(
   const queryKey = queryKeys.checks(slug)
   const mutation = useMutation({
     mutationFn: (body: { checks: ChecksData[F] } | { entry: { key: string; value: Value } }) =>
-      apiPatch('/api/checks', { slug, type, ...body }),
+      apiPatch('/api/checks', { slug, type, ...body }, { headers: judgeHeaders(slug) }),
+    onError: (e) => {
+      if (e instanceof HttpError && e.status === 401 && judgeToken(slug)) forgetJudgeToken(slug)
+    },
     // Same scope, run in order: an on-then-off pair reaches the server as sent.
     scope: { id: `checks-${slug}-${type}` },
   })

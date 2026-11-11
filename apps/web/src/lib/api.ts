@@ -71,9 +71,9 @@ export async function apiPatch<T = unknown>(path: string, body: unknown, init?: 
   return patchJson<T>(apiUrl(path), body, await write(init))
 }
 
-// A bodyless DELETE must not claim a JSON body: several v1 routes read one and
-// treat an unparseable body as an absent one, which for judge-assignments
-// means "delete everything" (defect 11, ported as-is).
+// A bodyless DELETE must not claim a JSON body. For judge-assignments an
+// absent body means "clear every judge for this workout", and a body that is
+// there but unreadable is refused (it used to count as absent: defect 11).
 export async function apiDel<T = unknown>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
   const prepared = body === undefined ? await read(init) : await write(init)
   return delJson<T>(apiUrl(path), body, prepared)

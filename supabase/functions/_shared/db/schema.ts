@@ -196,6 +196,7 @@ export const score = pgTable('Score', {
   knockoutLabel: text('knockoutLabel'),
 }, (t) => [
   uniqueIndex('Score_athleteId_workoutId_key').on(t.athleteId, t.workoutId),
+  index('Score_workoutId_idx').on(t.workoutId),
 ])
 
 export const setting = pgTable('Setting', {

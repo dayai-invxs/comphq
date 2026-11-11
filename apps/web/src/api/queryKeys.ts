@@ -18,6 +18,8 @@ export const queryKeys = {
   // The spectators' workout list: names and descriptions, no drafts.
   publicWorkouts: (slug: string) => ['public-workouts', slug] as const,
   checks: (slug: string) => ['checks', slug] as const,
+  // The audit trail, for the Activity page. Read on demand, never pushed.
+  activity: (slug: string) => ['activity', slug] as const,
   judgeSchedule: (slug: string) => ['judge-schedule', slug] as const,
   judgeAssignments: (slug: string, workoutId: string) =>
     ['judge-assignments', slug, workoutId] as const,

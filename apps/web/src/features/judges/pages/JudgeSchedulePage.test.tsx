@@ -61,7 +61,7 @@ async function lanes(number: number) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionStorage.setItem('judgeUnlocked:summer', '1')
+  sessionStorage.setItem('judgeToken:summer', 'tok')
   useSession.mockReturnValue({ user: null, loading: false, signOut: vi.fn() })
   serve()
 })

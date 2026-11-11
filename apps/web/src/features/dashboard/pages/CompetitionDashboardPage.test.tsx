@@ -1,6 +1,7 @@
 import { Route } from 'react-router'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CompetitionRoleProvider } from '@/lib/competitionRole'
 import { currentPath, renderRoutes } from '@/test/harness'
 import { CompetitionDashboardPage } from './CompetitionDashboardPage'
 
@@ -29,9 +30,9 @@ function serve(workouts: unknown = WORKOUTS, athletes: unknown = ATHLETES) {
   })
 }
 
-function mount() {
+function mount(isAdmin = true) {
   return renderRoutes(
-    <Route path=":slug/admin" element={<CompetitionDashboardPage />} />,
+    <Route path=":slug/admin" element={<CompetitionRoleProvider isAdmin={isAdmin}><CompetitionDashboardPage /></CompetitionRoleProvider>} />,
     ['/summer/admin'],
   )
 }
@@ -191,3 +192,15 @@ describe('the exports', () => {
     expect(screen.queryByText('No workouts yet')).not.toBeInTheDocument()
   })
 })
+
+// A competition user (scorekeeper) activates workouts from here, but People is
+// setup and offers them no way in.
+describe('for a competition user', () => {
+  it('keeps the workouts and leaves out the roster', async () => {
+    mount(false)
+    expect(await screen.findByRole('button', { name: 'Activate WOD 3: Helen' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Manage athletes/teams' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Manage workouts' })).toBeInTheDocument()
+  })
+})
+

@@ -2,7 +2,7 @@ import styles from './Glyph.module.css'
 
 // The app's own icon set. MDS ships an Icon that renders from a registered
 // glyph set through IconProvider; CompHQ registers none, and a scoreboard app
-// needs eleven marks rather than a library. These are framework-free paths
+// needs a dozen marks rather than a library. These are framework-free paths
 // drawn on one 24-unit grid, stroked in currentcolor, so a glyph takes the
 // colour of whatever nav row or tab it sits in.
 
@@ -20,6 +20,7 @@ const PATHS = {
   setup: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.5 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 14H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7.5l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.6V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.5 1.5l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z',
   users: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0',
   back: 'M15 5l-7 7 7 7',
+  activity: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2',
 } as const
 
 export type GlyphName = keyof typeof PATHS

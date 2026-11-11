@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { HttpError } from '@/lib/http'
+import { onJudgeTokenForgotten } from '@/lib/judgeToken'
 import { useSetAthleteChecks, useSetEquipChecks } from './checks'
 import { queryKeys } from './queryKeys'
 
@@ -16,6 +18,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  sessionStorage.clear()
   apiPatch.mockResolvedValue({})
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
@@ -33,7 +36,7 @@ describe('check writers', () => {
   it('setAsync sends the whole map, for the reset', async () => {
     const { result } = renderHook(() => useSetAthleteChecks('summer'), { wrapper })
     await result.current.setAsync({})
-    expect(apiPatch).toHaveBeenCalledWith('/api/checks', { slug: 'summer', type: 'athlete', checks: {} })
+    expect(apiPatch).toHaveBeenCalledWith('/api/checks', { slug: 'summer', type: 'athlete', checks: {} }, expect.anything())
   })
 
   // COM-116. A tick is one entry, read against the cache at the moment of the
@@ -63,7 +66,7 @@ describe('check writers', () => {
         slug: 'summer',
         type: 'equipment',
         entry: { key: '7-1-Rx', value: true },
-      }),
+      }, expect.anything()),
     )
   })
 
@@ -135,5 +138,29 @@ describe('check writers', () => {
       equipChecks: { '7-1-Rx': true },
     })
     await promise
+  })
+
+  // A screen unlocked with the judge password carries its token on every tick.
+  it('sends the judge screen\'s token with a tick', async () => {
+    sessionStorage.setItem('judgeToken:summer', 'tok')
+    const { result } = renderHook(() => useSetEquipChecks('summer'), { wrapper })
+    result.current.setEntry('7-1-Rx', () => true)
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith(
+      '/api/checks', expect.anything(), { headers: { 'x-judge-token': 'tok' } },
+    ))
+  })
+
+  // The password was changed: the token is refused, forgotten, and the gate
+  // asks again.
+  it('forgets a token the server refuses', async () => {
+    sessionStorage.setItem('judgeToken:summer', 'tok')
+    apiPatch.mockRejectedValue(new HttpError(401, 'Unlock the judge screen'))
+    const forgotten = vi.fn()
+    const stop = onJudgeTokenForgotten('summer', forgotten)
+    const { result } = renderHook(() => useSetEquipChecks('summer'), { wrapper })
+    result.current.setEntry('7-1-Rx', () => true)
+    await waitFor(() => expect(forgotten).toHaveBeenCalled())
+    expect(sessionStorage.getItem('judgeToken:summer')).toBeNull()
+    stop()
   })
 })

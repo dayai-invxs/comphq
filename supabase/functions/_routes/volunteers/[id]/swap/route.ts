@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { volunteer, judgeAssignment, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { z } from 'zod'
 
@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const oldVolunteerId = Number(id)
     const { newVolunteerId } = parsed.data

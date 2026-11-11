@@ -1,6 +1,7 @@
 import type { ComponentType, ReactElement } from 'react'
 import type { RouteObject } from 'react-router'
 import { FirstCompetitionRedirect, SlugRedirect } from '@/features/competitions/pages/Redirects'
+import { AdminOnly } from './AdminOnly'
 import { RouteError } from './RouteError'
 import { StyleguidePage } from '@/features/styleguide/pages/StyleguidePage'
 import { AdminApp } from './AdminApp'
@@ -175,15 +176,19 @@ function routeTable(): RouteObject[] {
       },
       {
         path: 'people',
-        lazy: lazyPage(() => import('@/features/admin-people/pages/PeoplePage'), 'PeoplePage'),
+        lazy: lazyPage(() => import('@/features/admin-people/pages/PeoplePage'), 'PeoplePage', (page) => <AdminOnly title="People">{page}</AdminOnly>),
       },
       {
         path: 'setup',
-        lazy: lazyPage(() => import('@/features/admin-setup/pages/SetupPage'), 'SetupPage'),
+        lazy: lazyPage(() => import('@/features/admin-setup/pages/SetupPage'), 'SetupPage', (page) => <AdminOnly title="Setup">{page}</AdminOnly>),
       },
       {
         path: 'users',
-        lazy: lazyPage(() => import('@/features/comp-users/pages/CompetitionUsersPage'), 'CompetitionUsersPage'),
+        lazy: lazyPage(() => import('@/features/comp-users/pages/CompetitionUsersPage'), 'CompetitionUsersPage', (page) => <AdminOnly title="Competition Users">{page}</AdminOnly>),
+      },
+      {
+        path: 'activity',
+        lazy: lazyPage(() => import('@/features/activity/pages/ActivityPage'), 'ActivityPage', (page) => <AdminOnly title="Activity">{page}</AdminOnly>),
       },
       {
         path: 'workouts',

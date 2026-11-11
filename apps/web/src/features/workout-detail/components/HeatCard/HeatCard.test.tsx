@@ -304,7 +304,7 @@ describe('the heat clock', () => {
     fireEvent.change(screen.getByLabelText('Heat start time'), { target: { value: '14:45' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(props.onSaveHeatTime).toHaveBeenCalled())
-    const [heatNumber, iso] = vi.mocked(props.onSaveHeatTime).mock.calls[0]
+    const [heatNumber, iso] = vi.mocked(props.onSaveHeatTime!).mock.calls[0]
     const saved = new Date(iso as string)
     expect(heatNumber).toBe(1)
     expect([saved.getHours(), saved.getMinutes()]).toEqual([14, 45])
@@ -314,7 +314,7 @@ describe('the heat clock', () => {
   it('saves an edited time once, however fast the clicks come', async () => {
     const { props } = mount()
     let release!: () => void
-    vi.mocked(props.onSaveHeatTime).mockImplementation(() => new Promise<void>((r) => { release = () => r() }))
+    vi.mocked(props.onSaveHeatTime!).mockImplementation(() => new Promise<void>((r) => { release = () => r() }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit time' }))
     fireEvent.change(screen.getByLabelText('Heat start time'), { target: { value: '14:45' } })
     const save = screen.getByRole('button', { name: 'Save' })
@@ -367,6 +367,7 @@ describe('the judge column', () => {
     mount({
       judges: JUDGES,
       judgesByLane: new Map([[1, { volunteerId: 5, assignmentId: 77, judgeName: 'Jo Judge' }]]),
+      onJudgeChange: vi.fn(),
     })
     expect(screen.getByRole('columnheader', { name: 'Judge' })).toBeInTheDocument()
     expect(screen.getByLabelText('Judge for lane 1')).toHaveValue('5')
@@ -526,5 +527,26 @@ describe('repeatLabel', () => {
     expect(repeatLabel([1, 2, 4], 1)).toBe('Duplicate: also in heats 2, 4 · team score is the sum of its lanes')
     expect(repeatLabel([1, 1], 1)).toBe('Duplicate: 2× in this heat · team score is the sum of its lanes')
     expect(repeatLabel([1, 1, 2], 1)).toBe('Duplicate: 2× in this heat, also in heat 2 · team score is the sum of its lanes')
+  })
+
+  // A competition user (scorekeeper) scores the heat; its lanes, times and
+  // judges are the admin's, so the card leaves those controls out.
+  describe('for a competition user', () => {
+    it('shows the judge without a way to change it', () => {
+      mount({
+        judges: [{ id: 5, name: 'Jo Judge' }, { id: 6, name: 'Al Judge' }],
+        judgesByLane: new Map([[1, { volunteerId: 5, assignmentId: 77, judgeName: 'Jo Judge' }]]),
+        onJudgeChange: undefined,
+      })
+      expect(screen.getByText('Jo Judge')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Judge for lane 1')).not.toBeInTheDocument()
+    })
+
+    it('offers no way to change the heat time or delete the heat', () => {
+      mount({ onSaveHeatTime: undefined, onDeleteHeat: undefined, onReorder: undefined })
+      expect(screen.queryByRole('button', { name: 'Edit time' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Delete Heat/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Save Heat' })).toBeInTheDocument()
+    })
   })
 })

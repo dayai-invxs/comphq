@@ -1,7 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
 import { membersByAthlete } from '@/lib/teamMembers'
 import { parseJson } from '@/lib/parseJson'
@@ -140,9 +140,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
-    const { id } = await params
     const d = parsed.data
+    // Activating, deactivating and completing a workout is running the
+    // competition, which a scorekeeper (role 'user') does. Anything else here
+    // is the workout's settings, which only an admin changes.
+    const settingsChanged = Object.entries(d).some(([key, value]) => key !== 'status' && value !== undefined)
+    const { competition } = settingsChanged
+      ? await requireCompetitionAdmin(slug)
+      : await requireCompetitionAccess(slug)
+    const { id } = await params
     const patch: Partial<typeof workout.$inferInsert> = {}
 
     if (d.name !== undefined) patch.name = d.name
@@ -199,7 +205,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     await db
       .delete(workout)

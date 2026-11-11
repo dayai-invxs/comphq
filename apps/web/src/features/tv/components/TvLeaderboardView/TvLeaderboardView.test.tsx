@@ -139,3 +139,53 @@ it('says which athlete is leading, and says it of nobody else', () => {
   expect(standings('RX').getAllByText(/leading/)).toHaveLength(1)
   expect(standings('RX').getByText('A1').textContent).toBe('A1, leading')
 })
+
+// A division too long to read at full size is split into two columns, read
+// down the first and then the second, still numbered as one list.
+it('splits a long division into two numbered columns', () => {
+  const field = [1, 2, 3, 4, 5].map((id) => entry({ athleteId: id, athleteName: `A${id}` }))
+  render(<TvLeaderboardView data={data({ entries: field })} layout={1} />)
+  const first = within(screen.getByRole('list', { name: 'RX standings 1–3' }))
+  const second = screen.getByRole('list', { name: 'RX standings 4–5' })
+  expect(first.getAllByRole('listitem').map((r) => r.textContent)).toEqual([
+    '#1A1, leading6 pts', '#2A26 pts', '#3A36 pts',
+  ])
+  expect(second).toHaveAttribute('start', '4')
+  expect(within(second).getAllByRole('listitem').map((r) => r.textContent)).toEqual(['#4A46 pts', '#5A56 pts'])
+})
+
+// The tallest panel sets the height of its row of the grid, so it is the one
+// split first; the others keep their single column.
+it('splits the longest division first', () => {
+  const rx = [1, 2].map((id) => entry({ athleteId: id, athleteName: `R${id}` }))
+  const scaled = [3, 4, 5, 6].map((id) => entry({ athleteId: id, athleteName: `S${id}`, divisionName: 'Scaled' }))
+  render(<TvLeaderboardView data={data({ entries: [...rx, ...scaled] })} layout={1} />)
+  expect(screen.getByRole('list', { name: 'RX standings' })).toBeInTheDocument()
+  expect(screen.getByRole('list', { name: 'Scaled standings 1–2' })).toBeInTheDocument()
+  expect(screen.getByRole('list', { name: 'Scaled standings 3–4' })).toBeInTheDocument()
+})
+
+// The first heat of the day: everyone entered, nobody scored. A ranking now
+// would be by name at 0 points, and the room would read it as a result.
+it('says there are no scores rather than ranking athletes nobody has scored', () => {
+  render(<TvLeaderboardView data={data({
+    entries: [entry({ athleteId: 1, athleteName: 'Ada', totalPoints: 0, workoutScores: { 1: null } })],
+  })} />)
+  expect(screen.getByText('No scores yet')).toBeInTheDocument()
+  expect(screen.queryByText('Ada')).not.toBeInTheDocument()
+})
+
+// Once scores land, only the athletes who have one are placed; a division
+// still waiting keeps its panel and says so.
+it('places only athletes who have scored, and keeps a waiting division\'s panel', () => {
+  render(<TvLeaderboardView data={data({
+    entries: [
+      entry({ athleteId: 1, athleteName: 'Ada' }),
+      entry({ athleteId: 2, athleteName: 'Bo', workoutScores: { 1: null } }),
+      entry({ athleteId: 3, athleteName: 'Cy', divisionName: 'Scaled', workoutScores: { 1: null } }),
+    ],
+  })} />)
+  expect(rows('RX')).toEqual(['#1Ada, leading6 pts'])
+  const scaled = screen.getByRole('region', { name: 'Scaled' })
+  expect(within(scaled).getByText('No scores yet')).toBeInTheDocument()
+})

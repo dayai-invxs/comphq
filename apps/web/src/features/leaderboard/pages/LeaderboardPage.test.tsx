@@ -133,6 +133,24 @@ describe('LeaderboardPage', () => {
     expect(await screen.findByText('No standings yet')).toBeInTheDocument()
   })
 
+  // The first heat of the day: the workout is on the board and every athlete
+  // is entered, but nobody has a score. That is an empty board — not "no
+  // athletes match", which offered to clear filters nobody had set.
+  it('says the board is empty while a workout is running and nobody has scored', async () => {
+    serve({
+      workouts: [{ id: 13, number: 3, name: 'Chipper', scoreType: 'time', status: 'active' }],
+      halfWeightIds: [],
+      entries: [
+        { athleteId: 1, athleteName: 'Ada Ant', divisionName: 'Rx', totalPoints: 0, workoutScores: { 13: null } },
+        { athleteId: 2, athleteName: 'Bob Brown', divisionName: 'Rx', totalPoints: 0, workoutScores: { 13: null } },
+      ],
+    })
+    mount()
+    expect(await screen.findByText('No standings yet')).toBeInTheDocument()
+    expect(screen.queryByText('No athletes or teams match')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
   // A failed read is not an empty board: "No standings yet" on a refused
   // request tells a spectator the competition has no scores when the truth is
   // the screen could not ask.

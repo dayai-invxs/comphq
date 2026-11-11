@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { setting } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
+import { requireCompetitionAccess } from '@/lib/auth-competition'
+import { hasJudgeToken } from '@/lib/judgeToken'
 
 async function getSetting(competitionId: number, key: string, defaultValue: string): Promise<string> {
   const rows = await db
@@ -51,11 +53,31 @@ export async function GET(req: Request) {
   return Response.json({ athleteChecks, equipChecks })
 }
 
+// Who may tick: the competition's own signed-in people, or a judge or
+// equipment station that unlocked its screen with the judge password (it
+// carries the token POST /api/settings/judge handed out). This used to take
+// writes from anyone who knew the competition's address, and a walk-out tick
+// takes a heat off the TV and the schedule.
+async function mayTick(req: Request, slug: string, competitionId: number): Promise<boolean> {
+  if (await hasJudgeToken(req, competitionId)) return true
+  return requireCompetitionAccess(slug).then(() => true, () => false)
+}
+
+// The values the two screens write, and nothing else: corral and walk-out
+// ticks keyed `${workoutId}-${heatNumber}`, equipment ticks keyed
+// `${workoutId}-${heatNumber}-${divisionName}`.
+const Key = z.string().min(1).max(200)
+const AthleteTick = z.strictObject({ corral: z.boolean(), walkout: z.boolean() })
+const EquipTick = z.boolean()
+const MAX_KEYS = 5000
+
+const slug = z.string().min(1)
 // `checks` replaces the whole map (the reset); `entry` merges one tick.
-const base = { slug: z.string().min(1), type: z.enum(['athlete', 'equipment']) }
 const ChecksPatch = z.union([
-  z.strictObject({ ...base, checks: z.record(z.string(), z.unknown()) }),
-  z.strictObject({ ...base, entry: z.object({ key: z.string().min(1), value: z.unknown() }) }),
+  z.strictObject({ slug, type: z.literal('athlete'), checks: z.record(Key, AthleteTick) }),
+  z.strictObject({ slug, type: z.literal('equipment'), checks: z.record(Key, EquipTick) }),
+  z.strictObject({ slug, type: z.literal('athlete'), entry: z.strictObject({ key: Key, value: AthleteTick }) }),
+  z.strictObject({ slug, type: z.literal('equipment'), entry: z.strictObject({ key: Key, value: EquipTick }) }),
 ])
 
 export async function PATCH(req: Request) {
@@ -64,10 +86,16 @@ export async function PATCH(req: Request) {
 
   const parsed = ChecksPatch.safeParse(body)
   if (!parsed.success) return new Response('Invalid request', { status: 400 })
+  if ('checks' in parsed.data && Object.keys(parsed.data.checks).length > MAX_KEYS) {
+    return new Response('Too many checks', { status: 400 })
+  }
 
-  const { slug, type } = parsed.data
-  const competition = await resolveCompetition(slug)
+  const { type } = parsed.data
+  const competition = await resolveCompetition(parsed.data.slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
+  if (!(await mayTick(req, parsed.data.slug, competition.id))) {
+    return new Response('Unlock the judge screen, or sign in, to tick checks', { status: 401 })
+  }
 
   const key = type === 'athlete' ? 'athleteChecks' : 'equipChecks'
   if ('entry' in parsed.data) {

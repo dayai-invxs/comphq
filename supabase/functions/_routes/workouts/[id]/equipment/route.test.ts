@@ -9,9 +9,8 @@ const postReq = (body: Record<string, unknown>) =>
   new Request('http://test/api/workouts/1/equipment?slug=default', { method: 'POST', body: JSON.stringify(body) })
 
 describe('GET /api/workouts/[id]/equipment', () => {
-  // DEFECT (v1, ported as-is): GET resolves the competition but never checks a
-  // session, so equipment lists are readable by anyone with a slug. POST on the
-  // same route does gate. Locked here; tracked separately for a fix.
+  // Public on purpose, for the floor screens: anyone with the slug reads a
+  // workout's equipment, except an unannounced secret workout's.
   it('serves an anonymous caller', async () => {
     setAuthUser(null)
     mock.queueResults({ data: { id: 1 }, error: null }, { data: [], error: null })

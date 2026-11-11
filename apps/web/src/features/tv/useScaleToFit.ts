@@ -11,7 +11,8 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 // Before it shrinks anything it tries the content's other arrangements, when
 // the content has some (`layouts` > 1: the schedule can show fewer heats and
 // spread lanes into columns). It draws each in turn, in the order the content
-// prefers them, and keeps the first that fits at full size. When none does it
+// prefers them, and keeps the first that fits at full size without running
+// off the side of the screen. When none does it
 // goes back to the one that needs the least shrinking. Every try happens in a
 // layout effect, so the screen is only ever painted with the one it settles on.
 //
@@ -64,15 +65,19 @@ export function useScaleToFit(deps: readonly unknown[], layouts = 1): {
     const available = container.clientHeight - (parseFloat(pad.paddingTop) || 0) - (parseFloat(pad.paddingBottom) || 0)
     const natural = content.scrollHeight
     const ratio = natural > available ? available / natural : 1
+    // An arrangement wider than the screen (a panel spanning more of a grid's
+    // tracks than it has) would be cut off at the side, which shrinking does
+    // not cure: it is never kept.
+    const sideways = content.scrollWidth > content.clientWidth + 1
 
     if (searching.current) {
-      ratios.current[layout] = ratio
-      if (ratio < 1 && layout + 1 < layouts) {
+      ratios.current[layout] = sideways ? 0 : ratio
+      if ((ratio < 1 || sideways) && layout + 1 < layouts) {
         setLayout(layout + 1)
         return
       }
       searching.current = false
-      if (ratio < 1) {
+      if (ratio < 1 || sideways) {
         // Nothing fits: the earliest of the arrangements that shrink least.
         const best = ratios.current.indexOf(Math.max(...ratios.current))
         if (best !== layout) {

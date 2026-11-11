@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drizzleMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthRole, setAuthUser } from '@/test/setup'
 import { DELETE, POST } from './route'
 
 const params = { params: Promise.resolve({ id: '1' }) }
@@ -109,5 +109,29 @@ describe('DELETE /api/workouts/[id]/knockout', () => {
     const res = await DELETE(del(), params)
     expect(await res.json()).toEqual({ round: 1 })
     expect(mock.calls.filter((c) => c.method === 'delete').length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+// A scorekeeper starts and runs the tournament.
+describe('a knockout run by a competition user', () => {
+  it('may start it', async () => {
+    setAuthRole('user')
+    mock.queueResult([WK])
+    // Past the role check and into the tournament, which has nobody to place.
+    const res = await POST(post({ action: 'start' }), params)
+    expect(res.status).toBe(409)
+    expect(await res.text()).toBe('There are no athletes/teams to place.')
+  })
+
+  it('may advance it', async () => {
+    setAuthRole('user')
+    mock.queueResult([WK])
+    mock.queueResult([
+      lane(1, 11, 1, 70), lane(2, 12, 1, 80), lane(3, 13, 1, 90),
+      lane(4, 21, 2, 60), lane(5, 22, 2, 85), lane(6, 23, 2, 95),
+    ])
+    mock.queueResult([{ id: 7, order: 1 }])
+    mock.queueResult(undefined)
+    expect((await POST(post({ action: 'advance' }), params)).status).toBe(200)
   })
 })

@@ -24,6 +24,25 @@
   overflow: hidden;
 }
 
+/* A division split into columns takes as many of the grid's tracks. */
+.panel[data-columns="2"] {
+  grid-column: span 2;
+}
+
+.panel[data-columns="3"] {
+  grid-column: span 3;
+}
+
+.columns {
+  display: flex;
+  gap: var(--mds-gap-loose);
+}
+
+.columns > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .division {
   font-size: var(--tv-text-title);
 }
@@ -56,7 +75,9 @@
 
 .athlete {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-width: 0;
 }
 
 .name {
@@ -75,8 +96,16 @@
   font-weight: var(--mds-weight-bold);
 }
 
+/* On the name's line, at the right of the row. */
+.empty {
+  font-size: var(--tv-text-meta);
+}
+
 .points {
+  flex-shrink: 0;
   font-size: var(--tv-text-points);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* A team's members, under its name: readable from the back of the room but

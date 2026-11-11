@@ -2,8 +2,8 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { setting } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
-import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
-import { DEFAULT_JUDGE_PASSWORD, DEFAULT_LEADERBOARD_VISIBILITY } from '@/lib/competitionDefaults'
+import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin } from '@/lib/auth-competition'
+import { DEFAULT_JUDGE_PASSWORD, DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/competitionDefaults'
 import { parseJson } from '@/lib/parseJson'
 import { SettingsPatch } from '@/lib/schemas'
 
@@ -28,7 +28,7 @@ async function upsertSetting(competitionId: number, key: string, value: string) 
 
 // Every setting with its default, as both the read and the write answer it.
 async function readSettings(competitionId: number) {
-  const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, judgePassword, judgeMaxConsecutiveRaw, listed] = await Promise.all([
+  const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, judgePassword, judgeMaxConsecutiveRaw, listed, tvSecondsPerScreenRaw] = await Promise.all([
     getSetting(competitionId, 'showBib', 'true'),
     getSetting(competitionId, 'tiebreakWorkoutId', ''),
     getSetting(competitionId, 'leaderboardVisibility', DEFAULT_LEADERBOARD_VISIBILITY),
@@ -37,6 +37,7 @@ async function readSettings(competitionId: number) {
     getSetting(competitionId, 'judgePassword', DEFAULT_JUDGE_PASSWORD),
     getSetting(competitionId, 'judgeMaxConsecutive', '3'),
     getSetting(competitionId, 'listed', 'true'),
+    getSetting(competitionId, 'tvSecondsPerScreen', ''),
   ])
   let tvLeaderboardPercentages: Record<string, number> = {}
   try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw) } catch { /* ignore */ }
@@ -48,6 +49,7 @@ async function readSettings(competitionId: number) {
     leaderboardVisibility: leaderboardVisibility as 'per_heat' | 'per_workout',
     tvLeaderboardPercentages,
     tvLeaderboardOrder,
+    tvSecondsPerScreen: tvSecondsPerScreen(tvSecondsPerScreenRaw),
     judgePassword,
     judgeMaxConsecutive: Number(judgeMaxConsecutiveRaw) || 3,
     /** Shown in the comphq.pro home page list. An unlisted competition still
@@ -75,7 +77,7 @@ export async function PATCH(req: Request) {
   if (!parsed.ok) return parsed.response
 
   try {
-    const { competition } = await requireCompetitionAccess(parsed.data.slug)
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
     const d = parsed.data
 
     const upserts: Promise<void>[] = []
@@ -97,6 +99,9 @@ export async function PATCH(req: Request) {
     }
     if (d.tvLeaderboardOrder !== undefined) {
       upserts.push(upsertSetting(competition.id, 'tvLeaderboardOrder', JSON.stringify(d.tvLeaderboardOrder)))
+    }
+    if (d.tvSecondsPerScreen !== undefined) {
+      upserts.push(upsertSetting(competition.id, 'tvSecondsPerScreen', String(d.tvSecondsPerScreen)))
     }
     if (d.judgePassword !== undefined) {
       upserts.push(upsertSetting(competition.id, 'judgePassword', d.judgePassword))

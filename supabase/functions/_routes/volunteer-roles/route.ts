@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { VolunteerRoleCreate } from '@/lib/schemas'
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const parsed = await parseJson(req, VolunteerRoleCreate)
   if (!parsed.ok) return parsed.response
   try {
-    const { competition } = await requireCompetitionAccess(parsed.data.slug)
+    const { competition } = await requireCompetitionAdmin(parsed.data.slug)
     const { data, error } = await supabase
       .from('VolunteerRole')
       .insert({ competitionId: competition.id, name: parsed.data.name })

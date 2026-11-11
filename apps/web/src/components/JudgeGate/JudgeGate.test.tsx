@@ -1,8 +1,9 @@
 import { Route } from 'react-router'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderRoutes } from '@/test/harness'
 import { HttpError } from '@/lib/http'
+import { forgetJudgeToken } from '@/lib/judgeToken'
 import { JudgeGate } from './JudgeGate'
 
 // What the gate has to do: refuse the screen to a stranger, open it to a judge
@@ -20,7 +21,7 @@ vi.mock('@/lib/session', () => ({ useSession }))
 /** The server's answer: yes for this password, 403 for any other. */
 function accept(password = 'letmein') {
   apiPost.mockImplementation((_path: string, body: { password: string }) =>
-    body.password === password ? Promise.resolve({ ok: true }) : Promise.reject(new HttpError(403, 'Incorrect password')))
+    body.password === password ? Promise.resolve({ ok: true, token: 'tok' }) : Promise.reject(new HttpError(403, 'Incorrect password')))
 }
 
 function mount(slug = 'summer') {
@@ -85,30 +86,51 @@ describe('JudgeGate', () => {
     expect(screen.queryByText('the schedule')).not.toBeInTheDocument()
   })
 
+  // The token is what the screen's ticks carry back; it stands for the unlock.
   it('remembers the unlock for the rest of the session', async () => {
     mount()
     enter('letmein')
     await screen.findByText('the schedule')
-    expect(sessionStorage.getItem('judgeUnlocked:summer')).toBe('1')
+    expect(sessionStorage.getItem('judgeToken:summer')).toBe('tok')
   })
 
   it('opens straight away for a session that has already unlocked this competition', () => {
-    sessionStorage.setItem('judgeUnlocked:summer', '1')
+    sessionStorage.setItem('judgeToken:summer', 'tok')
     mount()
     expect(screen.getByText('the schedule')).toBeInTheDocument()
   })
 
   // An unlock for one competition used to open every competition's screens.
   it('still asks in another competition', async () => {
-    sessionStorage.setItem('judgeUnlocked:summer', '1')
+    sessionStorage.setItem('judgeToken:summer', 'tok')
     mount('winter')
     expect(await screen.findByRole('heading', { name: 'Judge Access' })).toBeInTheDocument()
     expect(screen.queryByText('the schedule')).not.toBeInTheDocument()
   })
 
-  it('ignores the old shared unlock', async () => {
+  // An unlock from before tokens has nothing for the ticks to carry.
+  it('ignores the old unlocks', async () => {
     sessionStorage.setItem('judgeUnlocked', '1')
+    sessionStorage.setItem('judgeUnlocked:summer', '1')
     mount()
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Judge Access' })).toBeInTheDocument())
+  })
+
+  it('says so when it has been asked too many times', async () => {
+    apiPost.mockRejectedValue(new HttpError(429, 'Too many attempts'))
+    mount()
+    enter('letmein')
+    expect(await screen.findByText('Too many tries. Wait a minute and try again.')).toBeInTheDocument()
+  })
+
+  // The password was changed on Setup while the screen was open: the server
+  // stops taking its ticks, and the screen asks for the new password.
+  it('locks again when the token is forgotten', async () => {
+    sessionStorage.setItem('judgeToken:summer', 'tok')
+    mount()
+    expect(screen.getByText('the schedule')).toBeInTheDocument()
+    act(() => forgetJudgeToken('summer'))
+    expect(await screen.findByText('The password has changed. Enter the new one.')).toBeInTheDocument()
+    expect(screen.queryByText('the schedule')).not.toBeInTheDocument()
   })
 })

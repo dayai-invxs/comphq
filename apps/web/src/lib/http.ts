@@ -24,42 +24,44 @@ export async function getJson<T = unknown>(url: string, init?: RequestInit): Pro
   return handle<T>(res)
 }
 
+// `init` goes first: its headers are merged into the ones each helper sets,
+// and spread last it replaced them, content-type included (defect 16).
 export async function postJson<T = unknown>(url: string, body: unknown, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
+    ...init,
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     body: JSON.stringify(body),
-    ...init,
   })
   return handle<T>(res)
 }
 
 export async function putJson<T = unknown>(url: string, body: unknown, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
+    ...init,
     method: 'PUT',
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     body: JSON.stringify(body),
-    ...init,
   })
   return handle<T>(res)
 }
 
 export async function patchJson<T = unknown>(url: string, body: unknown, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
+    ...init,
     method: 'PATCH',
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     body: JSON.stringify(body),
-    ...init,
   })
   return handle<T>(res)
 }
 
 export async function delJson<T = unknown>(url: string, body?: unknown, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
+    ...init,
     method: 'DELETE',
     headers: body !== undefined ? { 'content-type': 'application/json', ...(init?.headers ?? {}) } : init?.headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    ...init,
   })
   return handle<T>(res)
 }

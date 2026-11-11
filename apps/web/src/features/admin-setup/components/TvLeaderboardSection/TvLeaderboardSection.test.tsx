@@ -7,6 +7,7 @@ import { TvLeaderboardSection } from './TvLeaderboardSection'
 
 const onSaveOrder = vi.fn()
 const onSavePercentages = vi.fn()
+const onSaveSecondsPerScreen = vi.fn()
 
 const RX = { id: 1, name: 'RX', order: 1, teamSize: 1, menCount: null, womenCount: null }
 const SCALED = { id: 2, name: 'Scaled', order: 2, teamSize: 1, menCount: null, womenCount: null }
@@ -19,6 +20,8 @@ function draw(over: Partial<Parameters<typeof TvLeaderboardSection>[0]> = {}) {
       percentages={{ RX: 40 }}
       onSaveOrder={onSaveOrder}
       onSavePercentages={onSavePercentages}
+      secondsPerScreen={10}
+      onSaveSecondsPerScreen={onSaveSecondsPerScreen}
       {...over}
     />,
   )
@@ -31,12 +34,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   onSaveOrder.mockResolvedValue(undefined)
   onSavePercentages.mockResolvedValue(undefined)
+  onSaveSecondsPerScreen.mockResolvedValue(undefined)
 })
 
-it('says what the two columns decide', () => {
+it('says what the panel decides', () => {
   draw()
-  expect(screen.getByRole('heading', { name: 'TV Leaderboard' })).toBeInTheDocument()
-  expect(screen.getByText('Set display order and % of top athletes shown per division')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'TV Display' })).toBeInTheDocument()
+  expect(screen.getByText('How long each screen shows, and the order and % of top athletes per division on the leaderboard')).toBeInTheDocument()
 })
 
 it('says where the divisions come from rather than drawing an empty table', () => {
@@ -105,4 +109,24 @@ it('lets a refused write go to the page without throwing', async () => {
   fireEvent.change(position('Scaled'), { target: { value: '1' } })
   await waitFor(() => expect(onSaveOrder).toHaveBeenCalled())
   expect(position('Scaled')).toBeInTheDocument()
+})
+
+// A pace typed but not changed is not a write.
+it('does not save the TV pace when it did not change', () => {
+  draw()
+  const box = screen.getByRole('spinbutton', { name: 'Seconds per screen' })
+  fireEvent.change(box, { target: { value: '10' } })
+  fireEvent.blur(box)
+  expect(onSaveSecondsPerScreen).not.toHaveBeenCalled()
+})
+
+it('caps the TV pace at two minutes and rounds to whole seconds', () => {
+  draw()
+  const box = screen.getByRole('spinbutton', { name: 'Seconds per screen' })
+  fireEvent.change(box, { target: { value: '500' } })
+  fireEvent.blur(box)
+  expect(onSaveSecondsPerScreen).toHaveBeenLastCalledWith(120)
+  fireEvent.change(box, { target: { value: '12.6' } })
+  fireEvent.blur(box)
+  expect(onSaveSecondsPerScreen).toHaveBeenLastCalledWith(13)
 })

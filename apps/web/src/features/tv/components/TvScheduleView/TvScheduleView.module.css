@@ -61,6 +61,14 @@
   font-size: var(--tv-text-title);
 }
 
+/* The header's pieces — workout, heat, divisions, clocks — move to a new line
+   when the card is too narrow for them, rather than squeezing each other
+   until "Workout 2: Fran" and "Heat 1" break mid-name. */
+.header {
+  flex-wrap: wrap;
+  row-gap: var(--mds-gap-hairline);
+}
+
 .heatLine {
   display: flex;
   align-items: center;
@@ -77,9 +85,24 @@
   color: var(--mds-highlight);
 }
 
-.divisions,
-.division {
+.divisions {
   font-size: var(--tv-text-meta);
+}
+
+/* "Name - Division" on a heat that mixes divisions: the division reads as
+   part of the name it follows, quieter than it, and moves to the next line
+   whole rather than leaving "RX" on one line and "Men" on the next. */
+.division {
+  white-space: nowrap;
+  font-size: var(--tv-text-meta);
+  font-weight: normal;
+  color: var(--mds-text-muted);
+}
+
+/* A team's people, under its name: the size the leaderboard prints them at,
+   not the system's note size, which is for a phone in a hand. */
+.members {
+  font-size: var(--tv-text-points);
 }
 
 /* Corral, walk out, start — read in the order the heat runs, each clock under
@@ -116,7 +139,11 @@
   color: var(--mds-text-primary);
 }
 
+/* As wide as "L18", so a name starts in the same place on every lane rather
+   than stepping right at lane 10. */
 .laneNumber {
+  display: inline-block;
+  min-width: 3ch;
   font-size: var(--tv-text-title);
   font-weight: var(--mds-weight-bold);
   font-variant-numeric: tabular-nums;

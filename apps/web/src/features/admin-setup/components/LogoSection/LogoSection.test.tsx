@@ -3,8 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { LogoSection } from './LogoSection'
 
 // v1: the Competition Logo section of src/app/[slug]/admin/setup/page.tsx.
-// One logo for the whole install, not one per competition — the row it is
-// stored in carries competitionId 0 (defect 8, ported as-is).
+// Each competition has its own logo.
 
 const onUpload = vi.fn()
 const onRemove = vi.fn()

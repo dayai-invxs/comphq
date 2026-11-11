@@ -1,8 +1,10 @@
 import { Card, CardBody, CardHeader, EmptyState, Heading, Skeleton, Text, VisuallyHidden, cx } from '@mond-design-system/react'
-import type { LeaderboardData } from '@/api/liveReads'
-import { formatTotal, tvDivisionsOf } from '@/lib/standings'
-import styles from './TvLeaderboardView.module.css'
+import type { LeaderboardData, LeaderboardEntry } from '@/api/liveReads'
+import { formatTotal } from '@/lib/standings'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
+import { panelColumns, tvPanels } from '../../leaderboardLayouts'
+import { splitColumns } from '../../splitColumns'
+import styles from './TvLeaderboardView.module.css'
 
 // v1: LeaderboardView in src/app/[slug]/TV/page.tsx. One panel per division,
 // in the order the setup screen set, each showing the share of its division
@@ -22,13 +24,19 @@ import { MemberNames } from '@/components/MemberNames/MemberNames'
 //
 // So the places are numbered and nothing else. The leader is set apart by
 // weight, and says so in words for a reader who cannot see the weight.
+//
+// A division too long to read at full size is split into two or three columns
+// rather than the whole board shrunk (`layout`, see leaderboardLayouts.ts, picked by
+// TvPage's useScaleToFit).
 
 interface Props {
   data: LeaderboardData | undefined
   error?: Error | null
+  /** Which arrangement to draw; see leaderboardLayouts.ts. */
+  layout?: number
 }
 
-export function TvLeaderboardView({ data, error }: Props) {
+export function TvLeaderboardView({ data, error, layout = 0 }: Props) {
   // A failed read is not "No scores yet": that would tell a room
   // mid-competition that nobody has scored anything.
   if (error) {
@@ -47,8 +55,9 @@ export function TvLeaderboardView({ data, error }: Props) {
     )
   }
 
-  const { entries, workouts, tvLeaderboardPercentages = {}, tvLeaderboardOrder = {} } = data
-  if (workouts.length === 0 || entries.length === 0) {
+  // Nobody scored yet is an empty board, not a ranking by name at 0 points.
+  const panels = tvPanels(data)
+  if (panels.every((p) => p.rows.length === 0)) {
     return (
       <div className={styles.notice}>
         <EmptyState
@@ -59,40 +68,66 @@ export function TvLeaderboardView({ data, error }: Props) {
     )
   }
 
+  const columns = panelColumns(panels, layout)
+
   return (
     <div className={styles.panels}>
-      {tvDivisionsOf(entries, tvLeaderboardOrder).map((division) => {
-        const rows = entries.filter((e) => e.divisionName === division)
-        // A share that rounds to nobody still shows the leader: a panel with a
-        // heading and no rows tells the room less than one name does.
-        const percent = division != null ? tvLeaderboardPercentages[division] ?? 100 : 100
-        const shown = rows.slice(0, Math.max(1, Math.ceil(rows.length * percent / 100)))
-
+      {panels.map(({ division, rows }, p) => {
+        const name = division ?? 'No Division'
+        const runs = rows.length ? splitColumns(rows, columns[p]) : []
         return (
-          <Card as="section" key={division ?? 'none'} className={styles.panel}>
+          <Card
+            as="section"
+            key={division ?? 'none'}
+            aria-label={name}
+            className={styles.panel}
+            data-columns={runs.length > 1 ? runs.length : undefined}
+          >
             <CardHeader>
-              <Heading level={2} className={styles.division}>{division ?? 'No Division'}</Heading>
+              <Heading level={2} className={styles.division}>{name}</Heading>
             </CardHeader>
             <CardBody>
-              <ol className={styles.rows} aria-label={`${division ?? 'No Division'} standings`}>
-                {shown.map((row, i) => (
-                  <li key={row.athleteId} className={cx(styles.row, i === 0 && styles.lead)}>
-                    <span className={styles.place}>#{i + 1}</span>
-                    <span className={styles.athlete}>
-                      <span className={styles.name}>
-                        {row.athleteName}
-                        {i === 0 && <VisuallyHidden>, leading</VisuallyHidden>}
-                      </span>
-                      <MemberNames members={row.members} className={styles.members} />
-                      <Text as="span" tone="muted" className={styles.points}>{formatTotal(row.totalPoints)} pts</Text>
-                    </span>
-                  </li>
-                ))}
-              </ol>
+              {rows.length === 0 && <Text tone="muted" className={styles.empty}>No scores yet</Text>}
+              <div className={styles.columns}>
+                {runs.map((run, r) => {
+                  const first = runs.slice(0, r).reduce((n, prev) => n + prev.length, 0)
+                  return (
+                    <ol
+                      key={first}
+                      start={first + 1}
+                      className={styles.rows}
+                      aria-label={runs.length > 1
+                        ? `${name} standings ${first + 1}–${first + run.length}`
+                        : `${name} standings`}
+                    >
+                      {run.map((row, i) => <Row key={row.athleteId} row={row} place={first + i + 1} />)}
+                    </ol>
+                  )
+                })}
+              </div>
             </CardBody>
           </Card>
         )
       })}
     </div>
+  )
+}
+
+/** One place: the number, the name with its team under it, and the points on
+    the name's line at the right, so a row is as tall as its name and no more. */
+function Row({ row, place }: { row: LeaderboardEntry; place: number }) {
+  const leading = place === 1
+  return (
+    <li className={cx(styles.row, leading && styles.lead)}>
+      <span className={styles.place}>#{place}</span>
+      <span className={styles.athlete}>
+        <span className={styles.name}>
+          {row.athleteName}
+          {leading && <VisuallyHidden>, leading</VisuallyHidden>}
+        </span>
+        <MemberNames members={row.members} className={styles.members} />
+      </span>
+      <Text as="span" tone="muted" className={styles.points}>{formatTotal(row.totalPoints)} pts</Text>
+    </li>
   )
 }

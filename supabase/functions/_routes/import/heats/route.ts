@@ -1,7 +1,7 @@
 import { eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, heatAssignment, workout } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { parseCsv } from '@/lib/csv'
 import { workoutHasScores } from '@/lib/heatDeletion'
 import { planMerge } from '@/lib/heatMerge'
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     const mode = (modeRaw ?? 'replace') as Mode
     if (!MODES.includes(mode)) return new Response(`Unknown mode "${String(modeRaw)}"`, { status: 400 })
 
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     return await runImport(csvText, competition.id, mode)
   } catch (e) {
     return authErrorResponse(e)

@@ -50,19 +50,17 @@ describe('POST /api/workouts/[id]/assignments', () => {
     // Query order:
     //   1. requireWorkoutInCompetition
     //   2. athletes
-    //   3. workout-scoped scores (side-select — route path keeps but discards result)
-    //   4. all scores (grouped by athlete)
-    //   5. divisions
-    //   6. (if useCumulative) completed workouts — skipped with useCumulative=false
-    //   7. RPC via db.execute
-    //   8. fetchAssignmentsWithEmbeds (final select)
+    //   3. those athletes' scores (grouped by athlete)
+    //   4. divisions
+    //   5. (if useCumulative) completed workouts — skipped with useCumulative=false
+    //   6. RPC via db.execute
+    //   7. fetchAssignmentsWithEmbeds (final select)
     mock.queueResult([{ id: 1, lanes: 2, mixedHeats: true }])
     mock.queueResult([
       { id: 10, competitionId: 1, divisionId: null, name: 'Alice', bibNumber: null, userId: null, withdrawn: false },
       { id: 11, competitionId: 1, divisionId: null, name: 'Bob', bibNumber: null, userId: null, withdrawn: false },
     ])
-    mock.queueResult([]) // workout-scoped scores
-    mock.queueResult([]) // all scores for grouping
+    mock.queueResult([]) // those athletes' scores
     mock.queueResult([]) // divisions
     mock.queueResult(undefined) // RPC execute
     mock.queueResult([
@@ -78,6 +76,33 @@ describe('POST /api/workouts/[id]/assignments', () => {
     expect(Array.isArray(body)).toBe(true)
     expect(body).toHaveLength(2)
     expect(mock.calls.some((c) => c.method === 'execute')).toBe(true)
+  })
+
+  // Regenerating after a withdrawal used to put the withdrawn athlete back in
+  // a lane. Only the athletes still competing are placed.
+  it('leaves withdrawn athletes out of the heats', async () => {
+    mock.queueResult([{ id: 1, lanes: 2, mixedHeats: true }])
+    mock.queueResult([
+      { id: 10, competitionId: 1, divisionId: null, name: 'Alice', bibNumber: null, userId: null, withdrawn: false },
+      { id: 11, competitionId: 1, divisionId: null, name: 'Bob', bibNumber: null, userId: null, withdrawn: true },
+    ])
+    mock.queueResult([]) // scores
+    mock.queueResult([]) // divisions
+    mock.queueResult(undefined) // RPC execute
+    mock.queueResult([])
+
+    await POST(req('POST', {}), params('1'))
+
+    // The lanes handed to the database are the JSON parameter of the RPC.
+    const rpc = mock.calls.find((c) => c.method === 'execute')!
+    const placed: number[] = []
+    const walk = (v: unknown): void => {
+      if (typeof v === 'string' && v.startsWith('[')) {
+        try { for (const a of JSON.parse(v) as { athleteId: number }[]) placed.push(a.athleteId) } catch { /* not ours */ }
+      } else if (v && typeof v === 'object') Object.values(v).forEach(walk)
+    }
+    walk(rpc.args)
+    expect(placed).toEqual([10])
   })
 })
 

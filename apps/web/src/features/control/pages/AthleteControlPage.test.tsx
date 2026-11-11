@@ -165,7 +165,7 @@ describe('AthleteControlPage', () => {
         slug: 'summer',
         type: 'athlete',
         entry: { key: '7-1', value: { corral: true, walkout: false } },
-      }),
+      }, expect.anything()),
     )
   })
 
@@ -178,7 +178,7 @@ describe('AthleteControlPage', () => {
         slug: 'summer',
         type: 'athlete',
         entry: { key: '7-1', value: { corral: true, walkout: true } },
-      }),
+      }, expect.anything()),
     )
   })
 
@@ -191,7 +191,7 @@ describe('AthleteControlPage', () => {
         slug: 'summer',
         type: 'athlete',
         entry: { key: '7-1', value: { corral: false, walkout: true } },
-      }),
+      }, expect.anything()),
     )
   })
 
@@ -231,7 +231,7 @@ describe('AthleteControlPage', () => {
     const dialog = await screen.findByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Reset checks' }))
     await waitFor(() =>
-      expect(apiPatch).toHaveBeenCalledWith('/api/checks', { slug: 'summer', type: 'athlete', checks: {} }),
+      expect(apiPatch).toHaveBeenCalledWith('/api/checks', { slug: 'summer', type: 'athlete', checks: {} }, expect.anything()),
     )
   })
 

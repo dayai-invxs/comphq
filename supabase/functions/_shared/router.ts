@@ -1,4 +1,5 @@
-import { withRequestContext } from './request-context.ts'
+import { getRequestContext, withRequestContext } from './request-context.ts'
+import { auditBody, recordChange } from './auditTrail.ts'
 
 // What Next did for the route handlers, minus Next.
 //
@@ -28,7 +29,7 @@ export type Route = { method: string; pattern: string; handler: Handler<any> }
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-region',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-region, x-judge-token',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   // The export routes name the file they serve. Without this the browser hides
   // that header cross-origin and the client has to invent the name.
@@ -105,8 +106,13 @@ export function createRouter(base: string, routes: Route[]) {
     }
 
     try {
-      const res = await withRequestContext(req, () =>
-        Promise.resolve(hit.route.handler(req, { params: Promise.resolve(hit.params) })))
+      // The body is read for the audit trail before the route reads it.
+      const body = await auditBody(req)
+      const res = await withRequestContext(req, async () => {
+        const res = await hit.route.handler(req, { params: Promise.resolve(hit.params) })
+        await recordChange(req, hit.route.pattern, hit.params, res, getRequestContext(), body)
+        return res
+      })
       return withCors(res)
     } catch (e) {
       console.error(`${req.method} ${path}`, e)

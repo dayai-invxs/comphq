@@ -7,9 +7,8 @@ import { queryKeys } from './queryKeys'
 // workout detail to score against — each with its own useState and its own
 // idea of what an athlete looks like. One read, one shape.
 //
-// The row is the table's, plus the division the API joins on. It requires
-// access to the competition, not admin rights: a role='user' member can edit
-// the roster (defect 3), and this is one of the endpoints that lets them.
+// The row is the table's, plus the division the API joins on. Reading it needs
+// access to the competition; changing the roster needs its admin.
 
 export type Gender = 'male' | 'female'
 

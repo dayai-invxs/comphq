@@ -4,6 +4,7 @@ import { Text } from '@mond-design-system/react'
 import { useMyCompetitions } from '@/api/competitions'
 import { useMe } from '@/api/session'
 import { CompetitionBrand } from '@/components/CompetitionBrand/CompetitionBrand'
+import { CompetitionRoleProvider } from '@/lib/competitionRole'
 import { useSession } from '@/lib/session'
 import { AdminShell } from '@/layouts/AdminShell'
 import { Booting, GateFailed, NoAccess } from './GateStates'
@@ -15,9 +16,10 @@ import { SITE_GROUP } from './siteNav'
 //
 // Two things are decided here and nowhere else: whether this user may see this
 // competition at all, and whether they are its admin rather than one of its
-// scorekeepers. Only the second is a matter of degree — v1 lets a role='user'
-// member mutate athletes, workouts and scores (defect 3), and gates just the
-// Users screen on role='admin'.
+// users (scorekeepers). An admin sets the competition up; a user runs it —
+// scores, heats, workout status — and sees no People, Setup, Comp Users or
+// Activity. The screens below learn which through CompetitionRoleProvider,
+// and the server holds the same line.
 export function CompetitionAdminApp() {
   const { slug = '' } = useParams<{ slug: string }>()
   const { pathname } = useLocation()
@@ -92,19 +94,25 @@ export function CompetitionAdminApp() {
             { to: `${base}/leaderboard`, label: 'Leaderboard', icon: 'leaderboard' },
           ],
         },
-        {
-          label: 'People',
-          items: [
-            { to: `${base}/people`, label: 'People', icon: 'people' },
-            ...(isCompAdmin
-              ? [{ to: `${base}/users`, label: 'Comp Users', icon: 'users' as const }]
-              : []),
-          ],
-        },
-        {
-          label: 'Setup',
-          items: [{ to: `${base}/setup`, label: 'Setup', icon: 'setup' }],
-        },
+        // Setting the competition up is the admin's alone.
+        ...(isCompAdmin
+          ? [
+              {
+                label: 'People',
+                items: [
+                  { to: `${base}/people`, label: 'People', icon: 'people' as const },
+                  { to: `${base}/users`, label: 'Comp Users', icon: 'users' as const },
+                ],
+              },
+              {
+                label: 'Setup',
+                items: [
+                  { to: `${base}/setup`, label: 'Setup', icon: 'setup' as const },
+                  { to: `${base}/activity`, label: 'Activity', icon: 'activity' as const },
+                ],
+              },
+            ]
+          : []),
       ]}
       extras={[
         { to: `/${slug}`, label: 'Schedule', icon: 'schedule' },
@@ -118,7 +126,9 @@ export function CompetitionAdminApp() {
       trailing={isSuper ? [SITE_GROUP] : []}
       onSignOut={handleSignOut}
     >
-      <Outlet />
+      <CompetitionRoleProvider isAdmin={isCompAdmin}>
+        <Outlet />
+      </CompetitionRoleProvider>
     </AdminShell>
   )
 }

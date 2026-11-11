@@ -1,5 +1,5 @@
-// Knockout tournament rules, shared by the server and the web app.
-// apps/web/src/lib/knockout.ts is an identical copy (a test checks it).
+// Knockout tournament rules, shared by the server and the web app (which
+// re-exports this file from apps/web/src/lib/knockout.ts).
 //
 // A knockout workout runs in rounds. Round 1 is everyone in the division;
 // the top N of each division in each heat advance, and the next round's heats

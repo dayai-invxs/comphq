@@ -128,15 +128,14 @@ describe('DELETE /api/workouts/[id]/judge-assignments', () => {
     expect((await DELETE(deleteReq({ ids: [1] }), params('1'))).status).toBe(404)
   })
 
-  it('deletes the listed ids and reports the requested count', async () => {
-    mock.queueResults(WORKOUT, [])
+  it('deletes the listed ids and reports how many went', async () => {
+    mock.queueResults(WORKOUT, [{ id: 1 }, { id: 2 }])
     const res = await DELETE(deleteReq({ ids: [1, 2] }), params('1'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ deleted: 2 })
   })
 
-  // A body that fails validation is treated as "no body" and clears every
-  // assignment for the workout. A typo in the payload wipes the board.
+  // No body at all is the "clear every judge" button.
   it('clears the whole workout when the body is absent', async () => {
     mock.queueResults(WORKOUT, [])
     const res = await DELETE(deleteReq(), params('1'))
@@ -144,17 +143,27 @@ describe('DELETE /api/workouts/[id]/judge-assignments', () => {
     expect(await res.json()).toEqual({ deleted: 'all' })
   })
 
-  it('clears the whole workout when the body fails validation', async () => {
-    mock.queueResults(WORKOUT, [])
+  // A body that is there but wrong used to count as no body and wipe the
+  // workout's judges. It is refused, and nothing is deleted.
+  it('refuses a body that fails validation, and deletes nothing', async () => {
+    mock.queueResults(WORKOUT)
     const res = await DELETE(deleteReq({ ids: 'nope' }), params('1'))
-    expect(await res.json()).toEqual({ deleted: 'all' })
+    expect(res.status).toBe(400)
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(false)
   })
 
-  // The id-scoped delete is not scoped to the workout, so an id from another
-  // workout would still be removed.
-  it('reports the requested count rather than the rows actually removed', async () => {
+  it('refuses a body that is not JSON', async () => {
+    mock.queueResults(WORKOUT)
+    const res = await DELETE(new Request('http://test/api/workouts/1/judge-assignments?slug=default', { method: 'DELETE', body: '{oops' }), params('1'))
+    expect(res.status).toBe(400)
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
+  // Only this workout's rows go, and the answer is how many actually did: an
+  // id from another workout or competition is left alone.
+  it('deletes only this workout\'s rows and reports how many went', async () => {
     mock.queueResults(WORKOUT, [])
     const res = await DELETE(deleteReq({ ids: [999] }), params('1'))
-    expect(await res.json()).toEqual({ deleted: 1 })
+    expect(await res.json()).toEqual({ deleted: 0 })
   })
 })

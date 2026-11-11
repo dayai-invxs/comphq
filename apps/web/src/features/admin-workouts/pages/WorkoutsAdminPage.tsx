@@ -11,6 +11,7 @@ import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { Notice } from '@/components/Notice/Notice'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { RouterAnchor } from '@/components/RouterAnchor'
+import { useIsCompetitionAdmin } from '@/lib/competitionRole'
 import { scoreTypeLabel } from '@/lib/scoreTypes'
 import { statusBadge } from '@/lib/workoutStatus'
 import { AddWorkoutForm } from '../components/AddWorkoutForm/AddWorkoutForm'
@@ -39,6 +40,9 @@ import { TiebreakPicker } from '../components/TiebreakPicker/TiebreakPicker'
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export function WorkoutsAdminPage() {
+  // A competition user (scorekeeper) activates workouts and opens them to
+  // score; adding them, the tiebreak and the imports are the admin's.
+  const isAdmin = useIsCompetitionAdmin()
   const { slug = '' } = useParams()
 
   const workouts = useWorkouts(slug)
@@ -120,7 +124,7 @@ export function WorkoutsAdminPage() {
       title="Workouts"
       description={rows.length ? `${rows.length} in this competition` : 'Every workout and how it is scored'}
       wide
-      actions={<Button onClick={openForm}>Add workout</Button>}
+      actions={isAdmin ? <Button onClick={openForm}>Add workout</Button> : undefined}
     >
       {failure && failure !== dismissed && (
         <Notice tone="danger" onDismiss={() => setDismissed(failure)} dismissLabel="Dismiss error">
@@ -138,8 +142,10 @@ export function WorkoutsAdminPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           title="No workouts yet"
-          description="A workout carries its own lanes, its clocks and how it is scored. Heats are generated from it once athletes are entered."
-          action={<Button onClick={openForm}>Add workout</Button>}
+          description={isAdmin
+            ? 'A workout carries its own lanes, its clocks and how it is scored. Heats are generated from it once athletes are entered.'
+            : 'A competition admin adds the workouts. They appear here once they have.'}
+          action={isAdmin ? <Button onClick={openForm}>Add workout</Button> : undefined}
         />
       ) : (
         <DataPanel flush>
@@ -159,6 +165,7 @@ export function WorkoutsAdminPage() {
         onLoad={loadEquipment}
       />
 
+      {isAdmin && <>
       <TiebreakPicker
         workouts={rows}
         workoutId={settings.data?.tiebreakWorkoutId ?? null}
@@ -175,6 +182,7 @@ export function WorkoutsAdminPage() {
         placeholder={'workout_number,heat_number,lane,judge_name\n1,1,3,Alice Johnson\n1,2,1,Bob Smith'}
         run={judges}
       />
+      </>}
 
       <AddWorkoutForm
         open={adding}

@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   advancers, buildRound, currentRound, heatResult, middleOutLanes, placings, roundSizes, snakeHeats,
@@ -13,14 +11,6 @@ const wk: KnockoutWorkout = {
 let nextId = 1
 const lane = (over: Partial<KnockoutLane> & Pick<KnockoutLane, 'athleteId'>): KnockoutLane => ({
   id: nextId++, divisionId: 1, heatNumber: 1, lane: 1, round: 1, rawScore: null, capped: false, tiebreakRawScore: null, advanced: null, ...over,
-})
-
-describe('the shared copy', () => {
-  it('is identical in the web app', () => {
-    const here = readFileSync(join(__dirname, 'knockout.ts'), 'utf8')
-    const web = readFileSync(join(__dirname, '../../../apps/web/src/lib/knockout.ts'), 'utf8')
-    expect(web).toBe(here)
-  })
 })
 
 describe('heatResult', () => {

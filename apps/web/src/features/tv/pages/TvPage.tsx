@@ -9,6 +9,7 @@ import type { OpsData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { TvLeaderboardView } from '../components/TvLeaderboardView/TvLeaderboardView'
 import { TvScheduleView } from '../components/TvScheduleView/TvScheduleView'
+import { leaderboardLayoutCount } from '../leaderboardLayouts'
 import { SCHEDULE_LAYOUTS } from '../scheduleLayouts'
 import { useScaleToFit } from '../useScaleToFit'
 import styles from './TvPage.module.css'
@@ -17,7 +18,9 @@ import styles from './TvPage.module.css'
 // anything on it, so it turns itself between the two halves of the board and
 // reads on a timer.
 
-const SWITCH_INTERVAL_MS = 10_000
+/** Seconds on each half before turning, until the competition's own setting
+    (Setup → TV Display, served with the leaderboard) has been read. */
+const DEFAULT_SECONDS_PER_SCREEN = 10
 
 // v1 compiled the QR target in as one competition's address, so every board
 // ever printed sent the room to ruggedrumble's athlete list whatever
@@ -53,22 +56,27 @@ export function TvPage() {
   )
   useRealtimeInvalidation(slug, realtimeKeys)
 
+  // Each half gets its full time from the moment it is up. A new pace saved
+  // on Setup restarts the clock of the half on screen at that pace.
+  const seconds = lbData?.tvSecondsPerScreen ?? DEFAULT_SECONDS_PER_SCREEN
   useEffect(() => {
-    const id = setInterval(
+    const id = setTimeout(
       () => setView((v) => (v === 'schedule' ? 'leaderboard' : 'schedule')),
-      SWITCH_INTERVAL_MS,
+      seconds * 1000,
     )
-    return () => clearInterval(id)
-  }, [])
+    return () => clearTimeout(id)
+  }, [view, seconds])
 
-  // Redrawn for each of the things that change what the board is: new ops,
-  // new standings, a heat walked out (which moves the queue up), and the turn
-  // between the two halves. The schedule has other
-  // arrangements to try before anything is shrunk (scheduleLayouts.ts); the
-  // leaderboard has its one.
+  // Fitted again whenever what is on screen changes: the half that is up, and
+  // the reads that half is drawn from — ops and walkout ticks for the
+  // schedule, standings for the leaderboard. A read for the other half does
+  // not touch the screen, so it does not start a fit. Each half has
+  // arrangements to try before anything is shrunk (scheduleLayouts.ts,
+  // leaderboardLayouts.ts).
+  const onSchedule = view === 'schedule'
   const { containerRef, contentRef, layout } = useScaleToFit(
-    [opsData, lbData, checksData, view],
-    view === 'schedule' ? SCHEDULE_LAYOUTS.length : 1,
+    [view, onSchedule ? opsData : lbData, onSchedule ? checksData : null],
+    onSchedule ? SCHEDULE_LAYOUTS.length : leaderboardLayoutCount(lbData),
   )
 
   return (
@@ -113,7 +121,7 @@ export function TvPage() {
         <div ref={contentRef} data-testid="tv-content">
           {view === 'schedule'
             ? <TvScheduleView data={opsData} error={opsError} checks={athleteChecks} layout={layout} />
-            : <TvLeaderboardView data={lbData} error={lbError} />}
+            : <TvLeaderboardView data={lbData} error={lbError} layout={layout} />}
         </div>
       </main>
     </div>

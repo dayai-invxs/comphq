@@ -100,7 +100,7 @@ it('offers a way to each region without scrolling to it', async () => {
   mount()
   const nav = within(await screen.findByRole('navigation', { name: 'Setup sections' }))
   expect(nav.getAllByRole('link').map((a) => a.textContent)).toEqual([
-    'Settings', 'Logo', 'TV leaderboard', 'Divisions', 'Locations', 'Volunteer roles', 'Competition Corner',
+    'Settings', 'Logo', 'TV display', 'Divisions', 'Locations', 'Volunteer roles', 'Competition Corner',
   ])
   expect(nav.getByRole('link', { name: 'Volunteer roles' })).toHaveAttribute('href', '#setup-roles')
   expect(document.getElementById('setup-roles')).toBeInTheDocument()
@@ -195,6 +195,36 @@ it('writes the TV settings against the same endpoint', async () => {
   }))
 })
 
+// How long the TV shows each screen: saved on blur, and only when it changed.
+// Unsaved, the board's old pace of ten seconds is what the box shows.
+it('saves how long the TV shows each screen', async () => {
+  mount()
+  const box = await screen.findByRole('spinbutton', { name: 'Seconds per screen' })
+  expect(box).toHaveValue(10)
+  fireEvent.change(box, { target: { value: '20' } })
+  fireEvent.blur(box)
+  await waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/api/settings', { slug: 'summer', tvSecondsPerScreen: 20 }))
+})
+
+// Under five seconds nobody finds their lane; the box keeps the board in the
+// range the server accepts rather than sending a write it will refuse.
+it('keeps the TV pace between 5 and 120 seconds', async () => {
+  mount()
+  const box = await screen.findByRole('spinbutton', { name: 'Seconds per screen' })
+  fireEvent.change(box, { target: { value: '2' } })
+  fireEvent.blur(box)
+  await waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/api/settings', { slug: 'summer', tvSecondsPerScreen: 5 }))
+})
+
+it('puts back the saved TV pace when the box is left empty', async () => {
+  mount()
+  const box = await screen.findByRole('spinbutton', { name: 'Seconds per screen' })
+  fireEvent.change(box, { target: { value: '' } })
+  fireEvent.blur(box)
+  expect(box).toHaveValue(10)
+  expect(apiPatch).not.toHaveBeenCalled()
+})
+
 // The TV settings are keyed by division name, so with no divisions there is
 // nothing to set. v1 hid the section outright; it now says why it is empty and
 // where the divisions come from, which is the same rule every other empty list
@@ -202,8 +232,10 @@ it('writes the TV settings against the same endpoint', async () => {
 it('says why the TV section is empty rather than hiding it', async () => {
   serve({ divisions: [] })
   mount()
-  expect(await screen.findByRole('heading', { name: 'TV Leaderboard' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'TV Display' })).toBeInTheDocument()
   expect(screen.getByText('No divisions to show')).toBeInTheDocument()
+  // The pace is the whole board's, not any division's, so it is still there.
+  expect(screen.getByRole('spinbutton', { name: 'Seconds per screen' })).toBeInTheDocument()
 })
 
 it('uploads a logo', async () => {
@@ -239,7 +271,7 @@ it('says the reads failed rather than pretending the lists are empty', async () 
   expect(screen.getByText('Could not load the locations')).toBeInTheDocument()
   expect(screen.getByText('Could not load the volunteer roles')).toBeInTheDocument()
   expect(screen.getByText('Could not load the settings')).toBeInTheDocument()
-  expect(screen.getByText('Could not load the TV leaderboard')).toBeInTheDocument()
+  expect(screen.getByText('Could not load the TV display')).toBeInTheDocument()
   expect(screen.getByText('Could not load the logo')).toBeInTheDocument()
   expect(screen.queryByText('No divisions yet')).not.toBeInTheDocument()
   expect(screen.queryByText('No locations yet')).not.toBeInTheDocument()

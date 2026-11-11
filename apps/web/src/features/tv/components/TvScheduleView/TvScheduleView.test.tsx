@@ -198,14 +198,34 @@ it('leaves the times off a heat that has no start time', () => {
 })
 
 // An athlete finds themselves by lane number, so the lanes read in order
-// however the endpoint happened to serve them.
-it('lists the lanes in order, with the athlete and their division', () => {
+// however the endpoint happened to serve them. The division follows the name:
+// at the right edge of a split heat's column it read as the next column's.
+it('lists the lanes in order, as "Name - Division" when the heat mixes divisions', () => {
   draw({ workouts: [workout({ heats: [heat(1)] })], showBib: false })
   const lanes = within(card(1).getByRole('list', { name: 'Heat 1 lanes' })).getAllByRole('listitem')
   expect(lanes.map((l) => l.textContent)).toEqual([
-    'L1Athlete 1BScaled',
-    'L2Athlete 1ARX',
+    'L1Athlete 1B - Scaled',
+    'L2Athlete 1A - RX',
   ])
+})
+
+// One division is said once, in the card header, not on every lane.
+it('leaves the division off the lanes of a one-division heat', () => {
+  draw({ workouts: [workout({ heats: [wide(1, 3)] })], showBib: false })
+  expect(card(1).getByText('RX')).toBeInTheDocument()
+  const lanes = within(card(1).getByRole('list', { name: 'Heat 1 lanes' })).getAllByRole('listitem')
+  expect(lanes.map((l) => l.textContent)).toEqual(['L1Athlete 1-1', 'L2Athlete 1-2', 'L3Athlete 1-3'])
+})
+
+it('names a team\'s people under it', () => {
+  const team = heat(1, {
+    entries: [{
+      athleteId: 1, athleteName: 'Barbell Brigade', members: ['Ada', 'Bo'], bibNumber: null,
+      divisionName: 'Teams', lane: 1, scoreDisplay: null, tiebreakDisplay: null,
+    }],
+  })
+  draw({ workouts: [workout({ heats: [team] })], showBib: false })
+  expect(card(1).getByText('Ada · Bo')).toBeInTheDocument()
 })
 
 // The board as it always was: three heats, nothing in the strip.

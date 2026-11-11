@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { userProfile, competitionAdmin, workout } from '@/db/schema'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { resolveCompetition } from '@/lib/competition'
+import { getRequestContext } from '@/lib/request-context'
 
 export type AuthedUser = { id: string; email: string | null; isSuper: boolean }
 export type Competition = { id: number; name: string; slug: string }
@@ -34,6 +35,9 @@ export async function requireSession(): Promise<AuthedUser> {
     .where(eq(userProfile.id, user.id))
     .limit(1)
 
+  const ctx = getRequestContext()
+  if (ctx) ctx.actor = { userId: user.id, email: user.email ?? null, competitionId: null }
+
   return {
     id: user.id,
     email: user.email ?? null,
@@ -53,6 +57,11 @@ export async function requireCompetitionAccess(slug: string): Promise<AuthContex
 
   const competition = await resolveCompetition(slug)
   if (!competition) throw new AuthError(404, 'Competition not found')
+
+  // The audit trail files the change under this competition. Set before the
+  // membership check: a refused caller writes nothing, so nothing is logged.
+  const ctx = getRequestContext()
+  if (ctx?.actor) ctx.actor.competitionId = competition.id
 
   if (user.isSuper) {
     return {

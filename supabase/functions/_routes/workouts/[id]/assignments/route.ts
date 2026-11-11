@@ -1,11 +1,11 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, teamMember, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
 import type { AthleteWithScore } from '@/lib/scoring'
 import { score as scoreTable } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentRegen, LaneMemberSet } from '@/lib/schemas'
 import { SCORES_BLOCK_MESSAGE, workoutHasScores } from '@/lib/heatDeletion'
@@ -75,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     const wk = await requireWorkoutInCompetition<{ id: number; lanes: number; mixedHeats: boolean }>(
@@ -86,23 +86,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!parsed.ok) return parsed.response
     const useCumulative = parsed.data.useCumulative === true
 
-    // Fetch athletes with all their scores embedded — previously a PostgREST
-    // `select('*, scores:Score(*)')` call.
-    const athleteRows = await db
+    // The athletes to place, each with every score they have in this
+    // competition (seeding can read earlier workouts). A withdrawn athlete is
+    // left out: regenerating heats after a withdrawal used to give them a lane
+    // again.
+    const athleteRows = (await db
       .select()
       .from(athlete)
-      .where(eq(athlete.competitionId, competition.id))
-    const scoreRows = athleteRows.length > 0
+      .where(eq(athlete.competitionId, competition.id)))
+      .filter((a) => !a.withdrawn)
+    // Only these athletes' scores. This used to read the whole Score table,
+    // every competition's, on every generation.
+    const athleteScores = athleteRows.length > 0
       ? await db
           .select()
           .from(scoreTable)
-          .where(eq(scoreTable.workoutId, workoutId))
+          .where(inArray(scoreTable.athleteId, athleteRows.map((a) => a.id)))
       : []
-    // Group scores by athleteId. Note: original supabase embed pulled ALL
-    // scores (not filtered by workoutId). Keeping that broader semantic.
-    const allScores = await db.select().from(scoreTable)
-    const scoresByAthlete = new Map<number, typeof allScores>()
-    for (const s of allScores) {
+    const scoresByAthlete = new Map<number, typeof athleteScores>()
+    for (const s of athleteScores) {
       const arr = scoresByAthlete.get(s.athleteId) ?? []
       arr.push(s)
       scoresByAthlete.set(s.athleteId, arr)
@@ -111,7 +113,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ...a,
       scores: (scoresByAthlete.get(a.id) ?? []).map((s) => ({ ...s })),
     })) as unknown as AthleteWithScore[]
-    void scoreRows // satisfy linter; workoutId-scoped filter path not used today
 
     const divisions = await db
       .select({ id: division.id, order: division.order })
@@ -152,7 +153,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)

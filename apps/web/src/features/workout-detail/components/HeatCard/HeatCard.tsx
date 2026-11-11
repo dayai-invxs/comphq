@@ -72,11 +72,14 @@ interface Props {
   onDeleteHeat?: (heatNumber: number) => void
   /** Heats are locked: show Delete Heat gray and disabled until unlocked. */
   deleteLocked?: boolean
-  onReorder: (dragId: number, destHeat: number, destIndex: number) => void
-  onSaveHeatTime: (heatNumber: number, isoTime: string) => Promise<void>
+  /** Moving lanes and heat times are setup: left out for a competition user
+      (role 'user'), the rows do not drag and the time has no Edit. */
+  onReorder?: (dragId: number, destHeat: number, destIndex: number) => void
+  onSaveHeatTime?: (heatNumber: number, isoTime: string) => Promise<void>
   isSaving: boolean
   judges?: { id: number; name: string }[]
   judgesByLane?: Map<number, JudgeInfo>
+  /** Left out, the judge column shows who is judging and cannot be changed. */
   onJudgeChange?: (heatNumber: number, lane: number, volunteerId: number | null) => void
   onPointsOverride?: (athleteId: number, points: number) => Promise<void>
   /** Athletes/teams placed more than once in this workout → every heat they are in. */
@@ -148,7 +151,7 @@ export function HeatCard({
   // Create a GSAP Draggable per row. Locked while heat is complete or saving.
   useGSAP(
     () => {
-      if (isComplete || isSaving) return
+      if (isComplete || isSaving || !onReorder) return
       const instances: Draggable[] = []
       for (const a of sorted) {
         const rowEl = rowRefs.current.get(a.id)
@@ -186,7 +189,7 @@ export function HeatCard({
       }
       return () => instances.forEach((d) => d.kill())
     },
-    { scope: containerRef, dependencies: [isComplete, isSaving, isTouch, sorted.map((a) => a.id).join(',')] },
+    { scope: containerRef, dependencies: [isComplete, isSaving, isTouch, !onReorder, sorted.map((a) => a.id).join(',')] },
   )
 
   const heatMs = workout.startTime
@@ -212,7 +215,7 @@ export function HeatCard({
   }
 
   async function commitHeatTime() {
-    if (!workout.startTime || !heatTimeInput || savingHeatTime) return
+    if (!workout.startTime || !heatTimeInput || savingHeatTime || !onSaveHeatTime) return
     const baseDate = heatMs != null ? new Date(heatMs) : new Date(workout.startTime)
     const [hh, mm] = heatTimeInput.split(':').map(Number)
     const newDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hh, mm, 0, 0)
@@ -229,8 +232,11 @@ export function HeatCard({
   // scores place it, and a tie for first is a shared placing.
   const advanceBoxes = !!knockout && !knockout.isFinal
 
+  // The touch handle only where a row can be moved.
+  const handles = isTouch && !!onReorder
+
   const columnCount =
-    (isTouch ? 6 : 5) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0) + 1 + (advanceBoxes ? 1 : 0)
+    (handles ? 6 : 5) + (showJudges ? 1 : 0) + (workout.partBEnabled ? 1 : 0) + 1 + (advanceBoxes ? 1 : 0)
 
   return (
     <Card
@@ -305,7 +311,7 @@ export function HeatCard({
                   </>
                 )}
               </Text>
-              <Button variant="ghost" size="sm" onClick={openHeatTimeEdit}>Edit time</Button>
+              {onSaveHeatTime && <Button variant="ghost" size="sm" onClick={openHeatTimeEdit}>Edit time</Button>}
             </Inline>
           )
         )}
@@ -329,7 +335,7 @@ export function HeatCard({
         <table className={styles.table} aria-busy={isSaving || undefined}>
           <thead>
             <tr>
-              {isTouch && <th className={styles.handleCell}><VisuallyHidden>Reorder</VisuallyHidden></th>}
+              {handles && <th className={styles.handleCell}><VisuallyHidden>Reorder</VisuallyHidden></th>}
               <th scope="col" className={styles.narrow}>Lane</th>
               <th scope="col" className={styles.narrow}>Heat</th>
               <th scope="col">Athlete/Team</th>
@@ -371,9 +377,9 @@ export function HeatCard({
                     else rowRefs.current.delete(a.id)
                   }}
                   data-assignment-id={a.id}
-                  className={[isComplete ? undefined : styles.row, repeatHeats && styles.repeat].filter(Boolean).join(' ') || undefined}
+                  className={[isComplete || !onReorder ? undefined : styles.row, repeatHeats && styles.repeat].filter(Boolean).join(' ') || undefined}
                 >
-                  {isTouch && (
+                  {handles && (
                     <td className={styles.handleCell}>
                       <DragHandle
                         ref={(el) => {
@@ -407,7 +413,11 @@ export function HeatCard({
                   <td><Text as="span" variant="meta" tone="muted">{a.athlete.division?.name ?? '—'}</Text></td>
                   {showJudges && (
                     <td>
-                      <Select
+                      {!onJudgeChange ? (
+                        <Text as="span" variant="meta">
+                          {judgesByLane?.get(a.lane)?.judgeName ?? '—'}
+                        </Text>
+                      ) : <Select
                         size="sm"
                         aria-label={`Judge for lane ${a.lane}`}
                         value={judgesByLane?.get(a.lane)?.volunteerId ?? ''}
@@ -417,7 +427,7 @@ export function HeatCard({
                       >
                         <option value="">— no judge —</option>
                         {judges!.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
-                      </Select>
+                      </Select>}
                     </td>
                   )}
                   <td>

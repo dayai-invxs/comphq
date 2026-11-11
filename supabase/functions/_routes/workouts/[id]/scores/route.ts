@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete as athleteTable, heatAssignment, score, workout } from '@/db/schema'
 import { clearLaneScores, sumLaneScores } from '@/lib/laneScores'
-import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { ScoreUpsert, ScorePointsOverride } from '@/lib/schemas'
 
@@ -63,6 +63,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params
     const workoutId = Number(id)
     const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string; knockout: boolean }>(workoutId, competition.id)
+
+    // The athlete has to be one of this competition's: a score for anyone
+    // else's used to be stored all the same.
+    const [own] = await db
+      .select({ id: athleteTable.id })
+      .from(athleteTable)
+      .where(and(eq(athleteTable.id, parsed.data.athleteId), eq(athleteTable.competitionId, competition.id)))
+      .limit(1)
+    if (!own) return new Response('Athlete not found', { status: 404 })
 
     if (parsed.data.lanes) {
       return await saveLanes(workoutId, parsed.data.athleteId, parsed.data.lanes, {
@@ -191,11 +200,13 @@ function writeLanes(
   })
 }
 
+// Clearing every score in a workout is the admin's: a scorekeeper (role
+// 'user') enters and corrects scores one at a time.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const { id } = await params
     const workoutId = Number(id)
     await requireWorkoutInCompetition(workoutId, competition.id)

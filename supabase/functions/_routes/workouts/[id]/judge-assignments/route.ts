@@ -1,7 +1,7 @@
-import { asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { judgeAssignment, volunteer, volunteerRole } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { JudgeAssignmentCreate, JudgeAssignmentBulkDelete, JudgeAssignmentImport } from '@/lib/schemas'
 
@@ -40,7 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const action = url.searchParams.get('action')
 
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const workoutId = Number((await params).id)
     await requireWorkoutInCompetition(workoutId, competition.id)
 
@@ -97,21 +97,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   try {
-    const { competition } = await requireCompetitionAccess(slug)
+    const { competition } = await requireCompetitionAdmin(slug)
     const workoutId = Number((await params).id)
     await requireWorkoutInCompetition(workoutId, competition.id)
 
-    const parsed = await parseJson(req, JudgeAssignmentBulkDelete)
-    if (!parsed.ok) {
-      // No body = clear all for workout
+    // No body at all is the "clear every judge for this workout" button. A
+    // body that is there but unreadable is a mistake and is refused: it used
+    // to count as no body, so a typo in the payload wiped the board.
+    const text = await req.text()
+    if (!text.trim()) {
       await db.delete(judgeAssignment).where(eq(judgeAssignment.workoutId, workoutId))
       return Response.json({ deleted: 'all' })
     }
+    let body: unknown
+    try { body = JSON.parse(text) } catch { return new Response('Invalid JSON body', { status: 400 }) }
+    const parsed = JudgeAssignmentBulkDelete.safeParse(body)
+    if (!parsed.success) return new Response('Validation failed: ids must be a list of assignment ids', { status: 400 })
 
-    await db.delete(judgeAssignment).where(
+    // Only this workout's rows: an id from another workout, or another
+    // competition, is not this caller's to remove.
+    const removed = await db.delete(judgeAssignment).where(and(
       inArray(judgeAssignment.id, parsed.data.ids),
-    )
-    return Response.json({ deleted: parsed.data.ids.length })
+      eq(judgeAssignment.workoutId, workoutId),
+    )).returning({ id: judgeAssignment.id })
+    return Response.json({ deleted: removed.length })
   } catch (e) {
     return authErrorResponse(e)
   }

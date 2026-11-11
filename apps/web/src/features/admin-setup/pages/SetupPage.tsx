@@ -38,7 +38,7 @@ import styles from './SetupPage.module.css'
 const LINKS: SectionLink[] = [
   { id: 'setup-settings', label: 'Settings' },
   { id: 'setup-logo', label: 'Logo' },
-  { id: 'setup-tv', label: 'TV leaderboard' },
+  { id: 'setup-tv', label: 'TV display' },
   { id: 'setup-divisions', label: 'Divisions' },
   { id: 'setup-locations', label: 'Locations' },
   { id: 'setup-roles', label: 'Volunteer roles' },
@@ -156,15 +156,17 @@ export function SetupPage() {
             {/* The TV table is keyed by division name, so it needs both reads:
                 a failed divisions read must not render as "No divisions to show". */}
             {(settings.isPending || divisions.isPending) && loading}
-            {!settings.data && settings.error && failed('TV leaderboard', settings.error)}
-            {settings.data && !divisions.data && divisions.error && failed('TV leaderboard', divisions.error)}
+            {!settings.data && settings.error && failed('TV display', settings.error)}
+            {settings.data && !divisions.data && divisions.error && failed('TV display', divisions.error)}
             {settings.data && !(divisions.error && !divisions.data) && (
               <TvLeaderboardSection
                 divisions={rows}
                 order={settings.data.tvLeaderboardOrder ?? {}}
                 percentages={settings.data.tvLeaderboardPercentages ?? {}}
+                secondsPerScreen={settings.data.tvSecondsPerScreen ?? 10}
                 onSaveOrder={(next) => patch('Save TV order', { tvLeaderboardOrder: next })}
                 onSavePercentages={(next) => patch('Save TV percentages', { tvLeaderboardPercentages: next })}
+                onSaveSecondsPerScreen={(next) => patch('Save TV seconds per screen', { tvSecondsPerScreen: next })}
               />
             )}
           </div>

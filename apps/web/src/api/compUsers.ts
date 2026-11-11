@@ -3,8 +3,7 @@ import { apiDel, apiGet, apiPatch, apiPost } from '@/lib/api'
 import { queryKeys } from './queryKeys'
 
 // Who may work on one competition. The whole resource is behind
-// requireCompetitionAdmin — the one part of v1 that asks for the stronger role
-// (defect 3 is that nothing else does).
+// requireCompetitionAdmin, like every other setup write.
 
 export type CompRole = 'admin' | 'user'
 export type CompUser = { userId: string; email: string | null; role: string }

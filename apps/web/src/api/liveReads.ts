@@ -32,6 +32,8 @@ export type WorkoutScore = {
   display: string
   tiebreakDisplay: string | null
   partBPoints?: number | null
+  /** No score in a finished workout: placed last in it, shown as "No score". */
+  skipped?: true
 } | null
 export type LeaderboardEntry = {
   athleteId: number
@@ -51,6 +53,8 @@ export type LeaderboardData = {
   decidingWorkoutId?: number | null
   tvLeaderboardPercentages?: Record<string, number>
   tvLeaderboardOrder?: Record<string, number>
+  /** How long the TV shows each screen before turning. */
+  tvSecondsPerScreen?: number
   divisions?: { name: string; order: number }[]
 }
 

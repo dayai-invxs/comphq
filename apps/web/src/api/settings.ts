@@ -12,6 +12,8 @@ export interface CompetitionSettings {
   leaderboardVisibility: 'per_heat' | 'per_workout'
   tvLeaderboardPercentages: Record<string, number>
   tvLeaderboardOrder: Record<string, number>
+  /** How long the TV shows each screen before turning. Default 10. */
+  tvSecondsPerScreen?: number
   /** Present only for the competition's own signed-in people. */
   judgePassword?: string
   judgeMaxConsecutive?: number

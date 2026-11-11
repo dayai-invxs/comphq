@@ -2,16 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm'
 import { drizzleMock as mock, setAuthUser } from '@/test/setup'
+import { judgeToken, JUDGE_TOKEN_HEADER } from '@/lib/judgeToken'
 import { GET, PATCH } from './route'
 
 const getReq = (slug = 'default') => new Request(`http://test/api/checks?slug=${slug}`)
-const patchReq = (body: unknown) =>
-  new Request('http://test/api/checks', { method: 'PATCH', body: JSON.stringify(body) })
+const patchReq = (body: unknown, headers: Record<string, string> = {}) =>
+  new Request('http://test/api/checks', { method: 'PATCH', body: JSON.stringify(body), headers })
 
 describe('GET /api/checks', () => {
-  // DEFECT (v1, ported as-is): this route has no auth gate at all. Anyone who
-  // knows a slug can read and write check state. Locked here so the port is
-  // verifiable; tracked separately for a fix.
+  // Reading is open: the TV and the public schedule hide walked-out heats.
+  // Writing is not (see PATCH below).
   it('serves an anonymous caller', async () => {
     setAuthUser(null)
     mock.queueResults([], [])
@@ -47,10 +47,46 @@ describe('GET /api/checks', () => {
 })
 
 describe('PATCH /api/checks', () => {
-  it('serves an anonymous caller', async () => {
+  // Defect 2: a walk-out tick takes a heat off the TV and the schedule, and
+  // this used to take one from anyone who knew the competition's address.
+  it('refuses an anonymous caller, and writes nothing', async () => {
     setAuthUser(null)
-    mock.queueResults([])
-    expect((await PATCH(patchReq({ slug: 'default', type: 'athlete', checks: {} }))).status).toBe(204)
+    const res = await PATCH(patchReq({ slug: 'default', type: 'athlete', checks: {} }))
+    expect(res.status).toBe(401)
+    expect(mock.calls.some((c) => c.method === 'insert')).toBe(false)
+  })
+
+  // A judge at a station is not signed in: the unlocked screen's token is
+  // what lets the tick through.
+  it('takes a tick from a screen unlocked with the judge password', async () => {
+    setAuthUser(null)
+    const token = await judgeToken(1, 'letmein')
+    mock.queueResults([{ value: 'letmein' }], [])
+    const entry = { key: '7-1', value: { corral: true, walkout: false } }
+    const res = await PATCH(patchReq({ slug: 'default', type: 'athlete', entry }, { [JUDGE_TOKEN_HEADER]: token }))
+    expect(res.status).toBe(204)
+  })
+
+  // Changing the password on Setup locks out screens unlocked under the old one.
+  it('refuses a token from before the judge password changed', async () => {
+    setAuthUser(null)
+    const token = await judgeToken(1, 'letmein')
+    mock.queueResults([{ value: 'newpass' }])
+    const res = await PATCH(patchReq({ slug: 'default', type: 'equipment', entry: { key: '7-1-RX', value: true } }, { [JUDGE_TOKEN_HEADER]: token }))
+    expect(res.status).toBe(401)
+  })
+
+  // Only the shapes the screens write: anything else is refused before it is
+  // stored and handed to every screen that reads the checks.
+  it('400s on a tick that is not the shape the screens write', async () => {
+    expect((await PATCH(patchReq({ slug: 'default', type: 'athlete', entry: { key: '7-1', value: 'x'.repeat(10) } }))).status).toBe(400)
+    expect((await PATCH(patchReq({ slug: 'default', type: 'equipment', checks: { a: { big: 'object' } } }))).status).toBe(400)
+    expect((await PATCH(patchReq({ slug: 'default', type: 'equipment', entry: { key: 'k'.repeat(201), value: true } }))).status).toBe(400)
+  })
+
+  it('400s on a reset carrying more checks than any competition has', async () => {
+    const checks = Object.fromEntries(Array.from({ length: 5001 }, (_, i) => [`k${i}`, true]))
+    expect((await PATCH(patchReq({ slug: 'default', type: 'equipment', checks }))).status).toBe(400)
   })
 
   it('400s on malformed JSON', async () => {
@@ -74,18 +110,18 @@ describe('PATCH /api/checks', () => {
 
   it('writes the athlete map under the athleteChecks key', async () => {
     mock.queueResults([])
-    const res = await PATCH(patchReq({ slug: 'default', type: 'athlete', checks: { '12': true } }))
+    const res = await PATCH(patchReq({ slug: 'default', type: 'athlete', checks: { '12-1': { corral: true, walkout: false } } }))
     expect(res.status).toBe(204)
     expect(mock.calls.find(c => c.method === 'values')!.args[0])
-      .toEqual({ competitionId: 1, key: 'athleteChecks', value: '{"12":true}' })
+      .toEqual({ competitionId: 1, key: 'athleteChecks', value: '{"12-1":{"corral":true,"walkout":false}}' })
   })
 
   // 'equipment' in the request body maps to the 'equipChecks' setting key.
   it('writes the equipment map under the equipChecks key', async () => {
     mock.queueResults([])
-    await PATCH(patchReq({ slug: 'default', type: 'equipment', checks: { barbell: 3 } }))
+    await PATCH(patchReq({ slug: 'default', type: 'equipment', checks: { '7-1-RX': true } }))
     expect(mock.calls.find(c => c.method === 'values')!.args[0])
-      .toEqual({ competitionId: 1, key: 'equipChecks', value: '{"barbell":3}' })
+      .toEqual({ competitionId: 1, key: 'equipChecks', value: '{"7-1-RX":true}' })
   })
 
   // COM-116. A tick sends one entry, merged into the stored map inside the

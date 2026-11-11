@@ -68,7 +68,7 @@ async function expand(number: number, workout = 'Fran') {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionStorage.setItem('judgeUnlocked:summer', '1')
+  sessionStorage.setItem('judgeToken:summer', 'tok')
   useSession.mockReturnValue({ user: null, loading: false, signOut: vi.fn() })
   serve()
 })
@@ -148,7 +148,7 @@ describe('EquipmentPage', () => {
         slug: 'summer',
         type: 'equipment',
         entry: { key: '7-1-Rx', value: true },
-      }),
+      }, { headers: { 'x-judge-token': 'tok' } }),
     )
     expect(first.getByRole('checkbox', { name: 'Rx' })).toBeChecked()
   })
@@ -166,7 +166,7 @@ describe('EquipmentPage', () => {
     await waitFor(() =>
       expect(apiPatch).toHaveBeenCalledWith('/api/checks', expect.objectContaining({
         entry: { key: '7-1-__none__', value: true },
-      })),
+      }), expect.anything()),
     )
   })
 
@@ -197,7 +197,7 @@ describe('EquipmentPage', () => {
     const dialog = await screen.findByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Reset checks' }))
     await waitFor(() =>
-      expect(apiPatch).toHaveBeenCalledWith('/api/checks', expect.objectContaining({ checks: {} })),
+      expect(apiPatch).toHaveBeenCalledWith('/api/checks', expect.objectContaining({ checks: {} }), expect.anything()),
     )
   })
 

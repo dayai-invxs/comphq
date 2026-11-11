@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, workout, score } from '@/db/schema'
-import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
+import { authErrorResponse, requireCompetitionAdmin } from '@/lib/auth-competition'
 import { lowerIsBetter, rankAndPersist } from '@/lib/scoring'
 
 type WorkoutRow = {
@@ -15,8 +15,11 @@ type WorkoutRow = {
   knockout: boolean
 }
 
+// Withdrawing and reinstating are the competition admin's: a withdrawal
+// rewrites every workout's placings. A scorekeeper (role 'user') runs the
+// floor but does not change who is competing.
 async function getCompetitionAndAthlete(slug: string, id: number) {
-  const { competition } = await requireCompetitionAccess(slug)
+  const { competition } = await requireCompetitionAdmin(slug)
   const [row] = await db
     .select({ id: athlete.id, withdrawn: athlete.withdrawn })
     .from(athlete)

@@ -16,6 +16,7 @@ import { useWorkoutLocations } from '@/api/workoutLocations'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { Notice } from '@/components/Notice/Notice'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
+import { useIsCompetitionAdmin } from '@/lib/competitionRole'
 import { calcHeatStartMs, fmtHeatTime } from '@/lib/heatTime'
 import { scoreTypeLabel } from '@/lib/scoreTypes'
 import { statusBadge } from '@/lib/workoutStatus'
@@ -75,6 +76,11 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export function WorkoutDetailPage() {
   const { slug = '', id = '' } = useParams()
+  // A competition user (scorekeeper) runs the workout — scores, heats,
+  // status, starting and running a knockout — and sees none of its setup:
+  // settings, generating or unlocking heats, judges, clearing all scores,
+  // reset.
+  const isAdmin = useIsCompetitionAdmin()
   const navigate = useNavigate()
   const workoutsPath = `/${slug}/admin/workouts`
 
@@ -364,7 +370,7 @@ export function WorkoutDetailPage() {
           Undo Round {knockout.round}
         </Button>
       )}
-      {heatNums.length > 0 && (
+      {isAdmin && heatNums.length > 0 && (
         <Button
           size="sm"
           variant={locked ? 'primary' : 'danger'}
@@ -374,13 +380,13 @@ export function WorkoutDetailPage() {
           Clear All Heats
         </Button>
       )}
-      {locked && (
+      {isAdmin && locked && (
         <Button size="sm" variant="secondary" onClick={() => setPrompt('unlock')}>Unlock to Restart</Button>
       )}
     </>
   )
 
-  const generators = knockout.enabled ? knockoutControls : (
+  const generators = knockout.enabled ? knockoutControls : !isAdmin ? null : (
     <>
       <Button
         size="sm"
@@ -432,13 +438,13 @@ export function WorkoutDetailPage() {
       wide
       actions={
         <>
-          <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit Settings</Button>
-          <WorkoutEquipmentPopover workoutId={id} slug={slug} />
+          {isAdmin && <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit Settings</Button>}
+          {isAdmin && <WorkoutEquipmentPopover workoutId={id} slug={slug} />}
           {workout.status === 'draft' && <Button size="sm" disabled={detail.loading} onClick={() => detail.setStatus('active')}>Activate</Button>}
           {workout.status === 'active' && <Button size="sm" variant="secondary" disabled={detail.loading} onClick={() => detail.setStatus('draft')}>Deactivate</Button>}
           {workout.status === 'completed' && <Button size="sm" disabled={detail.loading} onClick={() => detail.setStatus('active')}>Reactivate</Button>}
-          {workout.status !== 'draft' && <Button size="sm" variant="warning" onClick={() => setPrompt('reset')}>Reset</Button>}
-          <Button size="sm" variant="danger" onClick={() => setPrompt('delete')}>Delete</Button>
+          {isAdmin && workout.status !== 'draft' && <Button size="sm" variant="warning" onClick={() => setPrompt('reset')}>Reset</Button>}
+          {isAdmin && <Button size="sm" variant="danger" onClick={() => setPrompt('delete')}>Delete</Button>}
         </>
       }
     >
@@ -450,7 +456,7 @@ export function WorkoutDetailPage() {
       )}
       {!failure && detail.msg && <Notice tone="success">{detail.msg}</Notice>}
 
-      {editing ? (
+      {editing && isAdmin ? (
         <WorkoutEditForm
           workout={workout}
           loading={detail.loading}
@@ -467,10 +473,12 @@ export function WorkoutDetailPage() {
       {heatNums.length === 0 ? (
         <EmptyState
           title="No heats yet"
-          description={knockout.enabled
+          description={!isAdmin && !knockout.enabled
+            ? 'A competition admin sets the heats up. They appear here once they have.'
+            : knockout.enabled
             ? 'Round 1 places everyone, each division seeded by the overall leaderboard and spread across heats.'
             : 'Best athletes are placed in the last heat. Existing assignments are replaced.'}
-          action={<Inline gap="tight" wrap>{generators}</Inline>}
+          action={isAdmin || knockout.enabled ? <Inline gap="tight" wrap>{generators}</Inline> : undefined}
         />
       ) : (
         <div className={styles.panes}>
@@ -504,18 +512,18 @@ export function WorkoutDetailPage() {
                   <Button size="sm" variant="secondary" onClick={saveAllScores} disabled={detail.loading}>
                     Save All Scores
                   </Button>
-                  <Button
+                  {isAdmin && <Button
                     size="sm"
                     variant="danger"
                     onClick={() => setPrompt('clearScores')}
                     disabled={detail.loading || !hasScores}
                   >
                     Clear All Scores
-                  </Button>
+                  </Button>}
                 </div>
               </Stack>
 
-              <Stack gap="tight">
+              {isAdmin && <Stack gap="tight">
                 <Text variant="eyebrow" tone="muted">Judges</Text>
                 <div className={styles.controls}>
                   <Button
@@ -532,7 +540,7 @@ export function WorkoutDetailPage() {
                     </Button>
                   )}
                 </div>
-              </Stack>
+              </Stack>}
 
               <Stack gap="tight">
                 <Text variant="eyebrow" tone="muted">
@@ -545,7 +553,9 @@ export function WorkoutDetailPage() {
                   {generators}
                 </div>
                 <Text variant="meta" tone="muted">
-                  {knockout.enabled
+                  {!isAdmin && !knockout.enabled
+                    ? 'A competition admin generates and changes the heats.'
+                    : knockout.enabled
                     ? `The top ${workout.knockoutAdvance ?? 1} of each heat advance by score. Tick or untick Advances to decide by hand. Completing a round saves the scores typed.`
                     : 'Best athletes are placed in the last heat. Existing assignments are replaced.'}
                 </Text>
@@ -584,14 +594,14 @@ export function WorkoutDetailPage() {
                       onSaveHeat={saveHeat}
                       onCompleteHeat={completeHeat}
                       onUndoHeat={detail.undoHeat}
-                      onDeleteHeat={(n) => askToDeleteHeats('deleteHeat', n)}
+                      onDeleteHeat={isAdmin ? (n) => askToDeleteHeats('deleteHeat', n) : undefined}
                       deleteLocked={locked}
-                      onReorder={detail.reorderAssignments}
-                      onSaveHeatTime={detail.saveHeatTime}
+                      onReorder={isAdmin ? detail.reorderAssignments : undefined}
+                      onSaveHeatTime={isAdmin ? detail.saveHeatTime : undefined}
                       isSaving={detail.savingHeats.has(heatNum)}
                       judges={judges.volunteers}
                       judgesByLane={judges.judgesByLane(heatNum)}
-                      onJudgeChange={judges.setJudge}
+                      onJudgeChange={isAdmin ? judges.setJudge : undefined}
                       onPointsOverride={handlePointsOverride}
                       repeats={repeats}
                       laneMember={(a) => (a.id in memberPicks ? memberPicks[a.id] : a.teamMemberId ?? null)}

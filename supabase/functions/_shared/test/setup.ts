@@ -4,13 +4,8 @@ import { createDrizzleMock } from './drizzle-mock'
 
 process.env.SUPABASE_URL ??= 'https://test.supabase.co'
 process.env.SUPABASE_SERVICE_KEY ??= 'test-service-key'
-process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://test.supabase.co'
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'test-anon-key'
+process.env.SUPABASE_ANON_KEY ??= 'test-anon-key'
 process.env.SUPABASE_DB_URL ??= 'postgres://test:test@localhost:5432/test'
-
-// `server-only` is a Next.js runtime guard that throws on client imports.
-// Tests run in vitest's node env which trips it; stub it to a no-op.
-vi.mock('server-only', () => ({}))
 
 export const supabaseMock = createSupabaseMock()
 export const drizzleMock = createDrizzleMock()
@@ -21,8 +16,11 @@ export const drizzleMock = createDrizzleMock()
 type AuthUserShape = { id: string; email: string | null } | null
 let authUser: AuthUserShape = { id: 'user-1', email: 'admin@test.local' }
 let authIsSuper = true
-export function setAuthUser(u: AuthUserShape) { authUser = u; authIsSuper = true }
+let authRole: 'admin' | 'user' = 'admin'
+export function setAuthUser(u: AuthUserShape) { authUser = u; authIsSuper = true; authRole = 'admin' }
 export function setAuthSuper(isSuper: boolean) { authIsSuper = isSuper }
+/** Signed in as a member of the competition with this role, not a super admin. */
+export function setAuthRole(role: 'admin' | 'user') { authRole = role; authIsSuper = false }
 
 vi.mock('@/lib/supabase', () => ({ supabase: supabaseMock.client }))
 vi.mock('@/lib/db', () => ({ db: drizzleMock.db }))
@@ -59,13 +57,14 @@ vi.mock('@/lib/auth-competition', async (importOriginal) => {
       if (!slug) throw new actual.AuthError(404, 'Competition not found')
       return {
         user: { id: authUser.id, email: authUser.email, isSuper: authIsSuper },
-        membership: { userId: authUser.id, competitionId: 1, role: 'admin' as const },
+        membership: { userId: authUser.id, competitionId: 1, role: authRole },
         competition: { id: 1, name: 'Default', slug },
       }
     }),
     requireCompetitionAdmin: vi.fn(async (slug: string) => {
       if (!authUser) throw new actual.AuthError(401, 'Unauthorized')
       if (!slug) throw new actual.AuthError(404, 'Competition not found')
+      if (!authIsSuper && authRole !== 'admin') throw new actual.AuthError(403, 'Competition admin access required')
       return {
         user: { id: authUser.id, email: authUser.email, isSuper: authIsSuper },
         membership: { userId: authUser.id, competitionId: 1, role: 'admin' as const },

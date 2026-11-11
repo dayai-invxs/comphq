@@ -1,6 +1,7 @@
 import { Route } from 'react-router'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CompetitionRoleProvider } from '@/lib/competitionRole'
 import { renderRoutes } from '@/test/harness'
 import { WorkoutsAdminPage } from './WorkoutsAdminPage'
 
@@ -39,9 +40,9 @@ function serve(over: Record<string, unknown> = {}) {
   })
 }
 
-function mount() {
+function mount(isAdmin = true) {
   return renderRoutes(
-    <Route path=":slug/admin/workouts" element={<WorkoutsAdminPage />} />,
+    <Route path=":slug/admin/workouts" element={<CompetitionRoleProvider isAdmin={isAdmin}><WorkoutsAdminPage /></CompetitionRoleProvider>} />,
     ['/summer/admin/workouts'],
   )
 }
@@ -317,3 +318,17 @@ describe('when a read fails', () => {
     expect(screen.getByText('No workouts yet')).toBeInTheDocument()
   })
 })
+
+// A competition user (scorekeeper) opens workouts to run them; adding them,
+// the tiebreak and the imports are the admin's.
+describe('for a competition user', () => {
+  it('lists the workouts with nothing to set up', async () => {
+    serve()
+    mount(false)
+    await row(/Fran/)
+    expect(screen.queryByRole('button', { name: 'Add workout' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /tiebreak/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Import Judge Assignments')).not.toBeInTheDocument()
+  })
+})
+

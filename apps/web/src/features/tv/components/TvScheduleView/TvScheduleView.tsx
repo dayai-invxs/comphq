@@ -4,7 +4,8 @@ import { fmtHeatTime } from '@/lib/heatTime'
 import { pendingHeats, type AthleteChecks, type PendingHeat } from '@/lib/nowHeat'
 import type { Heat, OpsData } from '@/lib/opsHeats'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
-import { SCHEDULE_LAYOUTS, splitColumns } from '../../scheduleLayouts'
+import { SCHEDULE_LAYOUTS } from '../../scheduleLayouts'
+import { splitColumns } from '../../splitColumns'
 import styles from './TvScheduleView.module.css'
 
 // v1: ScheduleView in src/app/[slug]/TV/page.tsx. The next three heats across
@@ -79,7 +80,7 @@ export function TvScheduleView({ data, error, checks, layout = 0 }: Props) {
             className={cx(styles.card, i === 0 && styles.now)}
             aria-label={`Heat ${heat.heatNumber}, workout ${workout.number}`}
           >
-            <CardHeader>
+            <CardHeader className={styles.header}>
               <Text variant="label" className={styles.workout}>
                 Workout {workout.number}: {workout.name}
                 {workout.locationName && <> · {workout.locationName}</>}
@@ -109,7 +110,7 @@ export function TvScheduleView({ data, error, checks, layout = 0 }: Props) {
               )}
             </CardHeader>
             <CardBody>
-              <HeatLanes heat={heat} columns={laneColumns} />
+              <HeatLanes heat={heat} columns={laneColumns} mixed={divisions.length > 1} />
             </CardBody>
           </Card>
         ))}
@@ -120,8 +121,13 @@ export function TvScheduleView({ data, error, checks, layout = 0 }: Props) {
 }
 
 /** A heat's lanes in lane order, read down one column and then the next. Each
-    column is its own list, so a list's dividers never break across columns. */
-function HeatLanes({ heat, columns }: { heat: Heat; columns: number }) {
+    column is its own list, so a list's dividers never break across columns.
+
+    The division follows the name ("Team Name - Division") rather than sitting
+    at the right edge of the row, where in a split heat it reads as belonging
+    to the lane in the next column. A heat of one division says it once, in
+    the card header, and not on every lane. */
+function HeatLanes({ heat, columns, mixed }: { heat: Heat; columns: number; mixed: boolean }) {
   const runs = splitColumns([...heat.entries].sort((a, b) => a.lane - b.lane), columns)
   return (
     <div className={styles.laneColumns}>
@@ -137,13 +143,19 @@ function HeatLanes({ heat, columns }: { heat: Heat; columns: number }) {
               key={e.lane}
               className={styles.lane}
               leading={<span className={styles.laneNumber}>L{e.lane}</span>}
-              title={<span className={styles.athlete}>{e.athleteName}</span>}
-              description={e.members?.length ? <MemberNames members={e.members} /> : undefined}
-              trailing={
-                e.divisionName
-                  ? <Text as="span" tone="muted" className={styles.division}>{e.divisionName}</Text>
-                  : undefined
+              title={
+                <span className={styles.athlete}>
+                  {e.athleteName}
+                  {/* The space is outside the span so the line can break
+                      there, after the whole name, and nowhere inside it. */}
+                  {mixed && e.divisionName && (
+                    <> <span className={styles.division}>- {e.divisionName}</span></>
+                  )}
+                </span>
               }
+              description={e.members?.length
+                ? <MemberNames members={e.members} className={styles.members} />
+                : undefined}
             />
           ))}
         </ListGroup>

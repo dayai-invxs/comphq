@@ -1,5 +1,5 @@
 import { Route } from 'react-router'
-import { act, screen, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { renderRoutes } from '@/test/harness'
 import { TvPage } from './TvPage'
@@ -181,4 +181,137 @@ it('shrinks a board taller than the screen', async () => {
   Object.defineProperty(stage, 'scrollHeight', { value: 2000, configurable: true })
   turn()
   expect(stage.style.transform).toBe('scale(0.5)')
+})
+
+// ─── Fitting a big heat or a long division ─────────────────────────────────
+
+/** A heat of `n` lanes, everyone in RX. */
+function bigHeat(heatNumber: number, n: number) {
+  return {
+    heatNumber,
+    isComplete: false,
+    entries: Array.from({ length: n }, (_, i) => ({
+      athleteId: heatNumber * 100 + i, athleteName: `Athlete ${heatNumber}-${i + 1}`,
+      bibNumber: null, divisionName: 'RX', lane: i + 1,
+    })),
+  }
+}
+
+/** A division of `n` athletes, best first. */
+const bigDivision = (n: number) => Array.from({ length: n }, (_, i) => ({
+  athleteId: i + 1, athleteName: `Athlete ${i + 1}`, divisionName: 'RX',
+  totalPoints: i + 1, workoutScores: { 7: { points: i + 1, display: '1:00', tiebreakDisplay: null } },
+}))
+
+function serve(ops: unknown, leaderboard: unknown) {
+  apiGet.mockImplementation((path: string) => {
+    if (path.startsWith('/api/ops')) return Promise.resolve(ops)
+    if (path.startsWith('/api/leaderboard')) return Promise.resolve(typeof leaderboard === 'function' ? leaderboard() : leaderboard)
+    if (path.startsWith('/api/checks')) return Promise.resolve({ athleteChecks: {}, equipChecks: {} })
+    return Promise.resolve(null)
+  })
+}
+
+/** jsdom lays nothing out, so the board's height is made to depend on what
+    it draws, as a real one's does: 100 for the headers plus 40 for every row
+    of the longest list on it. Returns how many times it has been measured. */
+function screenOf(available: number) {
+  const content = screen.getByTestId('tv-content')
+  const measured = { count: 0 }
+  Object.defineProperty(content.parentElement!, 'clientHeight', { value: available, configurable: true })
+  Object.defineProperty(content, 'scrollHeight', {
+    configurable: true,
+    get() {
+      measured.count += 1
+      const lists = [...content.querySelectorAll('ul, ol')]
+      return 100 + 40 * Math.max(0, ...lists.map((l) => l.querySelectorAll(':scope > li').length))
+    },
+  })
+  return measured
+}
+
+// 18 lanes down one column is 820 high on a 600 screen. Two heats with their
+// lanes in two columns of nine is 460, the first arrangement that fits — so
+// the board draws that at full size, and the third heat goes in the strip.
+it('gives a big heat more width before it shrinks anything', async () => {
+  serve({ ...OPS, workouts: [{ ...OPS.workouts[0], heats: [bigHeat(1, 18), bigHeat(2, 18), bigHeat(3, 18)] }] }, LEADERBOARD)
+  mount()
+  await drawn()
+  const stage = screen.getByTestId('tv-content')
+  screenOf(600)
+  turn()
+  turn()
+
+  expect(screen.getAllByRole('region', { name: /^Heat / }).map((r) => r.getAttribute('aria-label'))).toEqual([
+    'Heat 1, workout 1', 'Heat 2, workout 1',
+  ])
+  expect(within(screen.getByRole('region', { name: 'Heat 1, workout 1' })).getAllByRole('list')
+    .map((l) => l.getAttribute('aria-label'))).toEqual(['Heat 1 lanes 1–9', 'Heat 1 lanes 10–18'])
+  expect(within(screen.getByRole('complementary', { name: 'Up next' })).getByText('Heat 3')).toBeInTheDocument()
+  expect(stage.style.transform).toBe('')
+})
+
+it('splits a long division into two columns before it shrinks the leaderboard', async () => {
+  serve(OPS, { ...LEADERBOARD, entries: bigDivision(30) })
+  mount()
+  await drawn()
+  const stage = screen.getByTestId('tv-content')
+  screenOf(800)
+  turn()
+
+  expect(screen.getByRole('list', { name: 'RX standings 1–15' })).toBeInTheDocument()
+  expect(screen.getByRole('list', { name: 'RX standings 16–30' })).toBeInTheDocument()
+  expect(stage.style.transform).toBe('')
+})
+
+// ─── Pace ───────────────────────────────────────────────────────────────────
+
+it('turns at the pace the competition set', async () => {
+  serve(OPS, { ...LEADERBOARD, tvSecondsPerScreen: 30 })
+  mount()
+  await drawn()
+  await screen.findByRole('region', { name: 'Heat 1, workout 1' })
+  await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/leaderboard?slug=summer'))
+  await act(async () => { await Promise.resolve() })
+
+  act(() => { vi.advanceTimersByTime(29_000) })
+  expect(showing()).toHaveTextContent('Schedule')
+  act(() => { vi.advanceTimersByTime(1_000) })
+  expect(showing()).toHaveTextContent('Leaderboard')
+})
+
+// ─── What starts a fit ─────────────────────────────────────────────────────
+
+// New standings arriving while the schedule is up change nothing on screen,
+// so they do not set the schedule's arrangements going again; on the
+// leaderboard half they do.
+it('fits again for the reads of the half on screen, and only those', async () => {
+  let points = 0
+  serve(OPS, () => ({ ...LEADERBOARD, tvSecondsPerScreen: 60, entries: bigDivision(3).map((e) => ({ ...e, totalPoints: e.totalPoints + points })) }))
+  mount()
+  await drawn()
+  await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/leaderboard?slug=summer'))
+  const measured = screenOf(1000)
+
+  const leaderboardReads = () => apiGet.mock.calls.filter(([p]) => String(p).startsWith('/api/leaderboard')).length
+  const read = async () => {
+    points += 1
+    const before = leaderboardReads()
+    await act(async () => { vi.advanceTimersByTime(15_000) })
+    await waitFor(() => expect(leaderboardReads()).toBeGreaterThan(before))
+    await act(async () => { await Promise.resolve() })
+  }
+
+  await read()
+  expect(showing()).toHaveTextContent('Schedule')
+  expect(measured.count).toBe(0)
+
+  await act(async () => { vi.advanceTimersByTime(60_000) })
+  expect(showing()).toHaveTextContent('Leaderboard')
+  const onLeaderboard = measured.count
+  expect(onLeaderboard).toBeGreaterThan(0)
+
+  await read()
+  expect(showing()).toHaveTextContent('Leaderboard')
+  await waitFor(() => expect(measured.count).toBeGreaterThan(onLeaderboard))
 })

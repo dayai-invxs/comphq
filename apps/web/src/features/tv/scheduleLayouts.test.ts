@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
-import { SCHEDULE_LAYOUTS, splitColumns } from './scheduleLayouts'
+import { SCHEDULE_LAYOUTS } from './scheduleLayouts'
+import { splitColumns } from './splitColumns'
 
 const lengths = (runs: unknown[][]) => runs.map((r) => r.length)
 const lanes = (n: number) => Array.from({ length: n }, (_, i) => i + 1)

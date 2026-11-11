@@ -4,7 +4,8 @@ import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, score, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
-import { DEFAULT_LEADERBOARD_VISIBILITY } from '@/lib/competitionDefaults'
+import { DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/competitionDefaults'
+import { skippedPlaces } from '@/lib/skippedPlace'
 
 type AthleteRow = {
   id: number
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     return rows[0]?.value ?? null
   }
 
-  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, leaderboardVisibilityValue, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw] = await Promise.all([
+  const [workouts, athletesRaw, divisionsRaw, tiebreakSettingValue, leaderboardVisibilityValue, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, tvSecondsPerScreenRaw] = await Promise.all([
     db.select().from(workout).where(eq(workout.competitionId, competition.id)).orderBy(asc(workout.number)),
     db
       .select({
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
     readSetting('leaderboardVisibility'),
     readSetting('tvLeaderboardPercentages'),
     readSetting('tvLeaderboardOrder'),
+    readSetting('tvSecondsPerScreen'),
   ])
 
   const athletes: AthleteRow[] = athletesRaw
@@ -93,12 +95,30 @@ export async function GET(req: Request) {
     }
   }
 
+  // A finished workout an athlete has no score in ranks them last in it
+  // (lib/skippedPlace.ts), Part B the same.
+  const divisionsOf = athletes.map((a) => ({ id: a.id, division: a.divisionName }))
+  const skippedA = skippedPlaces(visibleWorkouts, divisionsOf, (a, w) => scoreMap.get(`${a}-${w}`)?.points)
+  const skippedB = skippedPlaces(visibleWorkouts, divisionsOf, (a, w) => scoreMap.get(`${a}-${w}`)?.partBPoints)
+
+  type WorkoutScore = {
+    points: number; rawScore: number; display: string; tiebreakDisplay: string | null; partBPoints: number | null
+    /** No score in a finished workout: placed last, not ranked by a result. */
+    skipped?: true
+  }
+
   const entries = athletes.map((a) => {
     let totalPoints = 0
-    const workoutScores: Record<number, { points: number; rawScore: number; display: string; tiebreakDisplay: string | null; partBPoints: number | null } | null> = {}
+    const workoutScores: Record<number, WorkoutScore | null> = {}
     for (const wo of visibleWorkouts) {
       const entry = scoreMap.get(`${a.id}-${wo.id}`)
-      if (entry) {
+      const skipped = entry ? null : skippedA(a.id, wo.id)
+      if (skipped != null) {
+        const partB = wo.partBEnabled ? skippedB(a.id, wo.id) : null
+        const pts = skipped + (partB ?? 0)
+        totalPoints += wo.halfWeight ? pts * 0.5 : pts
+        workoutScores[wo.id] = { points: skipped, rawScore: 0, display: 'No score', tiebreakDisplay: null, partBPoints: partB, skipped: true }
+      } else if (entry) {
         // When partBEnabled, both Part A and Part B points count toward total
         const pts = wo.partBEnabled && entry.partBPoints != null
           ? entry.points + entry.partBPoints
@@ -125,7 +145,7 @@ export async function GET(req: Request) {
   if (deciding) {
     for (const e of entries) {
       const placed = e.workoutScores[deciding.id]
-      if (placed) e.totalPoints = placed.points
+      if (placed && !placed.skipped) e.totalPoints = placed.points
     }
   }
 
@@ -135,8 +155,10 @@ export async function GET(req: Request) {
 
   entries.sort((a, b) => {
     if (decidingWorkoutId != null) {
-      const aPlace = a.workoutScores[decidingWorkoutId]?.points ?? null
-      const bPlace = b.workoutScores[decidingWorkoutId]?.points ?? null
+      // Someone the knockout did not place follows, skipped or not.
+      const placing = (ws: WorkoutScore | null | undefined) => (ws && !ws.skipped ? ws.points : null)
+      const aPlace = placing(a.workoutScores[decidingWorkoutId])
+      const bPlace = placing(b.workoutScores[decidingWorkoutId])
       if (aPlace != null && bPlace == null) return -1
       if (aPlace == null && bPlace != null) return 1
       if (aPlace != null && bPlace != null) return aPlace - bPlace || a.athleteName.localeCompare(b.athleteName)
@@ -182,6 +204,8 @@ export async function GET(req: Request) {
       halfWeightIds: visibleWorkouts.filter((w) => w.halfWeight).map((w) => w.id),
       tvLeaderboardPercentages,
       tvLeaderboardOrder,
+      /** The TV board's pace; it reads it here, with the other TV settings. */
+      tvSecondsPerScreen: tvSecondsPerScreen(tvSecondsPerScreenRaw),
       divisions: divisionsRaw,
     },
     { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },

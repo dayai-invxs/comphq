@@ -35,6 +35,16 @@ jobs:
 
       - run: pnpm check:functions
 
+      # The Edge Functions run on Deno, whose type-check differs from tsc's
+      # (npm: specifiers, Deno globals, the generated import map). Without
+      # this a Deno-only error first shows up when `supabase functions
+      # deploy` bundles the function.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - run: pnpm check:deno
+
       - run: pnpm test
 
       - run: pnpm build

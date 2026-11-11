@@ -1,6 +1,7 @@
 {
   "imports": {
     "@/lib/audit": "./_shared/audit.ts",
+    "@/lib/auditTrail": "./_shared/auditTrail.ts",
     "@/lib/auth-competition": "./_shared/auth-competition.ts",
     "@/lib/competition": "./_shared/competition.ts",
     "@/lib/competitionCorner/diff": "./_shared/competitionCorner/diff.ts",
@@ -21,6 +22,7 @@
     "@/lib/heatMerge": "./_shared/heatMerge.ts",
     "@/lib/heatRanking": "./_shared/heatRanking.ts",
     "@/lib/heatTime": "./_shared/heatTime.ts",
+    "@/lib/judgeToken": "./_shared/judgeToken.ts",
     "@/lib/knockout": "./_shared/knockout.ts",
     "@/lib/knockoutStore": "./_shared/knockoutStore.ts",
     "@/lib/laneScores": "./_shared/laneScores.ts",
@@ -31,6 +33,7 @@
     "@/lib/schemas": "./_shared/schemas.ts",
     "@/lib/scoreFormat": "./_shared/scoreFormat.ts",
     "@/lib/scoring": "./_shared/scoring.ts",
+    "@/lib/skippedPlace": "./_shared/skippedPlace.ts",
     "@/lib/supabase-server": "./_shared/supabase-server.ts",
     "@/lib/supabase": "./_shared/supabase.ts",
     "@/lib/teamMembers": "./_shared/teamMembers.ts",

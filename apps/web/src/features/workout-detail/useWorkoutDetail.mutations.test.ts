@@ -108,8 +108,8 @@ describe('workout mutations — HTTP contract', () => {
     ])
   })
 
-  // A bodyless DELETE must stay bodyless: several routes read a body and treat
-  // an unparseable one as absent (defect 11).
+  // A bodyless DELETE must stay bodyless: for judge assignments no body means
+  // "clear them all", and a body that cannot be read is refused.
   it('sends no body on the deletes that had none', async () => {
     const api = buildWorkoutMutations('7', 'comp')
     await api.undoHeat(1)

@@ -107,9 +107,9 @@ describe('CompetitionAdminApp', () => {
     expect(screen.getByText('summer')).toBeInTheDocument()
   })
 
-  // role='user' members administer the competition in v1 (defect 3) but do not
-  // get the Users link, which is the one screen gated on role='admin'.
-  it('hides Users from a role=user member and shows it to an admin', async () => {
+  // A role='user' member runs the competition — Dashboard, Workouts,
+  // Leaderboard — and sees none of the setup screens.
+  it('shows a role=user member the running screens and no setup', async () => {
     serve({
       '/api/me': { id: 'u1', email: USER.email, isSuper: false },
       '/api/competitions/mine': [{ ...MINE[0], role: 'user' }],
@@ -117,14 +117,20 @@ describe('CompetitionAdminApp', () => {
     })
     mount()
     await screen.findByText('comp dashboard')
-    expect(screen.queryByRole('link', { name: 'Comp Users' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'People' })).toBeInTheDocument()
+    for (const name of ['Dashboard', 'Workouts', 'Leaderboard']) {
+      expect(screen.getByRole('link', { name })).toBeInTheDocument()
+    }
+    for (const name of ['People', 'Comp Users', 'Setup', 'Activity']) {
+      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
+    }
   })
 
-  it('shows Users to a role=admin member', async () => {
+  it('shows the setup screens to a role=admin member', async () => {
     mount()
     await screen.findByText('comp dashboard')
-    expect(screen.getByRole('link', { name: 'Comp Users' })).toBeInTheDocument()
+    for (const name of ['People', 'Comp Users', 'Setup', 'Activity']) {
+      expect(screen.getByRole('link', { name })).toBeInTheDocument()
+    }
   })
 
   // A super admin administers every competition, so the shell they are

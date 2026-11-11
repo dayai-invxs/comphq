@@ -8,6 +8,7 @@ import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { Notice } from '@/components/Notice/Notice'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { RouterAnchor } from '@/components/RouterAnchor'
+import { useIsCompetitionAdmin } from '@/lib/competitionRole'
 import { apiDownload } from '@/lib/api'
 import { statusBadge } from '@/lib/workoutStatus'
 import styles from './CompetitionDashboardPage.module.css'
@@ -26,6 +27,7 @@ import styles from './CompetitionDashboardPage.module.css'
 // the screen; the exports are a job done once at the end and sit under it.
 
 export function CompetitionDashboardPage() {
+  const isAdmin = useIsCompetitionAdmin()
   const { slug = '' } = useParams()
   const workoutsQuery = useWorkouts(slug)
   const athletesQuery = useAthletes(slug)
@@ -114,10 +116,11 @@ export function CompetitionDashboardPage() {
         // One line always: on a phone the labels drop "Manage" to fit. The
         // full name stays the button's name for a screen reader either way.
         <div className={styles.actions}>
-          <Button as={RouterAnchor} href={`${base}/people`} aria-label="Manage athletes/teams">
+          {/* People is setup: a competition user (scorekeeper) has no way in. */}
+          {isAdmin && <Button as={RouterAnchor} href={`${base}/people`} aria-label="Manage athletes/teams">
             <span className={styles.long}>Manage athletes/teams</span>
             <span className={styles.short}>Athletes/Teams</span>
-          </Button>
+          </Button>}
           <Button as={RouterAnchor} href={`${base}/workouts`} variant="secondary" aria-label="Manage workouts">
             <span className={styles.long}>Manage workouts</span>
             <span className={styles.short}>Workouts</span>

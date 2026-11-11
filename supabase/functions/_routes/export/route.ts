@@ -4,6 +4,7 @@ import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
+import { skippedPlaces } from '@/lib/skippedPlace'
 
 function esc(val: string | number | null | undefined): string {
   const s = String(val ?? '')
@@ -65,6 +66,13 @@ export async function GET(req: Request) {
   const divMap = new Map(divisions.map((d) => [d.id, d.name]))
   const scoreKey = (athleteId: number, workoutId: number) => `${athleteId}-${workoutId}`
   const scoreMap = new Map(scores.map((s) => [scoreKey(s.athleteId, s.workoutId), s]))
+  // A finished workout with no score is last place, as on the leaderboard
+  // (lib/skippedPlace.ts): shown as DNS with the place it gives.
+  const skipped = skippedPlaces(
+    workouts,
+    athletes.map((a) => ({ id: a.id, division: a.divisionId })),
+    (a, w) => scoreMap.get(scoreKey(a, w))?.points,
+  )
 
   const lines: string[] = []
   const now = new Date().toLocaleString()
@@ -115,7 +123,12 @@ export async function GET(req: Request) {
       let total = 0
       const workoutCols = workouts.map((w) => {
         const s = scoreMap.get(scoreKey(a.id, w.id))
-        if (!s || s.points == null) return 'DNS'
+        if (!s || s.points == null) {
+          const place = skipped(a.id, w.id)
+          if (place == null) return 'DNS'
+          total += w.halfWeight ? place * 0.5 : place
+          return `#${place} (DNS)`
+        }
         total += w.halfWeight ? s.points * 0.5 : s.points
         const display = formatScore(s.rawScore, w.scoreType, s.capped)
         return `#${s.points} (${display})`
@@ -139,12 +152,16 @@ export async function GET(req: Request) {
   const completedWorkouts = workouts.filter((w) => w.status === 'completed')
   const leaderboardEntries = athletes.map((a) => {
     let total = 0
-    const workoutScores: Record<number, { points: number; rawScore: number; capped: boolean } | null> = {}
+    const workoutScores: Record<number, { points: number; rawScore: number; capped: boolean; skipped?: true } | null> = {}
     for (const w of completedWorkouts) {
       const s = scoreMap.get(scoreKey(a.id, w.id))
+      const place = s && s.points != null ? null : skipped(a.id, w.id)
       if (s && s.points != null) {
         total += w.halfWeight ? s.points * 0.5 : s.points
         workoutScores[w.id] = { points: s.points, rawScore: s.rawScore, capped: s.capped }
+      } else if (place != null) {
+        total += w.halfWeight ? place * 0.5 : place
+        workoutScores[w.id] = { points: place, rawScore: 0, capped: false, skipped: true }
       } else {
         workoutScores[w.id] = null
       }
@@ -176,7 +193,8 @@ export async function GET(req: Request) {
     const divName = e.athlete.divisionId ? (divMap.get(e.athlete.divisionId) ?? '—') : '—'
     const wodCols = completedWorkouts.map((w) => {
       const s = e.workoutScores[w.id]
-      return s ? `#${s.points} (${formatScore(s.rawScore, w.scoreType, s.capped)})` : 'DNS'
+      if (!s) return 'DNS'
+      return s.skipped ? `#${s.points} (DNS)` : `#${s.points} (${formatScore(s.rawScore, w.scoreType, s.capped)})`
     })
     lines.push(row(rank, e.athlete.name, divName, ...wodCols, Number.isInteger(e.total) ? e.total : e.total.toFixed(1)))
   }

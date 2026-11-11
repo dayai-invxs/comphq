@@ -1,7 +1,8 @@
 /**
- * In-memory sliding-window rate limiter. Fine for single-instance deploys
- * (Vercel functions share memory per region per warm instance — good enough
- * for MVP). Swap for Upstash Redis when scaling beyond one instance.
+ * In-memory sliding-window rate limiter. Each Edge Function instance keeps its
+ * own counts for as long as it stays warm, so this slows a script down rather
+ * than enforcing a hard limit across instances. Used by the judge password
+ * check (POST /api/settings/judge).
  */
 export type RateLimitResult = { ok: boolean; remaining: number; resetAt: number }
 

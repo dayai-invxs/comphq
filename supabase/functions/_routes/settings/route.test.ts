@@ -34,6 +34,19 @@ describe('GET /api/settings', () => {
     expect(body.leaderboardVisibility).toBe('per_heat')
   })
 
+  // The board's pace before it became a setting.
+  it('turns the TV every 10 seconds when the pace was never saved', async () => {
+    const body = await (await GET(getReq())).json()
+    expect(body.tvSecondsPerScreen).toBe(10)
+  })
+
+  it('reads the TV pace a competition saved', async () => {
+    // Eight settings read before it, none stored.
+    mock.queueResults([], [], [], [], [], [], [], [], [{ value: '25' }])
+    const body = await (await GET(getReq())).json()
+    expect(body.tvSecondsPerScreen).toBe(25)
+  })
+
   it('gives the judge password to the competition\'s own people', async () => {
     const body = await (await GET(getReq())).json()
     expect(body.judgePassword).toBe("I'majudge")
@@ -65,5 +78,21 @@ describe('PATCH /api/settings', () => {
     )
     expect(valuesCall).toBeTruthy()
     expect((valuesCall!.args[0] as { value: string }).value).toBe('false')
+  })
+
+  it('saves the TV pace', async () => {
+    await PATCH(patchReq({ tvSecondsPerScreen: 20 }))
+    const valuesCall = mock.calls.find(
+      (c) => c.method === 'values' && (c.args[0] as { key?: string }).key === 'tvSecondsPerScreen',
+    )
+    expect((valuesCall!.args[0] as { value: string }).value).toBe('20')
+  })
+
+  // Under five seconds nobody finds their lane; past two minutes the other
+  // half of the board is as good as gone.
+  it('refuses a TV pace outside 5 to 120 seconds', async () => {
+    expect((await PATCH(patchReq({ tvSecondsPerScreen: 4 }))).status).toBe(400)
+    expect((await PATCH(patchReq({ tvSecondsPerScreen: 121 }))).status).toBe(400)
+    expect((await PATCH(patchReq({ tvSecondsPerScreen: 7.5 }))).status).toBe(400)
   })
 })

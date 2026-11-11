@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { drizzleMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthRole, setAuthUser } from '@/test/setup'
 import { GET, PUT, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -129,5 +129,22 @@ describe('DELETE /api/workouts/[id]', () => {
     const res = await DELETE(deleteReq(), params('1'))
     expect(res.status).toBe(204)
     expect(mock.calls.some((c) => c.method === 'delete')).toBe(true)
+  })
+})
+
+// A scorekeeper (role 'user') activates, deactivates and completes workouts;
+// the workout's settings are the admin's.
+describe('PUT /api/workouts/[id] as a competition user', () => {
+  it('may change the status', async () => {
+    setAuthRole('user')
+    mock.queueResult([{ id: 1, status: 'active' }])
+    expect((await PUT(putReq({ status: 'active' }), params('1'))).status).toBe(200)
+  })
+
+  it('may not change anything else, even alongside the status', async () => {
+    setAuthRole('user')
+    expect((await PUT(putReq({ name: 'Fran 2' }), params('1'))).status).toBe(403)
+    expect((await PUT(putReq({ status: 'active', lanes: 6 }), params('1'))).status).toBe(403)
+    expect(mock.calls.some((c) => c.method === 'update')).toBe(false)
   })
 })

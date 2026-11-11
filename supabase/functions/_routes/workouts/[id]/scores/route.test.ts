@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { drizzleMock as mock, setAuthUser } from '@/test/setup'
+import { drizzleMock as mock, setAuthRole, setAuthUser } from '@/test/setup'
 import { GET, POST, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -42,7 +42,9 @@ describe('POST /api/workouts/[id]/scores', () => {
 
   it('upserts score with onConflictDoUpdate on (athleteId, workoutId)', async () => {
     mock.queueResult([{ id: 1 }]) // requireWorkoutInCompetition
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 1, athleteId: 2, workoutId: 1, rawScore: 95, points: null }]) // returning()
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
 
     await POST(req('POST', { athleteId: 2, rawScore: 95 }), params('1'))
     // Insert values payload: points must be null (re-upsert resets rank).
@@ -62,6 +64,7 @@ describe('POST /api/workouts/[id]/scores, capped', () => {
 
   it('stores the flag on a timed workout', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 1 }])
     await POST(req('POST', { athleteId: 2, rawScore: 40012, capped: true, partBRawScore: 30000, partBCapped: true }), params('1'))
     expect(sent()).toMatchObject({ rawScore: 40012, capped: true, partBCapped: true })
@@ -69,6 +72,7 @@ describe('POST /api/workouts/[id]/scores, capped', () => {
 
   it('refuses the flag where there is no time to miss', async () => {
     mock.queueResult([{ id: 1, scoreType: 'rounds_reps', partBScoreType: 'weight' }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 1 }])
     await POST(req('POST', { athleteId: 2, rawScore: 40012, capped: true, partBRawScore: 100, partBCapped: true }), params('1'))
     expect(sent()).toMatchObject({ capped: false, partBCapped: false })
@@ -76,6 +80,7 @@ describe('POST /api/workouts/[id]/scores, capped', () => {
 
   it('treats a score that does not mention it as finished', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 1 }])
     await POST(req('POST', { athleteId: 2, rawScore: 95 }), params('1'))
     expect(sent()).toMatchObject({ capped: false, partBCapped: false })
@@ -87,6 +92,7 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
 
   it('keeps each lane and writes the sum as the team score once every lane is in', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 31 }]) // lane 31 updated
     mock.queueResult([{ id: 32 }]) // lane 32 updated
     mock.queueResult([
@@ -109,6 +115,7 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
 
   it('removes the team score while a lane is still unscored', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 31 }])
     mock.queueResult([{ id: 32 }])
     mock.queueResult([
@@ -126,6 +133,7 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
 
   it('refuses a lane that is not this team\'s in this workout', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([]) // no row updated
 
     const res = await POST(req('POST', body), params('1'))
@@ -141,12 +149,24 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
 describe('POST /api/workouts/[id]/scores, a knockout round', () => {
   it('keeps the lane\'s own result, capped where timed, and writes no team score', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time', knockout: true }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
     mock.queueResult([{ id: 31 }])
 
     const res = await POST(req('POST', { athleteId: 2, lanes: [{ assignmentId: 31, rawScore: 40012, capped: true }] }), params('1'))
     expect(await res.json()).toEqual({ athleteId: 2, workoutId: 1, lanes: 1 })
     expect(mock.calls.find((c) => c.method === 'set')!.args[0]).toEqual({ rawScore: 40012, tiebreakRawScore: null, partBRawScore: null, capped: true })
     expect(mock.calls.some((c) => c.method === 'values')).toBe(false)
+  })
+})
+
+// A score for someone who is not in this competition was stored all the same.
+describe('POST /api/workouts/[id]/scores, someone else\'s athlete', () => {
+  it('404s an athlete from another competition, and stores nothing', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
+    mock.queueResult([]) // no such athlete here
+    const res = await POST(req('POST', { athleteId: 999, rawScore: 95 }), params('1'))
+    expect(res.status).toBe(404)
+    expect(mock.calls.some((c) => c.method === 'insert')).toBe(false)
   })
 })
 
@@ -172,3 +192,13 @@ describe('DELETE /api/workouts/[id]/scores', () => {
     expect(setCall).toBeTruthy()
   })
 })
+
+// Clearing every score is the admin's; a scorekeeper corrects one at a time.
+describe('DELETE /api/workouts/[id]/scores as a competition user', () => {
+  it('is refused, and deletes nothing', async () => {
+    setAuthRole('user')
+    expect((await DELETE(req('DELETE'), params('1'))).status).toBe(403)
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+})
+

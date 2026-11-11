@@ -2,6 +2,7 @@ import { Route } from 'react-router'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HttpError } from '@/lib/http'
+import { CompetitionRoleProvider } from '@/lib/competitionRole'
 import { currentPath, renderRoutes } from '@/test/harness'
 import type { Assignment, Score, Workout } from '../useWorkoutDetail'
 import { WorkoutDetailPage } from './WorkoutDetailPage'
@@ -91,16 +92,19 @@ function serve(over: Partial<Workout> = {}, judgeRows = JUDGE_ASSIGNMENTS, volun
   })
 }
 
-function mount() {
+function mount(isAdmin = true) {
   return renderRoutes(
-    <Route path="/:slug/admin/workouts/:id" element={<WorkoutDetailPage />} />,
+    <Route
+      path="/:slug/admin/workouts/:id"
+      element={<CompetitionRoleProvider isAdmin={isAdmin}><WorkoutDetailPage /></CompetitionRoleProvider>}
+    />,
     ['/rugged-rumble/admin/workouts/42'],
   )
 }
 
-async function open(over: Partial<Workout> = {}, judgeRows = JUDGE_ASSIGNMENTS, volunteers = VOLUNTEERS) {
+async function open(over: Partial<Workout> = {}, judgeRows = JUDGE_ASSIGNMENTS, volunteers = VOLUNTEERS, isAdmin = true) {
   serve(over, judgeRows, volunteers)
-  const view = mount()
+  const view = mount(isAdmin)
   await screen.findByRole('heading', { name: 'WOD 3: Fran' })
   return view
 }
@@ -494,3 +498,32 @@ describe('the workouts own leaderboard', () => {
     expect(screen.queryByRole('table', { name: /Leaderboard for WOD 3/ })).not.toBeInTheDocument()
   })
 })
+
+// A competition user (scorekeeper) runs the workout: activates it, scores and
+// completes heats. Its settings, heats and judges are the admin's.
+describe('for a competition user', () => {
+  it('keeps the running controls and leaves out the setup ones', async () => {
+    await open({ status: 'active' }, JUDGE_ASSIGNMENTS, VOLUNTEERS, false)
+    expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save All Scores' })).toBeInTheDocument()
+    for (const name of ['Edit Settings', 'Delete', 'Reset', 'Clear All Scores', 'Auto-Assign Judges',
+      'Generate (Random / Division Order)', 'Generate (By Cumulative Points)', 'Unlock to Regenerate']) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    }
+  })
+
+  it('says who sets up heats rather than offering to generate them', async () => {
+    await open({ assignments: [] }, JUDGE_ASSIGNMENTS, VOLUNTEERS, false)
+    expect(screen.getByText('A competition admin sets the heats up. They appear here once they have.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Generate/ })).not.toBeInTheDocument()
+  })
+
+  it('starts a knockout', async () => {
+    await open({ assignments: [], knockout: true, knockoutRounds: 2, knockoutAdvance: 2 }, JUDGE_ASSIGNMENTS, VOLUNTEERS, false)
+    fireEvent.click(screen.getByRole('button', { name: 'Start Tournament' }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
+      '/api/workouts/42/knockout?slug=rugged-rumble', { action: 'start' },
+    ))
+  })
+})
+

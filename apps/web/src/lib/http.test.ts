@@ -33,6 +33,15 @@ describe('postJson', () => {
     expect(init.body).toBe(JSON.stringify({ a: 1 }))
   })
 
+  // Defect 16: headers handed in used to replace the content-type rather
+  // than join it.
+  it('keeps the JSON content-type alongside headers handed in', async () => {
+    mockFetch({ status: 200, body: {} })
+    await postJson('/x', { a: 1 }, { headers: { 'x-judge-token': 'tok' } })
+    const init = vi.mocked(global.fetch).mock.calls[0][1] as RequestInit
+    expect(init.headers).toEqual({ 'content-type': 'application/json', 'x-judge-token': 'tok' })
+  })
+
   it('throws HttpError on 401 with server message', async () => {
     mockFetch({ status: 401, text: 'Unauthorized' })
     await expect(postJson('/api/x', {})).rejects.toMatchObject({

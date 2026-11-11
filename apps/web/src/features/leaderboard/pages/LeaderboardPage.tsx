@@ -198,8 +198,14 @@ export function LeaderboardPage() {
     setSearch('')
   }
 
+  // A workout on the board with nobody scored in it yet — the first heat of
+  // the day is running — is an empty board, not a search that matched nothing.
+  // Divisions are only listed once one of their athletes has a score, so this
+  // is the moment there are none.
+  const nothingScored = workouts.length === 0 || divisions.length === 0
+
   const nothingMatches =
-    !isPending && workouts.length > 0 && divisionsToRender.every((d) => rowsFor(d).length === 0)
+    !isPending && !nothingScored && divisionsToRender.every((d) => rowsFor(d).length === 0)
 
   return (
     <PageFrame
@@ -233,14 +239,14 @@ export function LeaderboardPage() {
         <EmptyState title="Could not load the leaderboard" description={error.message} />
       )}
 
-      {!isPending && !error && workouts.length === 0 && (
+      {!isPending && !error && nothingScored && (
         <EmptyState
           title="No standings yet"
           description="The board fills in as workouts are scored."
         />
       )}
 
-      {!isPending && workouts.length > 0 && (
+      {!isPending && !nothingScored && (
         <Stack gap="base">
           {divisions.length > 1 && (
             <div className={styles.divisionScroll}>
