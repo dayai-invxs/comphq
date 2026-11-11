@@ -1,0 +1,41 @@
+/* Each division is its own table, and a table sizes its columns from what is
+   in it, so two divisions' columns used to start at different places. Fixed
+   layout takes these widths instead, read off the header row, so every
+   division's table is cut the same way and they line up down the page. The
+   columns are Athlete/Team, then Position and Score (or Part A and Part B),
+   then Points. */
+.aligned table {
+  table-layout: fixed;
+}
+
+.aligned th,
+.aligned td {
+  padding-inline: var(--mds-pad-tight);
+  overflow-wrap: anywhere;
+}
+
+/* A phone: the name gives up room so each heading still fits its column. */
+.aligned th:nth-child(1) { width: 30%; }
+.aligned th:nth-child(2) { width: 22%; }
+.aligned th:nth-child(3) { width: 28%; }
+.aligned th:nth-child(4) { width: 20%; }
+
+.parts th:nth-child(2),
+.parts th:nth-child(3) { width: 26%; }
+.parts th:nth-child(4) { width: 18%; }
+
+@media (min-width: 600px) {
+  .aligned th,
+  .aligned td {
+    padding-inline: var(--mds-pad-control);
+  }
+
+  .aligned th:nth-child(1) { width: 38%; }
+  .aligned th:nth-child(2) { width: 16%; }
+  .aligned th:nth-child(3) { width: 32%; }
+  .aligned th:nth-child(4) { width: 14%; }
+
+  .parts th:nth-child(2),
+  .parts th:nth-child(3) { width: 24%; }
+  .parts th:nth-child(4) { width: 14%; }
+}

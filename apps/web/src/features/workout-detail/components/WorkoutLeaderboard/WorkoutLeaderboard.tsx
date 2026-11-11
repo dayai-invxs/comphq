@@ -1,7 +1,8 @@
-import { Card, CardBody, CardHeader, DataTable, Heading, Inline, Stack, Text } from '@mond-design-system/react'
+import { Card, CardBody, CardHeader, DataTable, Heading, Inline, Stack, Text, cx } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import type { Score, Workout } from '../../useWorkoutDetail'
+import styles from './WorkoutLeaderboard.module.css'
 
 // v1: src/components/workout-detail/WorkoutLeaderboard.tsx. One workout's own
 // standings, read only — no refs, no gestures — so this is MDS `DataTable`,
@@ -123,7 +124,9 @@ export function WorkoutLeaderboard({ workout }: { workout: Workout }) {
         <Heading level={2} variant="subtitle">Leaderboard — WOD {workout.number}</Heading>
       </CardHeader>
       <CardBody>
-        <Stack gap="section">
+        {/* One division's table per division, all with the same columns at
+            the same widths, so they line up down the page. */}
+        <Stack gap="section" className={cx(styles.aligned, workout.partBEnabled && styles.parts)}>
           {(groups.length ? groups : [{ id: null, name: null, order: 0, rows: [] as Score[] }]).map((g) => {
             const title = g.name ?? 'No Division'
             return (
