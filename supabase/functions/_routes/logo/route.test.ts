@@ -68,6 +68,23 @@ describe('POST /api/logo', () => {
     expect((valuesCall!.args[0] as { key: string }).key).toBe('logoUrl')
   })
 
+  // The functions run on Deno, which has no Buffer ("Buffer is not
+  // defined"). vitest runs on Node, which has one and leans on it inside
+  // Request and Response, so it cannot be taken away here; what is checked
+  // is that the route hands storage plain bytes rather than a Buffer.
+  it('uploads plain bytes, not Node\'s Buffer, which Deno lacks', async () => {
+    dmock.queueResult(undefined)
+    const form = new FormData()
+    form.append('logo', new File(['data'], 'logo.png', { type: 'image/png' }))
+    const res = await POST(new Request('http://test', { method: 'POST', body: form }))
+    expect(res.status).toBe(200)
+    const storageFrom = smock.client.storage.from as unknown as { mock: { results: { value: { upload: { mock: { calls: unknown[][] } } } }[] } }
+    const sent = storageFrom.mock.results[0].value.upload.mock.calls[0][1]
+    expect(sent).toBeInstanceOf(Uint8Array)
+    expect(Buffer.isBuffer(sent)).toBe(false)
+    expect(new TextDecoder().decode(sent as Uint8Array)).toBe('data')
+  })
+
   it('derives the file extension from the mime type, not from the upload filename', async () => {
     dmock.queueResult(undefined)
     const form = new FormData()

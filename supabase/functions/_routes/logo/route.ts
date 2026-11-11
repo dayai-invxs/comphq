@@ -49,10 +49,12 @@ export async function POST(req: Request) {
   }
 
   const filename = `competition-logo.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
+  // Plain bytes: Buffer is Node's, and the functions run on Deno, where it
+  // is not defined — the upload failed with "Buffer is not defined".
+  const bytes = new Uint8Array(await file.arrayBuffer())
 
   // Storage stays on supabase-js — Drizzle doesn't own blob storage.
-  const { error } = await supabase.storage.from(BUCKET).upload(filename, buffer, {
+  const { error } = await supabase.storage.from(BUCKET).upload(filename, bytes, {
     contentType: file.type,
     upsert: true,
   })
