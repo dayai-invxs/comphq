@@ -37,7 +37,7 @@ it('invites a file when there is no logo, and says which kinds', () => {
 it('says where the logo ends up, so it is clear what is being replaced', () => {
   draw()
   expect(
-    screen.getByText('Drawn in the bar at the top of every screen, in place of the CompHQ mark.'),
+    screen.getByText('Drawn in the bar at the top of this competition’s screens, in place of the CompHQ mark. Other competitions keep their own.'),
   ).toBeInTheDocument()
 })
 

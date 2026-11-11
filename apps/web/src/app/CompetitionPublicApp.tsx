@@ -9,5 +9,5 @@ import { PublicShell } from '@/layouts/PublicShell'
 // could not have is the right shape here.
 export function CompetitionPublicApp() {
   const { slug = '' } = useParams()
-  return <PublicShell slug={slug} brand={<CompetitionBrand />} />
+  return <PublicShell slug={slug} brand={<CompetitionBrand slug={slug} />} />
 }

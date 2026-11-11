@@ -52,7 +52,7 @@ export function SetupPage() {
   const roles = useVolunteerRoles(slug)
   const locations = useWorkoutLocations(slug)
   const settings = useSettings(slug)
-  const logo = useLogo()
+  const logo = useLogo(slug)
 
   const addDivision = useAddDivision(slug)
   const importDivisions = useImportDivisions(slug)
@@ -73,8 +73,8 @@ export function SetupPage() {
   const ccPreview = useCcPreview(slug)
   const ccApply = useCcApply(slug)
 
-  const uploadLogo = useUploadLogo()
-  const removeLogo = useRemoveLogo()
+  const uploadLogo = useUploadLogo(slug)
+  const removeLogo = useRemoveLogo(slug)
 
   const [error, setError] = useState<string | null>(null)
 

@@ -41,7 +41,7 @@ function serve(over: { divisions?: unknown } = {}) {
     if (path.startsWith('/api/volunteer-roles')) return Promise.resolve(ROLES)
     if (path.startsWith('/api/workout-locations')) return Promise.resolve(LOCATIONS)
     if (path.startsWith('/api/settings')) return Promise.resolve(SETTINGS)
-    if (path === '/api/logo') return Promise.resolve({ url: null })
+    if (path === '/api/logo?slug=summer') return Promise.resolve({ url: null })
     return Promise.resolve(null)
   })
 }
@@ -85,7 +85,7 @@ it('reads everything the screen sets, for the competition in the address', async
   expect(apiGet).toHaveBeenCalledWith('/api/volunteer-roles?slug=summer')
   expect(apiGet).toHaveBeenCalledWith('/api/workout-locations?slug=summer')
   expect(apiGet).toHaveBeenCalledWith('/api/settings?slug=summer')
-  expect(apiGet).toHaveBeenCalledWith('/api/logo')
+  expect(apiGet).toHaveBeenCalledWith('/api/logo?slug=summer')
 })
 
 it('names the screen and what it is for', async () => {

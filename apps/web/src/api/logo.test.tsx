@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryKeys } from './queryKeys'
 import { useLogo, useRemoveLogo, useUploadLogo } from './logo'
 
@@ -17,80 +17,61 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 const png = () => new File(['x'], 'logo.png', { type: 'image/png' })
-const cached = () => client.getQueryData(queryKeys.logo) as { url: string | null }
+const cached = (slug = 'summer') => client.getQueryData(queryKeys.logo(slug)) as { url: string | null } | undefined
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // The upload stamps the URL with the clock, and two uploads a millisecond
-  // apart would stamp it the same. Held still so the test moves it itself.
-  vi.useFakeTimers({ toFake: ['Date'] })
-  vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
   apiGet.mockResolvedValue({ url: null })
-  apiUpload.mockResolvedValue({ url: 'https://cdn/competition-logo.png' })
+  apiUpload.mockResolvedValue({ url: 'https://cdn/logos/1/logo.png?v=2' })
   apiDel.mockResolvedValue({ url: null })
   client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
 })
 
-afterEach(() => {
-  vi.useRealTimers()
-})
-
 describe('useLogo', () => {
-  // No slug anywhere: one logo for the install, not one per competition.
-  it('asks for the one logo the whole install shares', async () => {
-    renderHook(() => useLogo(), { wrapper })
+  it('asks for the competition\'s own logo', async () => {
+    renderHook(() => useLogo('summer'), { wrapper })
     await act(async () => {})
-    expect(apiGet).toHaveBeenCalledWith('/api/logo')
+    expect(apiGet).toHaveBeenCalledWith('/api/logo?slug=summer')
+  })
+
+  // Outside a competition there is no logo to ask for.
+  it('asks for nothing without a competition', async () => {
+    renderHook(() => useLogo(undefined), { wrapper })
+    await act(async () => {})
+    expect(apiGet).not.toHaveBeenCalled()
   })
 })
 
 describe('writing the logo', () => {
-  it('sends the file under the field name the route reads', async () => {
-    const { result } = renderHook(() => useUploadLogo(), { wrapper })
+  it('sends the file under the field name the route reads, for its competition', async () => {
+    const { result } = renderHook(() => useUploadLogo('summer'), { wrapper })
     const file = png()
     await act(() => result.current.mutateAsync(file))
     const [path, form] = apiUpload.mock.calls[0]
-    expect(path).toBe('/api/logo')
+    expect(path).toBe('/api/logo?slug=summer')
     expect((form as FormData).get('logo')).toBe(file)
   })
 
   it('removes it without a body', async () => {
-    const { result } = renderHook(() => useRemoveLogo(), { wrapper })
+    const { result } = renderHook(() => useRemoveLogo('summer'), { wrapper })
     await act(() => result.current.mutateAsync())
-    expect(apiDel).toHaveBeenCalledWith('/api/logo')
+    expect(apiDel).toHaveBeenCalledWith('/api/logo?slug=summer')
   })
 
   // Every shell draws the mark, so the header already on screen has to change
-  // with it. The response carries the new URL, so it is written rather than
-  // asked for a second time.
-  it('puts the new URL straight into the cache the shells read', async () => {
-    const { result } = renderHook(() => useUploadLogo(), { wrapper })
+  // with it. The response carries the new, stamped URL, so it is written
+  // rather than asked for a second time.
+  it('puts the new URL straight into that competition\'s cache', async () => {
+    const { result } = renderHook(() => useUploadLogo('summer'), { wrapper })
     await act(() => result.current.mutateAsync(png()))
-    expect(cached().url).toMatch(/^https:\/\/cdn\/competition-logo\.png\?/)
-  })
-
-  // Defect 26: a replacement is stored under the name it replaced, so nothing
-  // about the URL changes and every drawing of it keeps the browser's copy.
-  it('marks a replacement so every drawing of it gets past the cached file', async () => {
-    const { result } = renderHook(() => useUploadLogo(), { wrapper })
-    await act(() => result.current.mutateAsync(png()))
-    const first = cached().url
-    vi.setSystemTime(new Date('2026-01-01T00:00:01Z'))
-    await act(() => result.current.mutateAsync(png()))
-    expect(cached().url).not.toBe(first)
-  })
-
-  it('keeps a URL that already carries a query, rather than replacing it', async () => {
-    apiUpload.mockResolvedValue({ url: 'https://cdn/logo.png?v=2' })
-    const { result } = renderHook(() => useUploadLogo(), { wrapper })
-    await act(() => result.current.mutateAsync(png()))
-    expect(cached().url).toMatch(/^https:\/\/cdn\/logo\.png\?v=2&t=/)
+    expect(cached()?.url).toBe('https://cdn/logos/1/logo.png?v=2')
+    expect(cached('winter')).toBeUndefined()
   })
 
   it('empties that cache when the logo is removed', async () => {
-    client.setQueryData(queryKeys.logo, { url: 'https://cdn/competition-logo.png' })
-    const { result } = renderHook(() => useRemoveLogo(), { wrapper })
+    client.setQueryData(queryKeys.logo('summer'), { url: 'https://cdn/logos/1/logo.png?v=1' })
+    const { result } = renderHook(() => useRemoveLogo('summer'), { wrapper })
     await act(() => result.current.mutateAsync())
-    expect(client.getQueryData(queryKeys.logo)).toEqual({ url: null })
+    expect(cached()).toEqual({ url: null })
   })
 })

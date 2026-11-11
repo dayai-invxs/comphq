@@ -7,7 +7,7 @@ import { CompetitionBrand } from './CompetitionBrand'
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }))
 vi.mock('@/lib/api', () => ({ apiGet }))
 
-function mount(children = <CompetitionBrand />) {
+function mount(children = <CompetitionBrand slug="summer" />) {
   return renderRoutes(<Route path="/" element={children} />)
 }
 
@@ -62,7 +62,7 @@ describe('CompetitionBrand', () => {
   // so the destination is a prop rather than a second component.
   it('links where an admin bar points it', () => {
     apiGet.mockImplementation(() => new Promise(() => {}))
-    mount(<CompetitionBrand href="/admin" />)
+    mount(<CompetitionBrand href="/admin" slug="summer" />)
     expect(screen.getByRole('link', { name: 'CompHQ home' })).toHaveAttribute('href', '/admin')
   })
 
@@ -78,8 +78,22 @@ describe('CompetitionBrand', () => {
   // v1 asked from an effect inside its nav, so every public page fetched it
   // again. It is one shared query now, whoever draws it.
   it('asks for the logo once however many bars draw it', async () => {
-    mount(<><CompetitionBrand /><CompetitionBrand /></>)
+    mount(<><CompetitionBrand slug="summer" /><CompetitionBrand slug="summer" /></>)
     await screen.findAllByRole('img', { name: 'CompHQ' })
-    expect(apiGet.mock.calls.filter((c) => c[0] === '/api/logo')).toHaveLength(1)
+    expect(apiGet.mock.calls.filter((c) => c[0] === '/api/logo?slug=summer')).toHaveLength(1)
+  })
+
+  // The site-wide admin screens belong to no competition, so no competition's
+  // logo is drawn on them.
+  it('carries the lockup and asks for nothing outside a competition', async () => {
+    mount(<CompetitionBrand href="/admin" />)
+    expect(lockup()).toBeInTheDocument()
+    expect(apiGet).not.toHaveBeenCalled()
+  })
+
+  it('asks for the logo of the competition it is drawn for', async () => {
+    mount()
+    await screen.findByRole('img', { name: 'CompHQ' })
+    expect(apiGet).toHaveBeenCalledWith('/api/logo?slug=summer')
   })
 })

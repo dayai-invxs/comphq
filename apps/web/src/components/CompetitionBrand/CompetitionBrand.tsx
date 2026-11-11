@@ -14,8 +14,10 @@ import styles from './CompetitionBrand.module.css'
 // "Home" differs by shell — the public site's front page, the admin's index —
 // so the destination is the one prop.
 
-export function CompetitionBrand({ href = '/' }: { href?: string }) {
-  const logo = useLogo()
+/** `slug`: the competition whose logo to draw. Without one (the site-wide
+    admin screens) the bar carries the CompHQ lockup. */
+export function CompetitionBrand({ href = '/', slug }: { href?: string; slug?: string }) {
+  const logo = useLogo(slug)
 
   return (
     <RouterAnchor href={href} aria-label="CompHQ home" className={styles.home}>

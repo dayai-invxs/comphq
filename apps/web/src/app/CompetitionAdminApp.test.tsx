@@ -16,8 +16,11 @@ const USER = { id: 'u1', email: 'scorer@comphq.test' }
 const MINE = [{ id: 1, name: 'Summer Throwdown', slug: 'summer', role: 'admin' }]
 
 function serve(routes: Record<string, unknown>) {
-  apiGet.mockImplementation((path: string) =>
-    path in routes ? Promise.resolve(routes[path]) : Promise.reject(new Error(`no fixture for ${path}`)))
+  apiGet.mockImplementation((asked: string) => {
+    // The logo is asked for by competition; the fixtures name it once.
+    const path = asked.startsWith('/api/logo?') ? '/api/logo' : asked
+    return path in routes ? Promise.resolve(routes[path]) : Promise.reject(new Error(`no fixture for ${asked}`))
+  })
 }
 
 function mount(entry = '/summer/admin') {
@@ -162,6 +165,7 @@ describe('CompetitionAdminApp', () => {
     })
     mount()
     expect(await screen.findByAltText(/competition logo/i)).toHaveAttribute('src', 'https://cdn.example/logo.png')
+    expect(apiGet).toHaveBeenCalledWith('/api/logo?slug=summer')
   })
 
   it('signs out and returns to login', async () => {

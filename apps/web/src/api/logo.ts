@@ -2,16 +2,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiDel, apiGet, apiUpload } from '@/lib/api'
 import { queryKeys } from './queryKeys'
 
-// The mark on the shell. Stored against competitionId 0 (defect 8), so there
-// is one for the whole install rather than one per competition — which is why
-// nothing here is keyed by slug.
+// The mark on a competition's bars. Each competition has its own; there used
+// to be one for the whole site, so one competition's upload replaced every
+// other's. Screens outside a competition have no slug and carry the CompHQ
+// lockup, so nothing is asked for them.
+//
+// The server stamps each upload's URL with ?v=<time>: a replacement keeps the
+// file's name, and the new address is what gets every drawing of it, here
+// and on every other screen, past the copy browsers and the CDN held (v1's
+// defect 26).
 
 export type Logo = { url: string | null }
 
-export function useLogo() {
+const path = (slug: string) => `/api/logo?slug=${encodeURIComponent(slug)}`
+
+export function useLogo(slug: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.logo,
-    queryFn: () => apiGet<Logo>('/api/logo'),
+    queryKey: queryKeys.logo(slug ?? ''),
+    queryFn: () => apiGet<Logo>(path(slug!)),
+    enabled: !!slug,
     // v1 held it for a minute. It is the one read on these screens that does
     // not change during a competition.
     staleTime: 60_000,
@@ -19,7 +28,7 @@ export function useLogo() {
 }
 
 /** `success` is what the MutationCache toasts when the write lands. */
-function useLogoWriter<T>(success: string, send: (input: T) => Promise<Logo>) {
+function useLogoWriter<T>(slug: string, success: string, send: (input: T) => Promise<Logo>) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: send,
@@ -27,33 +36,19 @@ function useLogoWriter<T>(success: string, send: (input: T) => Promise<Logo>) {
     // already on screen. Written into the cache rather than invalidated: the
     // response carries the new URL, and a re-read would only ask for it again.
     meta: { success },
-    onSuccess: (logo) => qc.setQueryData(queryKeys.logo, logo),
+    onSuccess: (logo) => qc.setQueryData(queryKeys.logo(slug), logo),
   })
-}
-
-/** A replacement keeps the stored URL — same bucket, same name — so the
- *  browser goes on serving the copy it already has. The stamp is put on the
- *  URL that lands in the cache, which is the URL every drawing of the mark
- *  reads: the setup screen's preview and the shell's app bar move past the old
- *  file together.
- *
- *  v1 stamped its own preview and nothing else, so the header kept the old
- *  logo until the page was reloaded (defect 26). Stamping at the call site is
- *  what caused that; there is one cache and the stamp belongs on it. */
-function bust(url: string) {
-  return `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
 }
 
 /** The field name is the server's: it reads `logo` off the form. */
-export function useUploadLogo() {
-  return useLogoWriter('Logo uploaded', async (file: File) => {
+export function useUploadLogo(slug: string) {
+  return useLogoWriter(slug, 'Logo uploaded', (file: File) => {
     const form = new FormData()
     form.append('logo', file)
-    const logo = await apiUpload<Logo>('/api/logo', form)
-    return { url: logo.url ? bust(logo.url) : null }
+    return apiUpload<Logo>(path(slug), form)
   })
 }
 
-export function useRemoveLogo() {
-  return useLogoWriter('Logo removed', () => apiDel<Logo>('/api/logo'))
+export function useRemoveLogo(slug: string) {
+  return useLogoWriter(slug, 'Logo removed', () => apiDel<Logo>(path(slug)))
 }

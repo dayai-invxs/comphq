@@ -146,6 +146,8 @@ export function createSupabaseMock() {
       calls.length = 0
       from.mockClear()
       rpc.mockClear()
+      // Without this a test reads the uploads and removals of the ones before.
+      storage.from.mockClear()
     },
   }
 }

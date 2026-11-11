@@ -4,7 +4,7 @@ export const queryKeys = {
   me: ['me'] as const,
   competitions: ['competitions'] as const,
   myCompetitions: ['competitions', 'mine'] as const,
-  logo: ['logo'] as const,
+  logo: (slug: string) => ['logo', slug] as const,
   // Competition settings. The judge gate reads the password out of it and the
   // judge schedule reads the consecutive-heat limit, so the two screens share
   // one entry rather than asking twice.

@@ -32,7 +32,7 @@ export function LogoSection({ url, busy, onUpload, onRemove }: Props) {
   return (
     <DataPanel
       title="Competition Logo"
-      description="Drawn in the bar at the top of every screen, in place of the CompHQ mark."
+      description="Drawn in the bar at the top of this competition’s screens, in place of the CompHQ mark. Other competitions keep their own."
     >
       <Stack gap="base">
         {url && (

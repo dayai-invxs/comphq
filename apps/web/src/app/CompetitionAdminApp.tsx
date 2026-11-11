@@ -78,7 +78,7 @@ export function CompetitionAdminApp() {
   }
 
   const base = `/${slug}/admin`
-  const title = <CompetitionBrand href="/admin" />
+  const title = <CompetitionBrand href="/admin" slug={slug} />
 
   return (
     <AdminShell
