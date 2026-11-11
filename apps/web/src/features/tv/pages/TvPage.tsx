@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useParams } from 'react-router'
 import { useChecks, useLeaderboard, useOps } from '@/api/liveReads'
+import { useLogo } from '@/api/logo'
 import { queryKeys } from '@/api/queryKeys'
 import type { OpsData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
@@ -42,6 +43,7 @@ export function TvPage() {
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData, error: lbError } = useLeaderboard(slug)
   const { data: checksData } = useChecks(slug)
+  const logo = useLogo(slug)
   const athleteChecks = checksData?.athleteChecks ?? {}
 
   const realtimeKeys = useMemo(
@@ -68,8 +70,15 @@ export function TvPage() {
         {/* The heading changes with nobody acting, which is what a live region
             is for — the one thing on this screen an assistive reader cannot
             work out by looking again. */}
-        <div role="status">
-          <Heading level={1} className={styles.title}>{VIEWS[view]}</Heading>
+        <div className={styles.lead}>
+          {/* The competition's own logo, when it has uploaded one. Not a
+              link: nobody touches this screen. */}
+          {logo.data?.url && (
+            <img src={logo.data.url} alt="Competition logo" className={styles.logo} />
+          )}
+          <div role="status">
+            <Heading level={1} className={styles.title}>{VIEWS[view]}</Heading>
+          </div>
         </div>
         <div className={styles.aside}>
           <Text as="span" tone="muted" className={styles.scan}>Scan for Comp Info →</Text>

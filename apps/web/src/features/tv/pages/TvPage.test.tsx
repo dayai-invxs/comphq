@@ -80,6 +80,21 @@ beforeEach(() => {
 
 afterEach(() => { vi.useRealTimers() })
 
+it('shows the competition\'s own logo in the bar', async () => {
+  const base = apiGet.getMockImplementation()!
+  apiGet.mockImplementation((path: string) =>
+    path === '/api/logo?slug=summer' ? Promise.resolve({ url: 'https://cdn.example/logos/1/logo.png?v=1' }) : base(path))
+  mount()
+  expect(await screen.findByRole('img', { name: 'Competition logo' }))
+    .toHaveAttribute('src', 'https://cdn.example/logos/1/logo.png?v=1')
+})
+
+it('shows no logo when the competition has none', async () => {
+  mount()
+  await drawn()
+  expect(screen.queryByRole('img', { name: 'Competition logo' })).not.toBeInTheDocument()
+})
+
 it('reads the three things the board is drawn from, for the competition in the address', async () => {
   mount()
   await drawn()
