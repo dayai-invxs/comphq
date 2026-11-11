@@ -1,4 +1,4 @@
-import { Field, Input, Select, Switch, Text } from '@mond-design-system/react'
+import { Field, Input, Select, Stack, Switch, Text } from '@mond-design-system/react'
 import { roundSizes } from '@/lib/knockout'
 import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
 
@@ -70,16 +70,16 @@ export function KnockoutFields({ value, onChange, lanes, wideClassName }: Props)
               )).join(' → ')}. Each division runs its own bracket; small divisions share a heat when the lanes allow.
             </Text>
           )}
-          <div className={wideClassName}>
+          <Stack gap="hairline" className={wideClassName}>
             <Switch
               label="Winner wins the competition"
               checked={value.decides}
               onChange={(e) => set({ decides: e.target.checked })}
             />
-            <Text variant="meta" tone="muted">
+            <Text as="p" variant="meta" tone="muted">
               For a final tournament run as the last workout. Once it is finished, the leaderboard ranks each division by the tournament&apos;s placings alone and ignores the points from every earlier workout.
             </Text>
-          </div>
+          </Stack>
         </>
       )}
     </>
