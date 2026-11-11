@@ -104,18 +104,27 @@ export async function advanceRound(wk: KnockoutWorkoutRow): Promise<{ round: num
   return { round: round + 1, placed: placed.length }
 }
 
+/** Whether the latest round has any result entered: a score or a tick. */
+export async function latestRoundHasResults(workoutId: number): Promise<boolean> {
+  const lanes = await loadLanes(workoutId)
+  const round = currentRound(lanes)
+  return lanes.some((l) => roundOf(l) === round && (l.rawScore != null || l.advanced != null))
+}
+
 /**
  * Removes the latest round's heats, so the round before it can be changed.
- * Refused for round 1 (Clear All Heats does that) and once the latest round
- * has results. Any finished placings go too.
+ * Refused for round 1 (Clear All Heats does that). A round with results —
+ * a finished final always has them — goes only when the caller says to
+ * discard them (`discardResults`); the earlier rounds keep theirs. Any
+ * finished placings go too, and a completed workout is reopened.
  */
-export async function undoRound(wk: KnockoutWorkoutRow): Promise<number> {
+export async function undoRound(wk: KnockoutWorkoutRow, { discardResults = false } = {}): Promise<number> {
   const lanes = await loadLanes(wk.id)
   const round = currentRound(lanes)
   if (round <= 1) throw new KnockoutRefusal('Round 1 cannot be undone. Use Clear All Heats to start over.')
   const latest = lanes.filter((l) => roundOf(l) === round)
-  if (latest.some((l) => l.rawScore != null || l.advanced != null)) {
-    throw new KnockoutRefusal(`Round ${round} has results. Clear them first.`)
+  if (!discardResults && latest.some((l) => l.rawScore != null || l.advanced != null)) {
+    throw new KnockoutRefusal(`Round ${round} has results. Undoing it deletes them.`)
   }
   const heats = [...new Set(latest.map((l) => l.heatNumber))]
   await db.transaction(async (tx) => {

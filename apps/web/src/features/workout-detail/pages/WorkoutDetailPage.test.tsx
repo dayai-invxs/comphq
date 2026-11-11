@@ -590,3 +590,35 @@ describe('scores typed but not saved', () => {
   })
 })
 
+// Finished, then backed out to the round before.
+describe('undoing a knockout round', () => {
+  const lane = (id: number, heatNumber: number, aId: number, round: number, rawScore: number | null) =>
+    ({ ...assign(id, heatNumber, 1, aId, `A${aId}`), round, rawScore })
+  const finished = {
+    knockout: true, knockoutRounds: 2, knockoutAdvance: 1, status: 'completed', completedHeats: [1, 2],
+    assignments: [lane(10, 1, 1, 1, 60000), lane(11, 2, 1, 2, 55000)],
+    scores: [{ ...SCORE, athleteId: 1, points: 1 }],
+  } as Partial<Workout>
+
+  it('asks first when the round has results, then deletes them with it', async () => {
+    await open(finished)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo Round 2' }))
+    await confirmWith('Undo Round 2')
+    await waitFor(() => expect(apiDel).toHaveBeenCalledWith(
+      '/api/workouts/42/knockout?slug=rugged-rumble', { discardResults: true },
+    ))
+  })
+
+  it('undoes an empty round at once', async () => {
+    await open({ ...finished, status: 'active', scores: [], assignments: [lane(10, 1, 1, 1, 60000), lane(11, 2, 1, 2, null)] })
+    fireEvent.click(screen.getByRole('button', { name: 'Undo Round 2' }))
+    await waitFor(() => expect(apiDel).toHaveBeenCalledWith('/api/workouts/42/knockout?slug=rugged-rumble'))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('leaves a round with results to an admin', async () => {
+    await open(finished, JUDGE_ASSIGNMENTS, VOLUNTEERS, false)
+    expect(screen.queryByRole('button', { name: 'Undo Round 2' })).not.toBeInTheDocument()
+  })
+})
+

@@ -62,7 +62,7 @@ import styles from './WorkoutDetailPage.module.css'
 
 type PromptKey =
   | 'unlock' | 'clearScores' | 'reset' | 'delete' | 'generateJudges' | 'clearJudges'
-  | 'unlockFirst' | 'scoresFirst' | 'deleteHeat' | 'clearHeats'
+  | 'unlockFirst' | 'scoresFirst' | 'deleteHeat' | 'clearHeats' | 'undoRound'
 
 type Prompt = {
   title: string
@@ -154,6 +154,16 @@ export function WorkoutDetailPage() {
       confirmLabel: 'Unlock',
       tone: 'warning',
       run: async () => setHeatsUnlocked(true),
+    },
+    // A round with results (a finished final always has them): undoing it
+    // deletes them, so it asks first. The rounds before it keep theirs.
+    undoRound: {
+      title: `Undo Round ${knockout.round}?`,
+      description: `Round ${knockout.round}'s heats and the results entered in them are deleted, and any final placings with them. `
+        + `Round ${knockout.round - 1} and its results stay, and the workout is reopened.`,
+      confirmLabel: `Undo Round ${knockout.round}`,
+      tone: 'danger',
+      run: async () => { await detail.discardLatestRound() },
     },
     clearScores: {
       title: 'Clear all scores for this workout?',
@@ -335,6 +345,8 @@ export function WorkoutDetailPage() {
   const hasScores = workout.scores.length > 0 || workout.assignments.some((a) => a.rawScore != null)
   const heatsOfRound = (r: number) => workout.assignments.filter((a) => (a.round ?? 1) === r)
   const stageName = (r: number) => (r >= knockout.rounds ? 'the Final' : `Round ${r}`)
+  // Saved results in the latest round: a score or an advance tick.
+  const latestHasResults = heatsOfRound(knockout.round).some((a) => a.rawScore != null || a.advanced != null)
 
   const heatItems: HeatSummary[] = heatNums.map((heatNum) => {
     const entries = byHeat[heatNum] ?? []
@@ -377,8 +389,15 @@ export function WorkoutDetailPage() {
           Finish Tournament
         </Button>
       )}
-      {knockout.round > 1 && (
-        <Button size="sm" variant="secondary" onClick={() => detail.runKnockout('undo')} disabled={detail.loading}>
+      {/* With results in the round, undoing it deletes them: the admin's,
+          behind a warning. An empty round is undone at once, by anyone. */}
+      {knockout.round > 1 && (!latestHasResults || isAdmin) && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => (latestHasResults ? setPrompt('undoRound') : detail.runKnockout('undo'))}
+          disabled={detail.loading}
+        >
           Undo Round {knockout.round}
         </Button>
       )}

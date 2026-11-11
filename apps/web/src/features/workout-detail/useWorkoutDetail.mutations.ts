@@ -84,8 +84,11 @@ export function buildWorkoutMutations(workoutId: string, slug: string) {
       return apiPost(`${base}/knockout${qs}`, { action })
     },
 
-    async undoKnockoutRound() {
-      return apiDel(`${base}/knockout${qs}`)
+    /** Undo the latest round; `discardResults` lets it go with results in it. */
+    async undoKnockoutRound(discardResults = false) {
+      return discardResults
+        ? apiDel(`${base}/knockout${qs}`, { discardResults: true })
+        : apiDel(`${base}/knockout${qs}`)
     },
 
     async reorderAssignments(updates: AssignmentUpdate[]) {

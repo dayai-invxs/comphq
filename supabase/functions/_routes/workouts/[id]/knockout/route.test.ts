@@ -6,7 +6,10 @@ const params = { params: Promise.resolve({ id: '1' }) }
 const post = (body: unknown) => new Request('http://test/api/workouts/1/knockout?slug=default', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
 })
-const del = () => new Request('http://test/api/workouts/1/knockout?slug=default', { method: 'DELETE' })
+const del = (body?: unknown) => new Request('http://test/api/workouts/1/knockout?slug=default', {
+  method: 'DELETE',
+  ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+})
 
 const WK = {
   id: 1, competitionId: 1, knockout: true, scoreType: 'time', tiebreakEnabled: false, tiebreakScoreType: 'time',
@@ -96,11 +99,39 @@ describe('DELETE /api/workouts/[id]/knockout', () => {
     expect(res.status).toBe(409)
   })
 
-  it('refuses to undo a round that has results', async () => {
+  it('will not delete a round\'s results unless told to', async () => {
     mock.queueResult([WK])
     mock.queueResult([lane(1, 11, 1, 70), lane(2, 11, 2, 60, 2)])
     const res = await DELETE(del(), params)
-    expect(await res.text()).toBe('Round 2 has results. Clear them first.')
+    expect(res.status).toBe(409)
+    expect(await res.text()).toBe('Round 2 has results. Undoing it deletes them.')
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
+  // Finished, then backed out: the final goes, its results and the placings
+  // with it, and the workout reopens on round 1's results.
+  it('undoes a finished final when told to discard its results', async () => {
+    mock.queueResults(
+      [WK],
+      [lane(1, 11, 1, 70), lane(2, 11, 2, 60, 2)], // has the round results?
+      [lane(1, 11, 1, 70), lane(2, 11, 2, 60, 2)], // undoRound
+    )
+    const res = await DELETE(del({ discardResults: true }), params)
+    expect(await res.json()).toEqual({ round: 1 })
+    expect(mock.calls.filter((c) => c.method === 'delete').length).toBe(4) // lanes, completions, judges, placings
+    expect(mock.calls.some((c) => c.method === 'set' && (c.args[0] as { status?: string }).status === 'active')).toBe(true)
+  })
+
+  it('leaves discarding results to an admin', async () => {
+    setAuthRole('user')
+    mock.queueResults([WK], [lane(1, 11, 1, 70), lane(2, 11, 2, 60, 2)])
+    const res = await DELETE(del({ discardResults: true }), params)
+    expect(res.status).toBe(403)
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
+  it('refuses a body it does not understand', async () => {
+    expect((await DELETE(del({ everything: true }), params)).status).toBe(400)
   })
 
   it('removes the latest round\'s heats', async () => {

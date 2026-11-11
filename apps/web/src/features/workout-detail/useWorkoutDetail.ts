@@ -338,8 +338,9 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   // Knockout steps. Typed scores are saved first, so the round is settled on
   // what is on screen; then the workout reloads.
   const knockoutMutation = useMutation({
-    mutationFn: async ({ action, payloads }: { action: 'start' | 'advance' | 'finish' | 'undo'; payloads: AnyScorePayload[] }) => {
+    mutationFn: async ({ action, payloads }: { action: 'start' | 'advance' | 'finish' | 'undo' | 'discard'; payloads: AnyScorePayload[] }) => {
       if (action === 'undo') return api.undoKnockoutRound()
+      if (action === 'discard') return api.undoKnockoutRound(true)
       if (payloads.length) await api.saveAll(payloads)
       return api.knockout(action)
     },
@@ -351,6 +352,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
         advance: 'Next round placed.',
         finish: 'Tournament finished. Placings saved as points.',
         undo: 'Latest round removed.',
+        discard: 'Latest round and its results removed. The workout is open again.',
       }[action])
     },
     onError: (e) => setError(errorMessage(e)),
@@ -359,6 +361,9 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   const runKnockout = useCallback(
     (action: 'start' | 'advance' | 'finish' | 'undo', payloads: AnyScorePayload[] = []) =>
       knockoutAsync({ action, payloads }).then(() => undefined, () => undefined), [knockoutAsync])
+  // Behind a ConfirmDialog, so it rejects on a refusal rather than resolving.
+  const discardLatestRound = useCallback(
+    () => knockoutAsync({ action: 'discard', payloads: [] }).then(() => undefined), [knockoutAsync])
 
   const { mutateAsync: saveManyAsync } = saveManyMutation
   const saveMany = useCallback(
@@ -430,6 +435,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     setLaneMember,
     setLaneAdvanced,
     runKnockout,
+    discardLatestRound,
     saveMany,
     completeHeat,
     undoHeat,
