@@ -19,6 +19,7 @@
     "@/lib/heatCompletion": "./_shared/heatCompletion.ts",
     "@/lib/heatDeletion": "./_shared/heatDeletion.ts",
     "@/lib/heatMerge": "./_shared/heatMerge.ts",
+    "@/lib/heatRanking": "./_shared/heatRanking.ts",
     "@/lib/heatTime": "./_shared/heatTime.ts",
     "@/lib/knockout": "./_shared/knockout.ts",
     "@/lib/knockoutStore": "./_shared/knockoutStore.ts",

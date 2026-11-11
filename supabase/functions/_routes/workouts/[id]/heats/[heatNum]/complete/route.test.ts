@@ -1,9 +1,28 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { drizzleMock as mock, setAuthUser } from '@/test/setup'
+
+const { rankCompletedHeats, getCompletedHeats } = vi.hoisted(() => ({
+  rankCompletedHeats: vi.fn(),
+  getCompletedHeats: vi.fn(),
+}))
+vi.mock('@/lib/heatRanking', () => ({ rankCompletedHeats }))
+vi.mock('@/lib/heatCompletion', () => ({ getCompletedHeats }))
+
 import { POST, DELETE } from './route'
 
 const params = (id: string, heatNum: string) => ({ params: Promise.resolve({ id, heatNum }) })
 const url = 'http://test/api/workouts/1/heats/1/complete?slug=default'
+const WORKOUT = {
+  id: 1, status: 'active', scoreType: 'time', tiebreakEnabled: false, tiebreakScoreType: 'time',
+  partBEnabled: false, partBScoreType: 'time', knockout: false,
+}
+const setTo = (field: string, value: unknown) =>
+  mock.calls.find((c) => c.method === 'set' && (c.args[0] as Record<string, unknown>)[field] === value)
+
+beforeEach(() => {
+  rankCompletedHeats.mockReset()
+  getCompletedHeats.mockReset()
+})
 
 describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
   it('rejects unauthenticated', async () => {
@@ -18,48 +37,39 @@ describe('POST /api/workouts/[id]/heats/[heatNum]/complete', () => {
     expect(res.status).toBe(404)
   })
 
-  it('upserts HeatCompletion, ranks, reports workout completed when all heats done', async () => {
-    // Shift order:
-    //   1. requireWorkoutInCompetition
-    //   2. HeatCompletion insert-onConflictDoNothing
-    //   3. getCompletedHeats helper (fires during Promise.all array eval)
-    //   4-5. Promise.all iteration: Score select, HeatAssignment distinct heats
-    //   6. rankAndPersist insert-onConflictDoUpdate
-    //   7. Workout status update
-    mock.queueResult([{
-      id: 1, status: 'active', scoreType: 'time',
-      tiebreakEnabled: false, tiebreakScoreType: 'time',
-      partBEnabled: false, partBScoreType: 'time',
-    }])
+  it('records the heat as complete, idempotently, and re-ranks from completed heats', async () => {
+    mock.queueResult([WORKOUT])
     mock.queueResult(undefined) // HeatCompletion insert
-    mock.queueResult([{ heatNumber: 1 }]) // getCompletedHeats
-    mock.queueResult([
-      { athleteId: 1, workoutId: 1, rawScore: 100, tiebreakRawScore: null, partBRawScore: null },
-    ])
-    mock.queueResult([{ heatNumber: 1 }]) // HeatAssignment distinct heats
-    mock.queueResult(undefined) // rankAndPersist upsert
-    mock.queueResult(undefined) // Workout status update
+    rankCompletedHeats.mockResolvedValue({ completedHeats: [1], workoutDone: false, error: null })
 
     const res = await POST(new Request(url, { method: 'POST' }), params('1', '1'))
     expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.completedHeats).toEqual([1])
-    expect(body.workoutCompleted).toBe(true)
-
-    // HeatCompletion insert values — idempotent shape.
-    const heatInsertValues = mock.calls.find(
-      (c) => c.method === 'values' &&
-        (c.args[0] as { heatNumber?: number }).heatNumber === 1 &&
-        (c.args[0] as { workoutId?: number }).workoutId === 1,
-    )
-    expect(heatInsertValues).toBeTruthy()
-    // onConflictDoNothing in the chain for idempotence.
+    expect(await res.json()).toEqual({ completedHeats: [1], workoutCompleted: false })
+    expect(mock.calls.some((c) => c.method === 'values'
+      && (c.args[0] as { workoutId: number; heatNumber: number }).heatNumber === 1)).toBe(true)
     expect(mock.calls.some((c) => c.method === 'onConflictDoNothing')).toBe(true)
-    // Workout status set → 'completed'.
-    const statusSet = mock.calls.find(
-      (c) => c.method === 'set' && (c.args[0] as { status?: string }).status === 'completed',
-    )
-    expect(statusSet).toBeTruthy()
+    expect(rankCompletedHeats).toHaveBeenCalledWith(1, expect.objectContaining({ scoreType: 'time' }))
+    expect(setTo('status', 'completed')).toBeUndefined()
+  })
+
+  it('marks the workout completed once every heat is', async () => {
+    mock.queueResult([WORKOUT])
+    mock.queueResult(undefined)
+    rankCompletedHeats.mockResolvedValue({ completedHeats: [1, 2], workoutDone: true, error: null })
+    mock.queueResult(undefined) // Workout status update
+
+    const body = await (await POST(new Request(url, { method: 'POST' }), params('1', '2'))).json()
+    expect(body.workoutCompleted).toBe(true)
+    expect(setTo('status', 'completed')).toBeTruthy()
+  })
+
+  it('leaves a knockout unranked: it is placed when the tournament finishes', async () => {
+    mock.queueResult([{ ...WORKOUT, knockout: true }])
+    mock.queueResult(undefined)
+    getCompletedHeats.mockResolvedValue([1])
+    const body = await (await POST(new Request(url, { method: 'POST' }), params('1', '1'))).json()
+    expect(body).toEqual({ completedHeats: [1], workoutCompleted: false })
+    expect(rankCompletedHeats).not.toHaveBeenCalled()
   })
 })
 
@@ -70,35 +80,17 @@ describe('DELETE /api/workouts/[id]/heats/[heatNum]/complete', () => {
     expect(res.status).toBe(401)
   })
 
-  it('removes HeatCompletion row, clears points, resets workout if was completed', async () => {
-    // Query order for DELETE:
-    //   1. requireWorkoutInCompetition
-    //   2. HeatCompletion delete
-    //   3. HeatAssignment select (athletes in this heat)
-    //   4. Score points clear
-    //   5. Workout status revert
-    //   6. getCompletedHeats
-    mock.queueResult([{ status: 'completed' }])
+  it('reopens the heat, reopens a completed workout, and re-ranks from what is still complete', async () => {
+    mock.queueResult([{ ...WORKOUT, status: 'completed' }])
     mock.queueResult(undefined) // HeatCompletion delete
-    mock.queueResult([{ athleteId: 5 }, { athleteId: 6 }]) // HeatAssignment select
-    mock.queueResult(undefined) // Score points clear
     mock.queueResult(undefined) // Workout status revert
-    mock.queueResult([{ heatNumber: 2 }]) // getCompletedHeats
+    rankCompletedHeats.mockResolvedValue({ completedHeats: [2], workoutDone: false, error: null })
 
     const res = await DELETE(new Request(url), params('1', '1'))
     expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.completedHeats).toEqual([2])
-
-    // Score update clears points.
-    const pointsClear = mock.calls.find(
-      (c) => c.method === 'set' && (c.args[0] as { points?: number | null }).points === null,
-    )
-    expect(pointsClear).toBeTruthy()
-    // Workout status reverted to 'active'.
-    const statusRevert = mock.calls.find(
-      (c) => c.method === 'set' && (c.args[0] as { status?: string }).status === 'active',
-    )
-    expect(statusRevert).toBeTruthy()
+    expect(await res.json()).toEqual({ completedHeats: [2] })
+    expect(mock.calls.some((c) => c.method === 'delete')).toBe(true)
+    expect(setTo('status', 'active')).toBeTruthy()
+    expect(rankCompletedHeats).toHaveBeenCalledWith(1, expect.objectContaining({ scoreType: 'time' }))
   })
 })
