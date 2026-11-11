@@ -91,7 +91,7 @@ export function AthleteOverviewPage() {
     () => [queryKeys.ops(slug), queryKeys.schedule(slug), queryKeys.leaderboard(slug)],
     [slug],
   )
-  useRealtimeInvalidation(realtimeKeys)
+  useRealtimeInvalidation(slug, realtimeKeys)
 
   const athletes = useMemo(() => athletesIn(data), [data])
   const matches = matchAthletes(athletes, search)

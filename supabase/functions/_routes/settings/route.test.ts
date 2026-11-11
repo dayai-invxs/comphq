@@ -26,6 +26,25 @@ describe('GET /api/settings', () => {
     const body = await res.json()
     expect(body.showBib).toBe(false)
   })
+
+  // The leaderboard has always been live for an unsaved setting; Setup now
+  // describes the same thing.
+  it('reports live, per-heat results when visibility was never saved', async () => {
+    const body = await (await GET(getReq())).json()
+    expect(body.leaderboardVisibility).toBe('per_heat')
+  })
+
+  it('gives the judge password to the competition\'s own people', async () => {
+    const body = await (await GET(getReq())).json()
+    expect(body.judgePassword).toBe("I'majudge")
+  })
+
+  it('keeps the judge password from everyone else', async () => {
+    setAuthUser(null)
+    const body = await (await GET(getReq())).json()
+    expect(body).not.toHaveProperty('judgePassword')
+    expect(body.showBib).toBe(true)
+  })
 })
 
 describe('PATCH /api/settings', () => {

@@ -133,7 +133,7 @@ it('says on the leaderboard half when its read failed', async () => {
 it('subscribes to the keys its own reads are cached under', async () => {
   mount()
   await drawn()
-  expect(useRealtimeInvalidation).toHaveBeenCalledWith([
+  expect(useRealtimeInvalidation).toHaveBeenCalledWith('summer', [
     ['ops', 'summer'],
     ['leaderboard', 'summer'],
     ['checks', 'summer'],

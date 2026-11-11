@@ -110,7 +110,7 @@ export function AthleteControlPage() {
   // phone therefore lands with the three-second poll instead of at once, which
   // is fast enough for a box and is kept.
   const realtimeKeys = useMemo(() => [queryKeys.ops(slug), queryKeys.checks(slug)], [slug])
-  useRealtimeInvalidation(realtimeKeys)
+  useRealtimeInvalidation(slug, realtimeKeys)
 
   const conflicts = useMemo(() => findConflicts(workouts), [workouts])
 

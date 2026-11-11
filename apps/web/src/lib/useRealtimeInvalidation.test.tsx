@@ -3,16 +3,20 @@ import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useRealtimeInvalidation } from './useRealtimeInvalidation'
 
-// One handler per .on() call, keyed by table, so a test can play the part of
-// the socket and fire row events at the hook.
+// The test plays the part of the socket: it records which channel was opened
+// and what was listened for, and fires announcements at the hook.
 type Handler = () => void
-const handlers = new Map<string, { filter?: string; handler: Handler }>()
+const opened: string[] = []
+const listens: { type: string; event: string }[] = []
+let announce: Handler = () => {}
 const removeChannel = vi.fn()
 
-function makeChannel() {
+function makeChannel(topic: string) {
+  opened.push(topic)
   const channel = {
-    on: (_event: string, spec: { table: string; filter?: string }, handler: Handler) => {
-      handlers.set(spec.table, { filter: spec.filter, handler })
+    on: (type: string, spec: { event: string }, handler: Handler) => {
+      listens.push({ type, event: spec.event })
+      announce = handler
       return channel
     },
     subscribe: vi.fn(() => channel),
@@ -21,27 +25,29 @@ function makeChannel() {
 }
 
 vi.mock('@/lib/supabase', () => ({
-  getSupabaseClient: () => ({ channel: () => makeChannel(), removeChannel }),
+  getSupabaseClient: () => ({ channel: (topic: string) => makeChannel(topic), removeChannel }),
 }))
 
 const KEYS = [['leaderboard', 'rugged'], ['checks', 'rugged']] as const
 
-function mount() {
+function mount(slug = 'rugged') {
   const qc = new QueryClient()
   const invalidate = vi.spyOn(qc, 'invalidateQueries')
-  const view = renderHook(() => useRealtimeInvalidation(KEYS), {
+  const view = renderHook(() => useRealtimeInvalidation(slug, KEYS), {
     wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>,
   })
   return { invalidate, view }
 }
 
-const fire = (table: string, times = 1) => {
-  for (let i = 0; i < times; i++) handlers.get(table)!.handler()
+const fire = (times = 1) => {
+  for (let i = 0; i < times; i++) announce()
 }
 
 beforeEach(() => {
   vi.useFakeTimers()
-  handlers.clear()
+  opened.length = 0
+  listens.length = 0
+  announce = () => {}
   removeChannel.mockClear()
 })
 
@@ -50,18 +56,21 @@ afterEach(() => {
 })
 
 describe('useRealtimeInvalidation', () => {
-  it('subscribes to Score, HeatCompletion, and the two checks rows of Setting', () => {
-    mount()
-    expect([...handlers.keys()].sort()).toEqual(['HeatCompletion', 'Score', 'Setting'])
-    // Setting also holds judgePassword; the subscription must never widen
-    // past the two rows the checks endpoint already serves to anyone.
-    expect(handlers.get('Setting')!.filter).toBe('key=in.(athleteChecks,equipChecks)')
-    expect(handlers.get('Score')!.filter).toBeUndefined()
+  // One competition's scoring used to reload every competition's screens.
+  it('listens only on its own competition\'s channel', () => {
+    mount('rugged')
+    expect(opened).toEqual(['competition:rugged'])
+    expect(listens).toEqual([{ type: 'broadcast', event: 'changed' }])
+  })
+
+  it('listens to nothing without a competition', () => {
+    mount('')
+    expect(opened).toEqual([])
   })
 
   it('invalidates every given key on the first event, immediately', () => {
     const { invalidate } = mount()
-    fire('Score')
+    fire()
     expect(invalidate).toHaveBeenCalledTimes(KEYS.length)
     expect(invalidate).toHaveBeenCalledWith({ queryKey: KEYS[0] })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: KEYS[1] })
@@ -69,7 +78,7 @@ describe('useRealtimeInvalidation', () => {
 
   it('collapses a burst into the leading refetch and one trailing refetch', () => {
     const { invalidate } = mount()
-    fire('Score', 25)
+    fire(25)
     // Leading edge only so far: one invalidation per key, not 25.
     expect(invalidate).toHaveBeenCalledTimes(KEYS.length)
     vi.runAllTimers()
@@ -79,22 +88,22 @@ describe('useRealtimeInvalidation', () => {
 
   it('does not fire a trailing refetch when nothing arrived during the window', () => {
     const { invalidate } = mount()
-    fire('Score')
+    fire()
     vi.runAllTimers()
     expect(invalidate).toHaveBeenCalledTimes(KEYS.length)
   })
 
   it('opens a fresh window after the last one closes', () => {
     const { invalidate } = mount()
-    fire('Score', 5)
+    fire(5)
     vi.runAllTimers()
-    fire('HeatCompletion')
+    fire()
     expect(invalidate).toHaveBeenCalledTimes(KEYS.length * 3)
   })
 
   it('removes the channel and lets no trailing refetch outlive the unmount', () => {
     const { invalidate, view } = mount()
-    fire('Score', 5)
+    fire(5)
     view.unmount()
     expect(removeChannel).toHaveBeenCalledTimes(1)
     vi.runAllTimers()

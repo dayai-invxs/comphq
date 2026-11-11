@@ -161,7 +161,7 @@ function EquipmentControl({ slug }: { slug: string }) {
   const [resetting, setResetting] = useState(false)
 
   const realtimeKeys = useMemo(() => [queryKeys.ops(slug), queryKeys.checks(slug)], [slug])
-  useRealtimeInvalidation(realtimeKeys)
+  useRealtimeInvalidation(slug, realtimeKeys)
 
   function toggle(workoutId: number, heatNumber: number, divisionName: string | null) {
     const key = checkKey(workoutId, heatNumber, divisionName)

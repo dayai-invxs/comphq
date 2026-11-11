@@ -394,7 +394,7 @@ describe('AthleteControlPage', () => {
   it('subscribes to the heats it draws and the checks it ticks', async () => {
     mount()
     await screen.findByRole('region', { name: 'Workout 1: Fran' })
-    expect(useRealtimeInvalidation).toHaveBeenCalledWith([['ops', 'summer'], ['checks', 'summer']])
+    expect(useRealtimeInvalidation).toHaveBeenCalledWith('summer', [['ops', 'summer'], ['checks', 'summer']])
   })
 
   // The tick stays where the finger put it — that part is deliberate — but the

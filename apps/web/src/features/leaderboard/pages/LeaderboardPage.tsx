@@ -54,7 +54,7 @@ export function LeaderboardPage() {
   const [search, setSearch] = useState('')
 
   const realtimeKeys = useMemo(() => [queryKeys.leaderboard(slug)], [slug])
-  useRealtimeInvalidation(realtimeKeys)
+  useRealtimeInvalidation(slug, realtimeKeys)
 
   const workouts = data?.workouts ?? []
   // Held steady across renders: the sort below memoizes on it, and a fresh []

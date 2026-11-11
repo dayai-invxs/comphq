@@ -4,6 +4,7 @@ import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, score, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { DEFAULT_LEADERBOARD_VISIBILITY } from '@/lib/competitionDefaults'
 
 type AthleteRow = {
   id: number
@@ -45,8 +46,8 @@ export async function GET(req: Request) {
   ])
 
   const athletes: AthleteRow[] = athletesRaw
-  // Default to per_heat (live) so scores show as heats complete; per_workout hides until entire workout is done
-  const liveLeaderboard = (leaderboardVisibilityValue ?? 'per_heat') !== 'per_workout'
+  // per_heat (live) shows scores as heats complete; per_workout hides them until the whole workout is done
+  const liveLeaderboard = (leaderboardVisibilityValue ?? DEFAULT_LEADERBOARD_VISIBILITY) !== 'per_workout'
   const visibleWorkouts = workouts.filter((w) => liveLeaderboard
     ? w.status === 'active' || w.status === 'completed'
     : w.status === 'completed'

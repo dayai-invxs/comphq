@@ -108,7 +108,7 @@ describe('LeaderboardPage', () => {
     mount()
     await screen.findByRole('table', { name: 'Rx standings' })
     expect(apiGet).toHaveBeenCalledWith('/api/leaderboard?slug=summer')
-    expect(useRealtimeInvalidation).toHaveBeenCalledWith([['leaderboard', 'summer']])
+    expect(useRealtimeInvalidation).toHaveBeenCalledWith('summer', [['leaderboard', 'summer']])
   })
 
   it('says how many workouts count, and which way the scale runs', async () => {

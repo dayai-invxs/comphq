@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { setting } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
+import { DEFAULT_JUDGE_PASSWORD, DEFAULT_LEADERBOARD_VISIBILITY } from '@/lib/competitionDefaults'
 import { parseJson } from '@/lib/parseJson'
 import { SettingsPatch } from '@/lib/schemas'
 
@@ -30,10 +31,10 @@ async function readSettings(competitionId: number) {
   const [showBib, tiebreakWorkoutId, leaderboardVisibility, tvLeaderboardPercentagesRaw, tvLeaderboardOrderRaw, judgePassword, judgeMaxConsecutiveRaw, listed] = await Promise.all([
     getSetting(competitionId, 'showBib', 'true'),
     getSetting(competitionId, 'tiebreakWorkoutId', ''),
-    getSetting(competitionId, 'leaderboardVisibility', 'per_workout'),
+    getSetting(competitionId, 'leaderboardVisibility', DEFAULT_LEADERBOARD_VISIBILITY),
     getSetting(competitionId, 'tvLeaderboardPercentages', '{}'),
     getSetting(competitionId, 'tvLeaderboardOrder', '{}'),
-    getSetting(competitionId, 'judgePassword', 'rug702'),
+    getSetting(competitionId, 'judgePassword', DEFAULT_JUDGE_PASSWORD),
     getSetting(competitionId, 'judgeMaxConsecutive', '3'),
     getSetting(competitionId, 'listed', 'true'),
   ])
@@ -56,12 +57,17 @@ async function readSettings(competitionId: number) {
 }
 
 // Public read of competition-level settings (used by unauthed display views).
+// The judge password is in it only for the competition's own people, who set
+// it on the Setup screen. Everyone else, judges at the door included, checks
+// a password through POST /api/settings/judge and is never handed it.
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
   const competition = await resolveCompetition(slug)
   if (!competition) return new Response('Competition not found', { status: 404 })
 
-  return Response.json(await readSettings(competition.id))
+  const { judgePassword, ...settings } = await readSettings(competition.id)
+  const member = await requireCompetitionAccess(slug).then(() => true, () => false)
+  return Response.json(member ? { ...settings, judgePassword } : settings)
 }
 
 export async function PATCH(req: Request) {

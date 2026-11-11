@@ -68,7 +68,7 @@ async function expand(number: number, workout = 'Fran') {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionStorage.setItem('judgeUnlocked', '1')
+  sessionStorage.setItem('judgeUnlocked:summer', '1')
   useSession.mockReturnValue({ user: null, loading: false, signOut: vi.fn() })
   serve()
 })
@@ -286,6 +286,6 @@ describe('EquipmentPage', () => {
   it('refreshes on a live event for this competition', async () => {
     mount()
     await heat(1)
-    expect(useRealtimeInvalidation).toHaveBeenCalledWith([['ops', 'summer'], ['checks', 'summer']])
+    expect(useRealtimeInvalidation).toHaveBeenCalledWith('summer', [['ops', 'summer'], ['checks', 'summer']])
   })
 })

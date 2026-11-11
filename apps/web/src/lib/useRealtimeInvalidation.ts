@@ -5,37 +5,32 @@ import { useQueryClient } from '@tanstack/react-query'
 import { getSupabaseClient } from './supabase'
 
 /**
- * Subscribes to Postgres change events on `Score` + `HeatCompletion`, and on
- * the two `Setting` rows the checks screens live on, and invalidates the
- * given TanStack Query keys when a row event arrives.
+ * Listens for "something changed" announcements for one competition and
+ * invalidates the given TanStack Query keys when one arrives.
+ *
+ * Each competition has its own broadcast channel, "competition:<slug>". The
+ * database announces on it when a score, a completed heat or a check tick of
+ * that competition changes (supabase/migrations/20261110170000_per_competition_live.sql).
+ * The announcement carries no data; the screen re-reads through the API, so
+ * nothing private travels on the socket. Screens used to subscribe to every
+ * such row change across all competitions, so one competition's scoring made
+ * every other competition's open screens reload.
  *
  * Invalidation is throttled: the first event of a quiet period refetches
  * immediately (a score lands, the board moves), and everything else inside
- * the window collapses into one trailing refetch when it closes. Without
- * this, a bulk import or a burst of scoring is one leaderboard recomputation
- * per row on every open screen.
+ * the window collapses into one trailing refetch when it closes.
  *
- * The Setting subscription is row-filtered to the two keys the public
- * `GET /api/checks` endpoint already serves to anyone. Setting also holds
- * judgePassword — the filter, and the matching row-scoped RLS policy in
- * supabase/migrations, are what keep that out of the socket. Never widen it.
- *
- * Pair with `useQuery` on the public read routes (leaderboard, ops,
- * schedule, checks). The `refetchInterval` on those queries is the safety
- * net when WebSocket reconnects miss an event.
- *
- * Requires RLS policies granting `anon` SELECT on Score + HeatCompletion,
- * and on the two checks rows of Setting (see
- * supabase/migrations/20260421170000_rls_public_read.sql and
- * supabase/migrations/20260830120000_realtime_checks.sql).
+ * The `refetchInterval` on the paired queries is the safety net when a
+ * WebSocket reconnect misses an event.
  */
 
 const THROTTLE_MS = 2_000
 
-export function useRealtimeInvalidation(queryKeys: readonly (readonly unknown[])[]): void {
+export function useRealtimeInvalidation(slug: string, queryKeys: readonly (readonly unknown[])[]): void {
   const qc = useQueryClient()
 
   useEffect(() => {
+    if (!slug) return
     let client
     try {
       client = getSupabaseClient()
@@ -65,14 +60,8 @@ export function useRealtimeInvalidation(queryKeys: readonly (readonly unknown[])
     }
 
     const channel = client
-      .channel('public-leaderboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Score' }, onRowEvent)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'HeatCompletion' }, onRowEvent)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'Setting', filter: 'key=in.(athleteChecks,equipChecks)' },
-        onRowEvent,
-      )
+      .channel(`competition:${slug}`)
+      .on('broadcast', { event: 'changed' }, onRowEvent)
       .subscribe()
 
     return () => {
@@ -82,5 +71,5 @@ export function useRealtimeInvalidation(queryKeys: readonly (readonly unknown[])
     // queryKeys is intentionally not a dep — consumers should pass a stable
     // reference. If keys change, unmount/remount is the right signal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qc])
+  }, [qc, slug])
 }

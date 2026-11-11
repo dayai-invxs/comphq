@@ -68,19 +68,23 @@ describe('POST /api/competitions', () => {
     // First returning() → competition row; second insert (no returning) → empty.
     mock.queueResult([created])
     mock.queueResult(undefined)
+    mock.queueResult(undefined)
 
     const res = await POST(postReq({ name: 'Rugged Rumble', slug: 'Rugged Rumble' }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(created)
 
-    // Two inserts fired: Competition, then CompetitionAdmin.
+    // Three inserts fired: Competition, CompetitionAdmin, and its judge password.
     const inserts = mock.calls.filter((c) => c.method === 'insert')
-    expect(inserts).toHaveLength(2)
+    expect(inserts).toHaveLength(3)
 
     // The competition insert's values should have the normalized slug.
     // `.values` records the payload as args[0].
     const valuesCalls = mock.calls.filter((c) => c.method === 'values')
     expect(valuesCalls[0].args[0]).toMatchObject({ name: 'Rugged Rumble', slug: 'rugged-rumble' })
     expect(valuesCalls[1].args[0]).toMatchObject({ userId: 'user-1', competitionId: 42 })
+    // Written down, so a later change of the built-in default never changes
+    // this competition's password.
+    expect(valuesCalls[2].args[0]).toEqual({ competitionId: 42, key: 'judgePassword', value: "I'majudge" })
   })
 })

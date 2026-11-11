@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiGet, apiPatch } from '@/lib/api'
 import { queryKeys } from './queryKeys'
 
-// GET /api/settings serves the judge password to any caller — no session, no
-// gate (defect 1, ported as-is). That is what makes the judge and equipment
-// screens' password prompt a courtesy rather than a lock, and it is read here
-// exactly as v1 read it.
+// GET /api/settings is public, but carries the judge password only for the
+// competition's own signed-in people (the Setup screen edits it). The judge
+// and equipment screens check a password through POST /api/settings/judge.
 
 export interface CompetitionSettings {
   showBib: boolean
@@ -13,6 +12,7 @@ export interface CompetitionSettings {
   leaderboardVisibility: 'per_heat' | 'per_workout'
   tvLeaderboardPercentages: Record<string, number>
   tvLeaderboardOrder: Record<string, number>
+  /** Present only for the competition's own signed-in people. */
   judgePassword?: string
   judgeMaxConsecutive?: number
   /** Shown in the comphq.pro home page list. Missing means listed. */

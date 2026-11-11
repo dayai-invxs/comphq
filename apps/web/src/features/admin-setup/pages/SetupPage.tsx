@@ -130,7 +130,7 @@ export function SetupPage() {
                 listed={settings.data.listed ?? true}
                 showBib={settings.data.showBib}
                 leaderboardVisibility={settings.data.leaderboardVisibility}
-                judgePassword={settings.data.judgePassword ?? 'rug702'}
+                judgePassword={settings.data.judgePassword ?? ''}
                 judgeMaxConsecutive={settings.data.judgeMaxConsecutive ?? 3}
                 onPatch={(next) => patch('Save setting', next)}
               />

@@ -48,7 +48,7 @@ export function TvPage() {
     () => [queryKeys.ops(slug), queryKeys.leaderboard(slug), queryKeys.checks(slug)],
     [slug],
   )
-  useRealtimeInvalidation(realtimeKeys)
+  useRealtimeInvalidation(slug, realtimeKeys)
 
   useEffect(() => {
     const id = setInterval(

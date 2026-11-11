@@ -4,6 +4,7 @@ import { competition, competitionAdmin, setting } from '@/db/schema'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionCreate } from '@/lib/schemas'
+import { DEFAULT_JUDGE_PASSWORD } from '@/lib/competitionDefaults'
 
 /**
  * Public competition list — used by the homepage and any other discovery
@@ -53,6 +54,9 @@ export async function POST(req: Request) {
       userId: user.id,
       competitionId: created.id,
     })
+    // Written down rather than left to the fallback, so a later change of
+    // the built-in default never changes a running competition's password.
+    await db.insert(setting).values({ competitionId: created.id, key: 'judgePassword', value: DEFAULT_JUDGE_PASSWORD })
 
     return Response.json(created, { status: 201 })
   } catch (e) {

@@ -86,7 +86,7 @@ export function SchedulePage() {
     () => [queryKeys.ops(slug), queryKeys.leaderboard(slug), queryKeys.checks(slug)],
     [slug],
   )
-  useRealtimeInvalidation(realtimeKeys)
+  useRealtimeInvalidation(slug, realtimeKeys)
 
   const showBib = data?.showBib ?? false
   const pending = pendingHeats(data, athleteChecks)

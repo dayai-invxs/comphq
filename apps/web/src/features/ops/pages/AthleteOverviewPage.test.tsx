@@ -292,7 +292,7 @@ describe('AthleteOverviewPage', () => {
   it('refreshes on a live event for this competition', async () => {
     mount()
     await screen.findAllByText('Ada Ant')
-    expect(useRealtimeInvalidation).toHaveBeenCalledWith([
+    expect(useRealtimeInvalidation).toHaveBeenCalledWith('summer', [
       ['ops', 'summer'],
       ['schedule', 'summer'],
       ['leaderboard', 'summer'],
