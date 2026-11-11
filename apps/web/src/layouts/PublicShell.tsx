@@ -18,6 +18,7 @@ import { RouterAnchor } from '@/components/RouterAnchor'
 import type { Destination } from './nav'
 import { RouteBoundary } from './RouteBoundary'
 import { MAIN_ID, SkipLink } from './SkipLink'
+import { useScrollTopOnNavigate } from './useScrollTopOnNavigate'
 import styles from './PublicShell.module.css'
 
 // The spectator and athlete frame. v1 put seven links in one row — Competition
@@ -58,6 +59,7 @@ export interface PublicShellProps {
 
 export function PublicShell({ slug, brand, status }: PublicShellProps) {
   const { pathname } = useLocation()
+  const contentRef = useScrollTopOnNavigate<HTMLElement>()
   // A destination is lit on its own page and on the pages under it — one
   // workout is still Workouts. Not Schedule: every page is under /{slug}.
   const isAt = (to: string) => pathname === to || (to !== `/${slug}` && pathname.startsWith(`${to}/`))
@@ -107,7 +109,7 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
           </SideNav>
         </div>
 
-        <ScreenContent id={MAIN_ID}>
+        <ScreenContent id={MAIN_ID} ref={contentRef}>
           <RouteBoundary key={pathname}>
             <Outlet />
           </RouteBoundary>

@@ -90,4 +90,18 @@ describe('AdminShell', () => {
     mount()
     expect(screen.getByRole('link', { name: 'Skip to content' }).getAttribute('href')).toBe('#main')
   })
+
+  // A page opened from halfway down another used to open halfway down too.
+  it('starts each page at its top', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    mount()
+    const main = document.getElementById('main')!
+    main.scrollTop = 400
+    Object.defineProperty(window, 'scrollY', { value: 400, configurable: true })
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Admin' })).getByText('Workouts'))
+    expect(main.scrollTop).toBe(0)
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true })
+    scrollTo.mockRestore()
+  })
 })

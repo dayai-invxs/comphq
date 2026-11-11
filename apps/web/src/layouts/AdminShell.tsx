@@ -17,6 +17,7 @@ import type { Destination, NavGroup } from './nav'
 import { RouteBoundary } from './RouteBoundary'
 import { MAIN_ID, SkipLink } from './SkipLink'
 import styles from './AdminShell.module.css'
+import { useScrollTopOnNavigate } from './useScrollTopOnNavigate'
 
 // The admin chrome. v1 drew the same bar twice, once in /admin/layout.tsx and
 // once in /[slug]/admin/layout.tsx, and they had already drifted: one closed
@@ -39,6 +40,7 @@ export interface AdminShellProps {
 
 export function AdminShell({ title, groups, extras = [], trailing = [], onSignOut, children }: AdminShellProps) {
   const { pathname } = useLocation()
+  const contentRef = useScrollTopOnNavigate<HTMLElement>()
   const navigate = useNavigate()
   const flat = [...groups.flatMap((g) => g.items), ...extras, ...trailing.flatMap((g) => g.items)]
 
@@ -85,7 +87,7 @@ export function AdminShell({ title, groups, extras = [], trailing = [], onSignOu
             </SideNavGroup>
           </SideNav>
         </div>
-        <ScreenContent id={MAIN_ID} className={styles.content}>
+        <ScreenContent id={MAIN_ID} className={styles.content} ref={contentRef}>
           <RouteBoundary key={pathname}>{children}</RouteBoundary>
         </ScreenContent>
       </div>
