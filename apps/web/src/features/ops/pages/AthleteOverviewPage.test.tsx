@@ -298,4 +298,21 @@ describe('AthleteOverviewPage', () => {
       ['leaderboard', 'summer'],
     ])
   })
+
+  it('finds a team by one of its members, and says which', async () => {
+    const team = { ...entry(4, 'Thunder', 2, { divisionName: 'Teams' }), members: ['Dee Doe', 'Eve Ell'] }
+    serve({ ...OPS, workouts: [{ ...OPS.workouts[0], heats: [...OPS.workouts[0].heats, { heatNumber: 3, isComplete: false, entries: [team, entry(5, 'Deena Ray', 3)] }] }] })
+    mount()
+    await screen.findAllByText('Ada Ant')
+    // "Dee" is a member of Thunder and the start of Deena's own name.
+    search('dee')
+    const list = within(await screen.findByRole('region', { name: '2 matches' }))
+    expect(list.getByRole('button', { name: /Thunder/ })).toHaveTextContent('Team member: Dee Doe')
+    expect(list.getByRole('button', { name: /Deena Ray/ })).not.toHaveTextContent('Team member')
+    // One member's name is an answer: straight to the team's day.
+    search('eve')
+    const panel = within(await screen.findByRole('region', { name: 'Thunder' }))
+    expect(panel.getByText('Teams · Dee Doe, Eve Ell')).toBeInTheDocument()
+    expect(panel.getAllByRole('listitem')[0]).toHaveTextContent('Heat 3 · Lane 2')
+  })
 })

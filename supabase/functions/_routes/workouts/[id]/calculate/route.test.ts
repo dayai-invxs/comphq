@@ -33,6 +33,8 @@ describe('POST /api/workouts/[id]/calculate', () => {
       { athleteId: 2, workoutId: 1, rawScore: 90, tiebreakRawScore: null, partBRawScore: null },
     ])
     mock.queueResult(undefined) // insert onConflict
+    mock.queueResult([{ heatNumber: 1 }, { heatNumber: 2 }]) // the workout's heats
+    mock.queueResult(undefined) // heats completed
     mock.queueResult(undefined) // workout status update
 
     const res = await POST(req(), params('1'))
@@ -44,4 +46,24 @@ describe('POST /api/workouts/[id]/calculate', () => {
     const statusSet = setCalls.find((c) => (c.args[0] as { status?: string }).status === 'completed')
     expect(statusSet).toBeTruthy()
   })
+
+  it('completes every heat of the workout', async () => {
+    mock.queueResults(
+      [{ id: 1, scoreType: 'time', tiebreakEnabled: false, tiebreakScoreType: 'time', partBEnabled: false, partBScoreType: 'time' }],
+      [{ athleteId: 1, workoutId: 1, rawScore: 100, tiebreakRawScore: null, partBRawScore: null }],
+      undefined,
+      [{ heatNumber: 2 }, { heatNumber: 1 }, { heatNumber: 2 }, { heatNumber: 3 }], // one row per lane
+      undefined,
+      undefined,
+    )
+    expect((await POST(req(), params('1'))).status).toBe(200)
+    const values = mock.calls.filter((c) => c.method === 'values').map((c) => c.args[0])
+    expect(values).toContainEqual([
+      { workoutId: 1, heatNumber: 1 },
+      { workoutId: 1, heatNumber: 2 },
+      { workoutId: 1, heatNumber: 3 },
+    ])
+    expect(mock.calls.some((c) => c.method === 'onConflictDoNothing')).toBe(true)
+  })
 })
+

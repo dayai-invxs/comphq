@@ -180,7 +180,7 @@ describe('the lanes', () => {
         advancing: (a) => a.athlete.id === 1, onToggle, onUseScores: vi.fn(),
       },
     })
-    expect(screen.getByText('Round 2 · Heat 1')).toBeInTheDocument()
+    expect(screen.getAllByText('Round 2 · Heat 1')).toHaveLength(2) // top, and above the bottom buttons
     expect(screen.getByText(/tie for the last advancing spot/)).toBeInTheDocument()
     const boxes = screen.getAllByRole('checkbox', { name: 'Advances' }) as HTMLInputElement[]
     expect(boxes.map((b) => b.checked)).toEqual([true, false])
@@ -256,6 +256,21 @@ describe('ending the heat', () => {
     expect(props.onCompleteHeat).toHaveBeenCalledWith(1)
   })
 
+  // A long heat is typed top to bottom; the buttons wait at the bottom too.
+  it('offers save and complete again under the last lane, naming the heat', () => {
+    const { props } = mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Save Heat 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Heat 1' }))
+    expect(props.onSaveHeat).toHaveBeenCalledWith(1)
+    expect(props.onCompleteHeat).toHaveBeenCalledWith(1)
+  })
+
+  it('drops the bottom buttons once the heat is complete', () => {
+    mount({ isComplete: true })
+    expect(screen.queryByRole('button', { name: 'Save Heat 1' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Complete Heat 1' })).not.toBeInTheDocument()
+  })
+
   // v1 made the Completed badge itself the way back — there is no other undo.
   it('offers only the way back once it is complete', () => {
     const { props } = mount({ isComplete: true })
@@ -269,6 +284,8 @@ describe('ending the heat', () => {
     mount({ loading: true })
     expect(screen.getByRole('button', { name: 'Save Heat' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Complete Heat' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save Heat 1' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Complete Heat 1' })).toBeDisabled()
     mount({ loading: true, isComplete: true })
     expect(screen.getByRole('button', { name: 'Completed' })).toBeDisabled()
   })

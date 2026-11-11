@@ -28,7 +28,7 @@ import { WorkoutEditForm } from '../components/WorkoutEditForm/WorkoutEditForm'
 import { WorkoutEquipmentPopover } from '../components/WorkoutEquipmentPopover/WorkoutEquipmentPopover'
 import { WorkoutLeaderboard } from '../components/WorkoutLeaderboard/WorkoutLeaderboard'
 import { useKnockoutHeats } from '../useKnockoutHeats'
-import { useScoreInputs } from '../useScoreInputs'
+import { laneKey, useScoreInputs } from '../useScoreInputs'
 import { useWorkoutDetail, type AnyScorePayload, type Assignment } from '../useWorkoutDetail'
 import { useWorkoutJudges } from '../useWorkoutJudges'
 import styles from './WorkoutDetailPage.module.css'
@@ -279,10 +279,22 @@ export function WorkoutDetailPage() {
     await detail.saveMany(payloadsFor(byHeat[heatNum] ?? []), `Heat ${heatNum} scores saved.`)
   }
 
+  // The score boxes one lane fills: its own for a split team or a knockout,
+  // else the athlete's.
+  const keyOf = (a: Assignment) => (repeats.has(a.athlete.id) || knockout.enabled ? laneKey(a.id) : a.athlete.id)
+  // Typed counts as well as saved: Calculate saves before it ranks.
+  const someEntered = someScored || workout.assignments.some((a) => inputs.buildPayload(keyOf(a)) !== null)
+
+  // Completing a heat saves its scores and, with them, any score typed into
+  // another heat and not saved yet — completing one heat must never cost the
+  // scores waiting in the next. The other heats' saved scores are not resent.
   async function completeHeat(heatNum: number) {
-    await detail.completeHeat(heatNum, payloadsFor(byHeat[heatNum] ?? []))
+    const others = workout.assignments.filter((a) => a.heatNumber !== heatNum && inputs.isUnsaved(keyOf(a)))
+    await detail.completeHeat(heatNum, payloadsFor([...(byHeat[heatNum] ?? []), ...others]))
   }
 
+  // Saves every entered score, completes every heat (the server does that as
+  // it calculates), and ranks the workout.
   async function calculate() {
     await detail.calculateRankings(payloadsFor(workout.assignments))
   }
@@ -500,12 +512,10 @@ export function WorkoutDetailPage() {
                   {!knockout.enabled && <Button
                     size="sm"
                     onClick={calculate}
-                    disabled={detail.loading || !someScored}
-                    title={!someScored
+                    disabled={detail.loading || !someEntered}
+                    title={!someEntered
                       ? 'Enter at least one score first'
-                      : scoredCount < totalAthletes
-                        ? `${totalAthletes - scoredCount} athlete(s)/team(s) without scores will be unranked`
-                        : ''}
+                      : 'Saves every entered score, completes every heat and ranks the workout'}
                   >
                     Calculate Rankings &amp; Complete
                   </Button>}

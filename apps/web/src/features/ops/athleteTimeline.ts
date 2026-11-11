@@ -25,6 +25,8 @@ export type Athlete = {
   athleteName: string
   bibNumber: string | null
   divisionName: string | null
+  /** A team's members, as the heats name them; empty for an individual. */
+  members: string[]
   stops: AthleteStop[]
 }
 
@@ -48,12 +50,18 @@ export function athletesIn(data: OpsData | undefined): Athlete[] {
             athleteName: entry.athleteName,
             bibNumber: entry.bibNumber,
             divisionName: entry.divisionName,
+            members: [],
             stops: [],
           }
           byId.set(entry.athleteId, athlete)
         }
         athlete.bibNumber ??= entry.bibNumber
         athlete.divisionName ??= entry.divisionName
+        // A lane split across a team names only the member running it, so the
+        // roster is every name the team's heats mention, in first-seen order.
+        for (const name of entry.members ?? []) {
+          if (!athlete.members.includes(name)) athlete.members.push(name)
+        }
         const startMs = getHeatMs(workout, heat.heatNumber)
         athlete.stops.push({
           workoutId: workout.id,
@@ -95,6 +103,19 @@ export function matchAthletes(athletes: Athlete[], search: string): Athlete[] {
   return athletes.filter(
     (a) =>
       a.athleteName.toLowerCase().includes(term) ||
-      (a.bibNumber ?? '').toLowerCase().includes(term),
+      (a.bibNumber ?? '').toLowerCase().includes(term) ||
+      a.members.some((m) => m.toLowerCase().includes(term)),
   )
+}
+
+/**
+ * The team members a search found a team by, when it was not found by its
+ * own name or bib — so "Ada" can say which team Ada is on.
+ */
+export function matchedMembers(athlete: Athlete, search: string): string[] {
+  const term = search.trim().toLowerCase()
+  if (!term) return []
+  if (athlete.athleteName.toLowerCase().includes(term)) return []
+  if ((athlete.bibNumber ?? '').toLowerCase().includes(term)) return []
+  return athlete.members.filter((m) => m.toLowerCase().includes(term))
 }

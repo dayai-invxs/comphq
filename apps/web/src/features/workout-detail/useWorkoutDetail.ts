@@ -187,7 +187,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     },
     onMutate: () => setError(''),
     onSuccess: async () => {
-      onSuccess('Rankings calculated. Workout marked as completed.')
+      onSuccess('Scores saved, heats completed and rankings calculated. Workout marked as completed.')
       await load()
     },
     onError: (e) => setError(errorMessage(e)),

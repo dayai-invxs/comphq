@@ -8,6 +8,10 @@ import { getCorralMs, getHeatMs, getWalkoutMs, type Heat, type OpsData, type Wor
 // A heat leaves the queue when the corral marshal ticks it out, not when it
 // finishes: by then the crowd is watching it rather than reading about it.
 // That rule is v1's and it is the whole reason `walkout` is consulted here.
+//
+// A knockout runs round by round, and the walk-out boxes are often left alone:
+// a knockout heat also leaves once it is completed, or once the tournament has
+// moved on to a later round.
 
 export type AthleteChecks = Record<string, { walkout?: boolean } | undefined>
 
@@ -37,6 +41,7 @@ export function pendingHeats(data: OpsData | undefined, checks: AthleteChecks = 
     .flatMap((workout) =>
       workout.heats
         .filter((heat) => !checks[`${workout.id}-${heat.heatNumber}`]?.walkout)
+        .filter((heat) => !workout.knockout || !(heat.isComplete || (heat.round ?? 1) < latestRound(workout)))
         .map((heat) => {
           const startMs = getHeatMs(workout, heat.heatNumber)
           return {
@@ -58,6 +63,11 @@ export function pendingHeats(data: OpsData | undefined, checks: AthleteChecks = 
     }
     return a.workout.number - b.workout.number || a.heat.heatNumber - b.heat.heatNumber
   })
+}
+
+/** The latest round a knockout workout has heats for. */
+function latestRound(workout: WorkoutData): number {
+  return workout.heats.reduce((max, h) => Math.max(max, h.round ?? 1), 1)
 }
 
 /** The heat on the floor: the first one still to run. */

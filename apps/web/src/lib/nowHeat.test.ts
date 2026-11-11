@@ -61,6 +61,21 @@ describe('pendingHeats', () => {
     expect(rows.map((r) => r.heat.heatNumber)).toEqual([2])
   })
 
+  it('drops a knockout heat once it is completed, walked out or not', () => {
+    const w = workout({ knockout: true, heats: [{ ...heat(1), round: 1, isComplete: true }, { ...heat(2), round: 1 }] })
+    expect(pendingHeats(ops([w])).map((p) => p.heat.heatNumber)).toEqual([2])
+  })
+
+  it('drops a knockout round the tournament has moved past', () => {
+    const w = workout({ knockout: true, heats: [{ ...heat(1), round: 1 }, { ...heat(2), round: 2 }] })
+    expect(pendingHeats(ops([w])).map((p) => p.heat.heatNumber)).toEqual([2])
+  })
+
+  it('keeps a completed heat outside a knockout until it is walked out', () => {
+    const w = workout({ heats: [{ ...heat(1), isComplete: true }] })
+    expect(pendingHeats(ops([w]))).toHaveLength(1)
+  })
+
   it('ignores a workout that is not active', () => {
     expect(pendingHeats(ops([workout({ status: 'pending' })]))).toEqual([])
   })

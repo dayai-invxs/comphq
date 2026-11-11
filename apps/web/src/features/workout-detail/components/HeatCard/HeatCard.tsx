@@ -4,6 +4,7 @@ import {
   Card,
   Checkbox,
   CardBody,
+  CardFooter,
   CardHeader,
   Inline,
   Input,
@@ -26,6 +27,7 @@ import { useHeatDnd } from '../heat-dnd-context'
 import { PartAInputCell, PartBInputCell } from '../ScoreInputCells/ScoreInputCells'
 import styles from './HeatCard.module.css'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
+import { Glyph } from '@/components/Glyph/Glyph'
 
 // v1: src/components/workout-detail/HeatCard.tsx. The registry and the
 // Draggable setup are v1's, line for line, because the lane a drop lands in is
@@ -554,6 +556,41 @@ export function HeatCard({
           </tbody>
         </table>
       </CardBody>
+
+      {/* The same two buttons again under the last lane, so a long heat is
+          saved where its scores were typed, not after a scroll back up. The
+          arrow and the heat's name say which heat they act on — the card
+          below starts right after. */}
+      {!isComplete && (
+        <CardFooter>
+          <Inline gap="base" align="center" wrap>
+            <Inline gap="tight" align="center">
+              <span className={styles.upArrow}><Glyph name="up" /></span>
+              <Text as="span" variant="label" tone="accent">
+                {knockout ? `${knockout.label} · ` : ''}Heat {heatNumber}
+              </Text>
+            </Inline>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={loading}
+              onClick={() => onSaveHeat(heatNumber)}
+              aria-label={`Save Heat ${heatNumber}`}
+            >
+              Save Heat
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={loading}
+              onClick={() => onCompleteHeat(heatNumber)}
+              aria-label={`Complete Heat ${heatNumber}`}
+            >
+              Complete Heat
+            </Button>
+          </Inline>
+        </CardFooter>
+      )}
     </Card>
   )
 }

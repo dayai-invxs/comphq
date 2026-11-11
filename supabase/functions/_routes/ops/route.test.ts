@@ -55,4 +55,35 @@ describe('GET /api/ops', () => {
     expect(body.workouts[1]).toMatchObject({ id: 4, number: 4, name: 'TBA', tba: true, locationName: null, heats: [] })
     expect(JSON.stringify(body)).not.toMatch(/Surprise|Pool/)
   })
+
+  // A schedule drops a knockout round the tournament has moved past, so it
+  // needs to know the workout is a knockout and which round each heat is.
+  it('marks a knockout workout and gives each of its heats a round', async () => {
+    const base = {
+      startTime: null, heatIntervalSecs: 600, heatStartOverrides: '{}', timeBetweenHeatsSecs: 120,
+      callTimeSecs: 60, walkoutTimeSecs: 30, scoreType: 'time', tiebreakEnabled: false, tiebreakScoreType: 'time',
+      status: 'active', locationName: null,
+    }
+    mock.queueResults(
+      [{ value: 'false' }],
+      [
+        { ...base, id: 1, number: 1, name: 'Sprint', knockout: true },
+        { ...base, id: 2, number: 2, name: 'Fran', knockout: false },
+      ],
+      [],
+      [
+        // An imported heat has no round: it is round 1.
+        { workoutId: 1, athleteId: 1, heatNumber: 1, lane: 1, round: null, athleteName: 'A', bibNumber: null, divisionName: null },
+        { workoutId: 1, athleteId: 1, heatNumber: 2, lane: 1, round: 2, athleteName: 'A', bibNumber: null, divisionName: null },
+        { workoutId: 2, athleteId: 1, heatNumber: 1, lane: 1, round: null, athleteName: 'A', bibNumber: null, divisionName: null },
+      ],
+      [],
+    )
+    const body = await (await GET(new Request('http://test/api/ops?slug=default'))).json()
+    expect(body.workouts[0].knockout).toBe(true)
+    expect(body.workouts[0].heats.map((h: { round: number }) => h.round)).toEqual([1, 2])
+    expect(body.workouts[1].knockout).toBe(false)
+    expect(body.workouts[1].heats[0]).not.toHaveProperty('round')
+  })
 })
+

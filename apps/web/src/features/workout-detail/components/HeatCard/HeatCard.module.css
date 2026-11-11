@@ -3,6 +3,14 @@
   opacity: 0.6;
 }
 
+/* The footer's arrow points back up at the heat the buttons belong to. */
+.upArrow {
+  display: inline-block;
+  width: var(--mds-icon-md);
+  height: var(--mds-icon-md);
+  color: var(--mds-text-accent);
+}
+
 /* The score columns push the table past a phone; the card does not scroll. */
 .scroller {
   overflow-x: auto;

@@ -88,10 +88,10 @@ export function TvScheduleView({ data, error, checks, layout = 0 }: Props) {
               <span className={styles.heatLine}>
                 <span className={styles.heat}>Heat {heat.heatNumber}</span>
                 {i === 0 && <LiveBadge>Now</LiveBadge>}
+                {divisions.length > 0 && (
+                  <Text tone="muted" className={styles.divisions}>{divisions.join(' / ')}</Text>
+                )}
               </span>
-              {divisions.length > 0 && (
-                <Text tone="muted" className={styles.divisions}>{divisions.join(' / ')}</Text>
-              )}
               {startMs != null && (
                 <dl className={styles.times}>
                   <div className={styles.time}>

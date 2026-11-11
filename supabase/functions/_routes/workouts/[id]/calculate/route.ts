@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { athlete, score, workout } from '@/db/schema'
+import { athlete, heatAssignment, heatCompletion, score, workout } from '@/db/schema'
 import { rankAndPersist } from '@/lib/scoring'
 import { finishTournament, KnockoutRefusal, type KnockoutWorkoutRow } from '@/lib/knockoutStore'
 import { authErrorResponse, requireCompetitionAccess, requireWorkoutInCompetition } from '@/lib/auth-competition'
@@ -51,6 +51,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const result = await rankAndPersist(workoutId, wk, scores)
     if (result.error) return new Response(result.error, { status: 500 })
+
+    // Calculating is the end of the workout: every heat is done, so each one
+    // reads as completed and every athlete in it is placed. Already-completed
+    // heats are left as they are.
+    const lanes = await db
+      .select({ heatNumber: heatAssignment.heatNumber })
+      .from(heatAssignment)
+      .where(eq(heatAssignment.workoutId, workoutId))
+    const heatNumbers = [...new Set(lanes.map((l) => l.heatNumber))].sort((a, b) => a - b)
+    if (heatNumbers.length > 0) {
+      await db
+        .insert(heatCompletion)
+        .values(heatNumbers.map((heatNumber) => ({ workoutId, heatNumber })))
+        .onConflictDoNothing()
+    }
 
     await db.update(workout).set({ status: 'completed' }).where(eq(workout.id, workoutId))
 

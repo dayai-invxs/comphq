@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { athletesIn, matchAthletes } from './athleteTimeline'
+import { athletesIn, matchAthletes, matchedMembers } from './athleteTimeline'
 import type { OpsData } from '@/lib/opsHeats'
 
 // The question this file exists to answer is "where is Alice and when does she
@@ -13,7 +13,7 @@ const entry = (
   athleteName: string,
   lane: number,
   over: Partial<{ divisionName: string | null; bibNumber: string | null; scoreDisplay: string | null; tiebreakDisplay: string | null }> = {},
-) => ({
+): { athleteId: number; members?: string[] } & Record<string, unknown> => ({
   athleteId,
   athleteName,
   lane,
@@ -144,3 +144,38 @@ describe('matchAthletes', () => {
     expect(matchAthletes(athletes, 'zeb')).toEqual([])
   })
 })
+
+// A team member looks for their own name, not their team's.
+describe('a team found by a member', () => {
+  const TEAMS = {
+    showBib: false,
+    workouts: [
+      workout(7, 1, 'Fran', '2026-08-26T09:00:00.000Z', [
+        { heatNumber: 1, isComplete: false, entries: [{ ...entry(5, 'Thunder', 1), members: ['Ada Ant', 'Zed Zorn'] }] },
+        // A split lane names only the member running it, here one the first
+        // heat did not list.
+        { heatNumber: 2, isComplete: false, entries: [{ ...entry(5, 'Thunder', 2), members: ['Mo Moss'] }] },
+        { heatNumber: 3, isComplete: false, entries: [entry(6, 'Adams Solo', 1)] },
+      ]),
+    ],
+  } as unknown as OpsData
+  const athletes = athletesIn(TEAMS)
+
+  it('keeps every member the heats name, once each', () => {
+    expect(athletes.find((a) => a.athleteName === 'Thunder')?.members).toEqual(['Ada Ant', 'Zed Zorn', 'Mo Moss'])
+    expect(athletes.find((a) => a.athleteName === 'Adams Solo')?.members).toEqual([])
+  })
+
+  it('matches a member’s name, including one only a split lane names', () => {
+    expect(matchAthletes(athletes, 'zorn').map((a) => a.athleteName)).toEqual(['Thunder'])
+    expect(matchAthletes(athletes, 'moss').map((a) => a.athleteName)).toEqual(['Thunder'])
+  })
+
+  it('says which member matched, and nothing when the team matched by its own name', () => {
+    const [adams, thunder] = matchAthletes(athletes, 'ada')
+    expect(matchedMembers(thunder, 'ada')).toEqual(['Ada Ant'])
+    expect(matchedMembers(adams, 'ada')).toEqual([])
+    expect(matchedMembers(thunder, 'thun')).toEqual([])
+  })
+})
+

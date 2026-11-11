@@ -108,3 +108,54 @@ describe('a team split across heats', () => {
     expect(result.current.timeInputs[laneKey(33)]).toBe('1:30')
   })
 })
+
+// A reload refills the boxes from the server. A score typed and not saved
+// must survive it; one the server now has takes the server's version.
+describe('reloading with scores typed but not saved', () => {
+  const timed = { ...workout, scoreType: 'time', assignments: [] } as unknown as Workout
+  const withScores = (...s: [number, number][]) =>
+    ({ ...timed, scores: s.map(([athleteId, rawScore]) => ({ athleteId, rawScore })) }) as unknown as Workout
+
+  function typed() {
+    const { result } = renderHook(() => useScoreInputs(timed))
+    act(() => result.current.hydrate(withScores([1, 180000])))
+    act(() => result.current.setTimeInputs((p) => ({ ...p, 2: '4:5', 3: '5:00' })))
+    return result
+  }
+
+  it('keeps an unsaved score, and says it is unsaved', () => {
+    const result = typed()
+    expect(result.current.isUnsaved(2)).toBe(true)
+    expect(result.current.isUnsaved(1)).toBe(false)
+    act(() => result.current.hydrate(withScores([1, 180000])))
+    expect(result.current.timeInputs).toEqual({ 1: '3:00', 2: '4:5', 3: '5:00' })
+  })
+
+  it('takes the server’s version once the server has it', () => {
+    const result = typed()
+    act(() => result.current.hydrate(withScores([1, 180000], [2, 245000])))
+    expect(result.current.timeInputs[2]).toBe('4:05')
+    expect(result.current.isUnsaved(2)).toBe(false)
+    expect(result.current.timeInputs[3]).toBe('5:00')
+  })
+
+  it('keeps a changed score over the saved one it changes', () => {
+    const result = typed()
+    act(() => result.current.setTimeInputs((p) => ({ ...p, 1: '2:59' })))
+    act(() => result.current.hydrate(withScores([1, 180000])))
+    expect(result.current.timeInputs[1]).toBe('2:59')
+  })
+
+  it('lets a server change through to a box nobody touched', () => {
+    const result = typed()
+    act(() => result.current.hydrate(withScores([1, 170000])))
+    expect(result.current.timeInputs[1]).toBe('2:50')
+  })
+
+  it('keeps nothing after the boxes are cleared', () => {
+    const result = typed()
+    act(() => result.current.clear())
+    act(() => result.current.hydrate(withScores()))
+    expect(result.current.timeInputs).toEqual({})
+  })
+})

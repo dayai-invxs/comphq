@@ -19,6 +19,8 @@ export type HeatEntry = {
 
 export type Heat = {
   heatNumber: number
+  /** A knockout heat's round; absent outside a knockout. */
+  round?: number
   isComplete: boolean
   entries: HeatEntry[]
 }
@@ -37,6 +39,8 @@ export type WorkoutData = {
   heatStartOverrides: Record<string, string> | string
   /** A secret workout not yet active: only its number is real; no heats. */
   tba?: boolean
+  /** Run as a knockout tournament, round by round. */
+  knockout?: boolean
   heats: Heat[]
 }
 

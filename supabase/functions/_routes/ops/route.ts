@@ -62,6 +62,7 @@ export async function GET(req: Request) {
             memberName: teamMember.name,
             laneRawScore: heatAssignment.rawScore,
             laneCapped: heatAssignment.capped,
+            round: heatAssignment.round,
             athleteName: athlete.name,
             bibNumber: athlete.bibNumber,
             divisionName: division.name,
@@ -141,8 +142,14 @@ export async function GET(req: Request) {
             : scoreMap.get(`${a.athleteId}-${wk.id}`) ?? null,
           tiebreakDisplay: tiebreakMap.get(`${a.athleteId}-${wk.id}`) ?? null,
         }))
+      // A knockout heat's round (null on imported heats: round 1), so a
+      // schedule can drop a round the tournament has moved past.
+      const round = wk.knockout
+        ? wAssignments.find((a) => a.heatNumber === heatNumber)?.round ?? 1
+        : undefined
       return {
         heatNumber,
+        ...(round !== undefined ? { round } : {}),
         isComplete: completedHeats.includes(heatNumber),
         heatTime: heatStartMs != null ? new Date(heatStartMs).toISOString() : null,
         corralTime: heatStartMs != null ? new Date(heatStartMs - wk.callTimeSecs * 1000).toISOString() : null,
@@ -164,6 +171,7 @@ export async function GET(req: Request) {
       walkoutTimeSecs: wk.walkoutTimeSecs,
       heatStartOverrides: wk.heatStartOverrides,
       tba: false,
+      knockout: wk.knockout,
       heats,
     }
   })

@@ -24,7 +24,7 @@ import { getHeatMs, type Heat, type HeatEntry, type OpsData, type WorkoutData } 
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { statusBadge } from '@/lib/workoutStatus'
 import { TbaWorkout } from '@/components/TbaWorkout/TbaWorkout'
-import { athletesIn, matchAthletes, type Athlete } from '../athleteTimeline'
+import { athletesIn, matchAthletes, matchedMembers, type Athlete } from '../athleteTimeline'
 import styles from './AthleteOverviewPage.module.css'
 
 // v1: src/components/OpsView.tsx, served at /[slug]/athlete-overview. v1 drew
@@ -173,7 +173,7 @@ export function AthleteOverviewPage() {
       <Input
         type="search"
         aria-label="Search athletes and teams"
-        placeholder="Search by name or bib…"
+        placeholder="Search by name, team member or bib…"
         value={search}
         onChange={(e) => { setSearch(e.target.value); setSelectedId(null) }}
         onClear={clear}
@@ -197,7 +197,11 @@ export function AthleteOverviewPage() {
       {selected && (
         <DataPanel
           title={selected.athleteName}
-          description={[selected.divisionName, selected.bibNumber && `Bib ${selected.bibNumber}`]
+          description={[
+            selected.divisionName,
+            selected.bibNumber && `Bib ${selected.bibNumber}`,
+            selected.members.length > 0 && selected.members.join(', '),
+          ]
             .filter(Boolean)
             .join(' · ')}
           actions={<Button variant="secondary" size="sm" onClick={clear}>Clear</Button>}
@@ -215,16 +219,22 @@ export function AthleteOverviewPage() {
           {matches.length === 0 ? (
             <EmptyState
               title="Nobody by that name"
-              description="Check the spelling, or search the bib number instead."
+              description="Check the spelling, or search a team member or the bib number instead."
               action={<Button variant="secondary" onClick={clear}>Show the floor</Button>}
             />
           ) : (
             <ListGroup aria-label="Search results">
-              {matches.map((a) => (
+              {matches.map((a) => {
+                const viaMember = matchedMembers(a, search)
+                return (
                 <ListItem
                   key={a.athleteId}
                   title={a.athleteName}
-                  description={[a.divisionName, a.bibNumber && `Bib ${a.bibNumber}`]
+                  description={[
+                    viaMember.length > 0 && `Team member: ${viaMember.join(', ')}`,
+                    a.divisionName,
+                    a.bibNumber && `Bib ${a.bibNumber}`,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                   trailing={
@@ -234,7 +244,8 @@ export function AthleteOverviewPage() {
                   }
                   onClick={() => setSelectedId(a.athleteId)}
                 />
-              ))}
+                )
+              })}
             </ListGroup>
           )}
         </DataPanel>

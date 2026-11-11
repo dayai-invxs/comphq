@@ -31,6 +31,8 @@ type StubProps = {
   onCompleteHeat: (n: number) => void
   onJudgeChange?: (heatNumber: number, lane: number, volunteerId: number | null) => void
   onPointsOverride?: (athleteId: number, points: number) => Promise<void>
+  entries: Assignment[]
+  scoreInputs: { setTimeInputs: (f: (p: Record<number, string>) => Record<number, string>) => void; timeInputs: Record<number, string> }
 }
 
 vi.mock('../components/HeatCard/HeatCard', () => ({
@@ -44,6 +46,15 @@ vi.mock('../components/HeatCard/HeatCard', () => ({
       <button onClick={() => p.onCompleteHeat(p.heatNumber)}>complete heat {p.heatNumber}</button>
       <button onClick={() => p.onJudgeChange?.(p.heatNumber, 1, 9)}>judge heat {p.heatNumber}</button>
       <button onClick={() => void p.onPointsOverride?.(1, 5)}>override heat {p.heatNumber}</button>
+      {/* Types a time for every lane of the heat, as a scorekeeper would. */}
+      <button
+        onClick={() => p.scoreInputs.setTimeInputs((prev) => ({
+          ...prev, ...Object.fromEntries(p.entries.map((e) => [e.athlete.id, `4:0${e.lane}`])),
+        }))}
+      >
+        type heat {p.heatNumber}
+      </button>
+      <span>heat {p.heatNumber} boxes {p.entries.map((e) => p.scoreInputs.timeInputs[e.athlete.id] ?? '-').join(' ')}</span>
     </div>
   ),
 }))
@@ -524,6 +535,58 @@ describe('for a competition user', () => {
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
       '/api/workouts/42/knockout?slug=rugged-rumble', { action: 'start' },
     ))
+  })
+})
+
+// Two heats typed, one completed: the other heat's scores must survive.
+describe('scores typed but not saved', () => {
+  const scorePosts = () => apiPost.mock.calls
+    .filter((c) => c[0] === '/api/workouts/42/scores?slug=rugged-rumble')
+    .map((c) => (c[1] as { athleteId: number }).athleteId)
+    .sort()
+
+  it('are saved with the heat being completed, from every heat', async () => {
+    await open({ completedHeats: [], scores: [] })
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'complete heat 1' }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
+      '/api/workouts/42/heats/1/complete?slug=rugged-rumble', {},
+    ))
+    expect(scorePosts()).toEqual([1, 2, 3])
+    const paths = apiPost.mock.calls.map((c) => c[0])
+    expect(paths.lastIndexOf('/api/workouts/42/scores?slug=rugged-rumble'))
+      .toBeLessThan(paths.indexOf('/api/workouts/42/heats/1/complete?slug=rugged-rumble'))
+  })
+
+  it('do not resend another heat’s scores that are already saved', async () => {
+    await open({ completedHeats: [], scores: [{ ...SCORE, athleteId: 3, rawScore: 241000 }] })
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'complete heat 1' }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
+      '/api/workouts/42/heats/1/complete?slug=rugged-rumble', {},
+    ))
+    expect(scorePosts()).toEqual([1, 2])
+  })
+
+  it('stay in their boxes when the workout reloads after saving another heat', async () => {
+    await open({ completedHeats: [], scores: [] })
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    // Heat 1 saved; the reload brings back heat 1's scores and nothing for heat 2.
+    serve({ completedHeats: [], scores: [{ ...SCORE, athleteId: 1, rawScore: 241000 }, { ...SCORE, id: 2, athleteId: 2, rawScore: 242000 }] })
+    fireEvent.click(screen.getByRole('button', { name: 'save heat 1' }))
+    expect(await screen.findByText('heat 1 boxes 4:01 4:02')).toBeInTheDocument()
+    await waitFor(() => expect(apiGet.mock.calls.filter((c) => String(c[0]).startsWith('/api/workouts/42?')).length).toBeGreaterThan(1))
+    expect(screen.getByText('heat 2 boxes 4:01')).toBeInTheDocument()
+  })
+
+  it('let Calculate run before anything is saved', async () => {
+    await open({ scores: [] })
+    const calc = screen.getByRole('button', { name: /Calculate Rankings & Complete/ })
+    expect(calc).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    expect(calc).toBeEnabled()
   })
 })
 
