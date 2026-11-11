@@ -64,3 +64,68 @@ it('measures at natural size, so a scale is not applied on top of a scale', () =
   expect(content().style.transform).toBe('')
   expect(content().style.width).toBe('')
 })
+
+// The schedule has other arrangements to try before it shrinks anything: fewer,
+// wider heats with lanes in columns. The probe's height depends on which one
+// it is drawing, the way the real board's does.
+function Arranged({ tick, heights }: { tick: number; heights: number[] }) {
+  const { containerRef, contentRef, layout } = useScaleToFit([tick], heights.length)
+  return (
+    <div ref={containerRef} data-testid="container">
+      <div ref={contentRef} data-testid="content" data-layout={layout} data-heights={heights.join(',')}>
+        {tick}
+      </div>
+    </div>
+  )
+}
+
+function arranged(available: number, heights: number[]) {
+  const first = render(<Arranged tick={0} heights={heights} />)
+  Object.defineProperty(screen.getByTestId('container'), 'clientHeight', { value: available, configurable: true })
+  Object.defineProperty(screen.getByTestId('content'), 'scrollHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.dataset.heights!.split(',').map(Number)[Number(this.dataset.layout)]
+    },
+  })
+  return first
+}
+
+const drawnLayout = () => Number(content().dataset.layout)
+
+it('keeps the first arrangement that fits at full size', () => {
+  const { rerender } = arranged(1000, [2000, 1500, 900, 600])
+  rerender(<Arranged tick={1} heights={[2000, 1500, 900, 600]} />)
+  expect(drawnLayout()).toBe(2)
+  expect(content().style.transform).toBe('')
+})
+
+it('goes back to the arrangement that shrinks least when none fits', () => {
+  const { rerender } = arranged(1000, [2000, 1250, 1600])
+  rerender(<Arranged tick={1} heights={[2000, 1250, 1600]} />)
+  expect(drawnLayout()).toBe(1)
+  expect(content().style.transform).toBe('scale(0.8)')
+})
+
+// A heat walking out can shorten the queue, so every redraw searches again from
+// the arrangement the board prefers rather than staying where the last one
+// ended up.
+it('starts again from the preferred arrangement on every redraw', () => {
+  const { rerender } = arranged(1000, [2000, 1500, 900])
+  rerender(<Arranged tick={1} heights={[2000, 1500, 900]} />)
+  expect(drawnLayout()).toBe(2)
+
+  rerender(<Arranged tick={2} heights={[800, 700, 600]} />)
+  expect(drawnLayout()).toBe(0)
+  expect(content().style.transform).toBe('')
+})
+
+// What reaches into the container's bottom padding is clipped, so the padding
+// is not room the content has.
+it('does not count the container padding as room', () => {
+  const { rerender } = render(<Probe tick={0} />)
+  screen.getByTestId('container').style.padding = '50px'
+  measure(1000, 950)
+  rerender(<Probe tick={1} />)
+  expect(content().style.transform).toBe(`scale(${900 / 950})`)
+})

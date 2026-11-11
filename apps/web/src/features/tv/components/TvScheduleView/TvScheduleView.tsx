@@ -1,10 +1,11 @@
 import { Card, CardBody, CardHeader, EmptyState, ListGroup, ListItem, Skeleton, Text, cx } from '@mond-design-system/react'
 import { LiveBadge } from '@/components/LiveBadge/LiveBadge'
 import { fmtHeatTime } from '@/lib/heatTime'
-import { pendingHeats, type AthleteChecks } from '@/lib/nowHeat'
-import type { OpsData } from '@/lib/opsHeats'
-import styles from './TvScheduleView.module.css'
+import { pendingHeats, type AthleteChecks, type PendingHeat } from '@/lib/nowHeat'
+import type { Heat, OpsData } from '@/lib/opsHeats'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
+import { SCHEDULE_LAYOUTS, splitColumns } from '../../scheduleLayouts'
+import styles from './TvScheduleView.module.css'
 
 // v1: ScheduleView in src/app/[slug]/TV/page.tsx. The next three heats across
 // every active workout, ordered by the clock rather than by workout — a floor
@@ -17,6 +18,12 @@ import { MemberNames } from '@/components/MemberNames/MemberNames'
 // The first card is the heat on the floor, and it is the one thing on the
 // board the palette lets carry amber. Everything else — names, lanes, clocks —
 // is neutral, because a wall read from thirty feet has room for one signal.
+//
+// A heat of 12 or 18 lanes does not fit down a third of the screen, so the
+// board can draw fewer, wider cards with the lanes in columns (`layout`, an
+// index into SCHEDULE_LAYOUTS, picked by TvPage's useScaleToFit). The heats a
+// narrower layout leaves out are still on the board, one line each, under
+// "Up next".
 
 const UPCOMING = 3
 
@@ -24,9 +31,11 @@ interface Props {
   data: OpsData | undefined
   error: Error | null
   checks: AthleteChecks
+  /** Index into SCHEDULE_LAYOUTS. Default: three heats, one column each. */
+  layout?: number
 }
 
-export function TvScheduleView({ data, error, checks }: Props) {
+export function TvScheduleView({ data, error, checks, layout = 0 }: Props) {
   if (error) {
     return (
       <div className={styles.notice}>
@@ -44,6 +53,7 @@ export function TvScheduleView({ data, error, checks }: Props) {
   }
 
   const upcoming = pendingHeats(data, checks).slice(0, UPCOMING)
+  const { heats: across, laneColumns } = SCHEDULE_LAYOUTS[layout] ?? SCHEDULE_LAYOUTS[0]
 
   if (upcoming.length === 0) {
     return (
@@ -56,66 +66,115 @@ export function TvScheduleView({ data, error, checks }: Props) {
     )
   }
 
+  const shown = upcoming.slice(0, across)
+  const later = upcoming.slice(across)
+
   return (
-    <div className={styles.heats}>
-      {upcoming.map(({ workout, heat, startMs, corralMs, walkoutMs, divisions }, i) => (
-        <Card
-          as="section"
-          key={`${workout.id}-${heat.heatNumber}`}
-          className={cx(styles.card, i === 0 && styles.now)}
-          aria-label={`Heat ${heat.heatNumber}, workout ${workout.number}`}
+    <div>
+      <div className={styles.heats} data-heats={across}>
+        {shown.map(({ workout, heat, startMs, corralMs, walkoutMs, divisions }, i) => (
+          <Card
+            as="section"
+            key={`${workout.id}-${heat.heatNumber}`}
+            className={cx(styles.card, i === 0 && styles.now)}
+            aria-label={`Heat ${heat.heatNumber}, workout ${workout.number}`}
+          >
+            <CardHeader>
+              <Text variant="label" className={styles.workout}>
+                Workout {workout.number}: {workout.name}
+                {workout.locationName && <> · {workout.locationName}</>}
+              </Text>
+              <span className={styles.heatLine}>
+                <span className={styles.heat}>Heat {heat.heatNumber}</span>
+                {i === 0 && <LiveBadge>Now</LiveBadge>}
+              </span>
+              {divisions.length > 0 && (
+                <Text tone="muted" className={styles.divisions}>{divisions.join(' / ')}</Text>
+              )}
+              {startMs != null && (
+                <dl className={styles.times}>
+                  <div className={styles.time}>
+                    <dt>Corral</dt>
+                    <dd>{fmtHeatTime(corralMs)}</dd>
+                  </div>
+                  <div className={styles.time}>
+                    <dt>Walk out</dt>
+                    <dd>{fmtHeatTime(walkoutMs)}</dd>
+                  </div>
+                  <div className={cx(styles.time, styles.start)}>
+                    <dt>Start</dt>
+                    <dd>{fmtHeatTime(startMs)}</dd>
+                  </div>
+                </dl>
+              )}
+            </CardHeader>
+            <CardBody>
+              <HeatLanes heat={heat} columns={laneColumns} />
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+      {later.length > 0 && <UpNext heats={later} />}
+    </div>
+  )
+}
+
+/** A heat's lanes in lane order, read down one column and then the next. Each
+    column is its own list, so a list's dividers never break across columns. */
+function HeatLanes({ heat, columns }: { heat: Heat; columns: number }) {
+  const runs = splitColumns([...heat.entries].sort((a, b) => a.lane - b.lane), columns)
+  return (
+    <div className={styles.laneColumns}>
+      {runs.map((run) => (
+        <ListGroup
+          key={run[0]?.lane ?? 0}
+          aria-label={runs.length > 1
+            ? `Heat ${heat.heatNumber} lanes ${run[0].lane}–${run[run.length - 1].lane}`
+            : `Heat ${heat.heatNumber} lanes`}
         >
-          <CardHeader>
-            <Text variant="label" className={styles.workout}>
-              Workout {workout.number}: {workout.name}
-              {workout.locationName && <> · {workout.locationName}</>}
-            </Text>
-            <span className={styles.heatLine}>
-              <span className={styles.heat}>Heat {heat.heatNumber}</span>
-              {i === 0 && <LiveBadge>Now</LiveBadge>}
-            </span>
-            {divisions.length > 0 && (
-              <Text tone="muted" className={styles.divisions}>{divisions.join(' / ')}</Text>
-            )}
-            {startMs != null && (
-              <dl className={styles.times}>
-                <div className={styles.time}>
-                  <dt>Corral</dt>
-                  <dd>{fmtHeatTime(corralMs)}</dd>
-                </div>
-                <div className={styles.time}>
-                  <dt>Walk out</dt>
-                  <dd>{fmtHeatTime(walkoutMs)}</dd>
-                </div>
-                <div className={cx(styles.time, styles.start)}>
-                  <dt>Start</dt>
-                  <dd>{fmtHeatTime(startMs)}</dd>
-                </div>
-              </dl>
-            )}
-          </CardHeader>
-          <CardBody>
-            <ListGroup aria-label={`Heat ${heat.heatNumber} lanes`}>
-              {[...heat.entries]
-                .sort((a, b) => a.lane - b.lane)
-                .map((e) => (
-                  <ListItem
-                    key={e.lane}
-                    className={styles.lane}
-                    leading={<span className={styles.laneNumber}>L{e.lane}</span>}
-                    title={<span className={styles.athlete}>{e.athleteName}</span>}
-                    description={e.members?.length ? <MemberNames members={e.members} /> : undefined}
-                    trailing={
-                      e.divisionName
-                        ? <Text as="span" tone="muted" className={styles.division}>{e.divisionName}</Text>
-                        : undefined
-                    }
-                  />
-                ))}
-            </ListGroup>
-          </CardBody>
-        </Card>
+          {run.map((e) => (
+            <ListItem
+              key={e.lane}
+              className={styles.lane}
+              leading={<span className={styles.laneNumber}>L{e.lane}</span>}
+              title={<span className={styles.athlete}>{e.athleteName}</span>}
+              description={e.members?.length ? <MemberNames members={e.members} /> : undefined}
+              trailing={
+                e.divisionName
+                  ? <Text as="span" tone="muted" className={styles.division}>{e.divisionName}</Text>
+                  : undefined
+              }
+            />
+          ))}
+        </ListGroup>
       ))}
     </div>
+  )
+}
+
+/** The heats a wide layout had no card for: still on the board, one line each,
+    with the two clocks an athlete acts on. Neutral like everything but the
+    heat on the floor. */
+function UpNext({ heats }: { heats: PendingHeat[] }) {
+  return (
+    <aside className={styles.next} aria-label="Up next">
+      <span className={styles.nextLabel}>Up next</span>
+      <ul className={styles.nextList}>
+        {heats.map(({ workout, heat, corralMs, startMs, divisions }) => (
+          <li key={`${workout.id}-${heat.heatNumber}`} className={styles.nextItem}>
+            <span className={styles.nextHeat}>Heat {heat.heatNumber}</span>
+            <Text as="span" tone="muted" className={styles.nextMeta}>
+              Workout {workout.number}
+              {divisions.length > 0 && <> · {divisions.join(' / ')}</>}
+            </Text>
+            {startMs != null && (
+              <span className={styles.nextMeta}>
+                Corral {fmtHeatTime(corralMs)} · Start <strong>{fmtHeatTime(startMs)}</strong>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </aside>
   )
 }

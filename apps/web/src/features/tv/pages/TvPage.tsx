@@ -9,6 +9,7 @@ import type { OpsData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { TvLeaderboardView } from '../components/TvLeaderboardView/TvLeaderboardView'
 import { TvScheduleView } from '../components/TvScheduleView/TvScheduleView'
+import { SCHEDULE_LAYOUTS } from '../scheduleLayouts'
 import { useScaleToFit } from '../useScaleToFit'
 import styles from './TvPage.module.css'
 
@@ -60,9 +61,15 @@ export function TvPage() {
     return () => clearInterval(id)
   }, [])
 
-  // Redrawn for each of the three things that change what the board is: new
-  // ops, new standings, and the turn between them.
-  const { containerRef, contentRef } = useScaleToFit([opsData, lbData, view])
+  // Redrawn for each of the things that change what the board is: new ops,
+  // new standings, a heat walked out (which moves the queue up), and the turn
+  // between the two halves. The schedule has other
+  // arrangements to try before anything is shrunk (scheduleLayouts.ts); the
+  // leaderboard has its one.
+  const { containerRef, contentRef, layout } = useScaleToFit(
+    [opsData, lbData, checksData, view],
+    view === 'schedule' ? SCHEDULE_LAYOUTS.length : 1,
+  )
 
   return (
     <div className={styles.stage}>
@@ -105,7 +112,7 @@ export function TvPage() {
       <main ref={containerRef} className={styles.main}>
         <div ref={contentRef} data-testid="tv-content">
           {view === 'schedule'
-            ? <TvScheduleView data={opsData} error={opsError} checks={athleteChecks} />
+            ? <TvScheduleView data={opsData} error={opsError} checks={athleteChecks} layout={layout} />
             : <TvLeaderboardView data={lbData} error={lbError} />}
         </div>
       </main>

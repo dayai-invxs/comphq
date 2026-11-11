@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import { fmtHeatTime } from '@/lib/heatTime'
 import type { Heat, OpsData, WorkoutData } from '@/lib/opsHeats'
+import { SCHEDULE_LAYOUTS } from '../../scheduleLayouts'
 import { TvScheduleView } from './TvScheduleView'
 
 // v1: ScheduleView in src/app/[slug]/TV/page.tsx. The half of the scoreboard
@@ -56,8 +57,31 @@ function workout(over: Partial<WorkoutData> = {}): WorkoutData {
   }
 }
 
-function draw(data: OpsData | undefined, checks: Record<string, { corral: boolean; walkout: boolean }> = {}, error: Error | null = null) {
-  return render(<TvScheduleView data={data} error={error} checks={checks} />)
+function draw(
+  data: OpsData | undefined,
+  checks: Record<string, { corral: boolean; walkout: boolean }> = {},
+  error: Error | null = null,
+  layout?: number,
+) {
+  return render(<TvScheduleView data={data} error={error} checks={checks} layout={layout} />)
+}
+
+const layoutOf = (heats: number, laneColumns: number) =>
+  SCHEDULE_LAYOUTS.findIndex((l) => l.heats === heats && l.laneColumns === laneColumns)
+
+/** A heat of `n` lanes, lane 1 upward. */
+function wide(heatNumber: number, n: number): Heat {
+  return heat(heatNumber, {
+    entries: Array.from({ length: n }, (_, i) => ({
+      athleteId: heatNumber * 100 + i,
+      athleteName: `Athlete ${heatNumber}-${i + 1}`,
+      bibNumber: null,
+      divisionName: 'RX',
+      lane: i + 1,
+      scoreDisplay: null,
+      tiebreakDisplay: null,
+    })),
+  })
 }
 
 /** One heat on the board, which is what the room reads: a workout, a clock and
@@ -182,4 +206,47 @@ it('lists the lanes in order, with the athlete and their division', () => {
     'L1Athlete 1BScaled',
     'L2Athlete 1ARX',
   ])
+})
+
+// The board as it always was: three heats, nothing in the strip.
+it('has no Up next strip when all three heats have cards', () => {
+  draw({ workouts: [workout()], showBib: false })
+  expect(screen.queryByRole('complementary', { name: 'Up next' })).not.toBeInTheDocument()
+})
+
+// A heat too long for a third of the screen gets the whole width, its lanes
+// read down one column and then the next, and the heats it pushed off still
+// say when they go.
+it('gives one big heat the width, in lane columns, and lists the rest under it', () => {
+  const big = workout({ heats: [wide(1, 18), wide(2, 18), wide(3, 18)] })
+  draw({ workouts: [big], showBib: false }, {}, null, layoutOf(1, 2))
+
+  expect(queued()).toEqual(['Heat 1, workout 1'])
+  const columns = card(1).getAllByRole('list').map((l) => [
+    l.getAttribute('aria-label'),
+    within(l).getAllByRole('listitem').length,
+  ])
+  expect(columns).toEqual([['Heat 1 lanes 1–9', 9], ['Heat 1 lanes 10–18', 9]])
+
+  const next = within(screen.getByRole('complementary', { name: 'Up next' }))
+  const items = next.getAllByRole('listitem').map((li) => li.textContent)
+  expect(items).toEqual([
+    `Heat 2Workout 1 · RXCorral ${fmtHeatTime(START + 600_000 - 300_000)} · Start ${fmtHeatTime(START + 600_000)}`,
+    `Heat 3Workout 1 · RXCorral ${fmtHeatTime(START + 1_200_000 - 300_000)} · Start ${fmtHeatTime(START + 1_200_000)}`,
+  ])
+})
+
+it('shows two heats and puts the third in the strip', () => {
+  draw({ workouts: [workout()], showBib: false }, {}, null, layoutOf(2, 1))
+  expect(queued()).toEqual(['Heat 1, workout 1', 'Heat 2, workout 1'])
+  const next = within(screen.getByRole('complementary', { name: 'Up next' }))
+  expect(next.getAllByRole('listitem')).toHaveLength(1)
+  expect(next.getByText('Heat 3')).toBeInTheDocument()
+})
+
+// Only two heats left in the competition and room for both: nothing is pushed
+// off, so there is no strip to show.
+it('has no strip when every queued heat has a card', () => {
+  draw({ workouts: [workout({ heats: [heat(1), heat(2)] })], showBib: false }, {}, null, layoutOf(2, 1))
+  expect(screen.queryByRole('complementary', { name: 'Up next' })).not.toBeInTheDocument()
 })

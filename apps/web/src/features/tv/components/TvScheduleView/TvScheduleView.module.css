@@ -14,12 +14,33 @@
   font-size: var(--tv-text-notice);
 }
 
-/* Three across, always: the board is one screen with no scrollbar, and the
-   fourth heat is what useScaleToFit would have to shrink everything for. */
+/* Three across unless the heats are too long to read at full size, when
+   useScaleToFit has the board try two and then one (scheduleLayouts.ts). Never
+   a fourth: the board is one screen with no scrollbar. minmax(0, …) so a long
+   name cannot widen its card past its share. */
 .heats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--mds-gap);
+}
+
+.heats[data-heats="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.heats[data-heats="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A wide card's lanes, split into side-by-side lists of even length. */
+.laneColumns {
+  display: flex;
+  gap: var(--mds-gap);
+}
+
+.laneColumns > * {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .card {
@@ -100,4 +121,61 @@
   font-weight: var(--mds-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--mds-text-muted);
+}
+
+/* The heats a wider layout had no card for, one line each under the cards.
+   Neutral, like everything but the heat on the floor. */
+.next {
+  display: flex;
+  align-items: center;
+  gap: var(--mds-gap-loose);
+  margin-block-start: var(--mds-gap);
+}
+
+.nextLabel {
+  flex-shrink: 0;
+  font-size: var(--tv-text-points);
+  font-weight: var(--mds-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--mds-tracking-eyebrow);
+  color: var(--mds-text-muted);
+}
+
+.nextList {
+  display: flex;
+  flex: 1;
+  gap: var(--mds-gap);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nextItem {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mds-gap-hairline) var(--mds-gap-loose);
+  min-width: 0;
+  padding: var(--mds-pad-tight) var(--mds-pad-card);
+  border: var(--mds-border-width) solid var(--mds-border-subtle);
+  border-radius: var(--mds-radius-card);
+  background: var(--mds-surface-card);
+}
+
+.nextHeat {
+  font-size: var(--tv-text-title);
+  font-weight: var(--mds-weight-bold);
+  color: var(--mds-text-primary);
+}
+
+.nextMeta {
+  font-size: var(--tv-text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--mds-text-secondary);
+}
+
+.nextMeta strong {
+  color: var(--mds-text-primary);
 }
