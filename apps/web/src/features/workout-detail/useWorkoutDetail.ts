@@ -6,6 +6,7 @@ import { HttpError } from '@/lib/http'
 import { queryKeys } from '@/api/queryKeys'
 import { buildWorkoutMutations } from './useWorkoutDetail.mutations'
 import { computeAssignmentUpdates, getAffectedHeats } from '@/lib/heat-reorder'
+import type { ScoreCardSpec } from '@/lib/scoreCard'
 
 type Division = { id: number; name: string; order: number }
 type Athlete = {
@@ -13,7 +14,9 @@ type Athlete = {
   /** A team's members; empty or absent for an individual. */
   members?: string[]
   /** The same people with ids, for picking who runs a split team's lane. */
-  memberList?: { id: number; name: string }[]
+  memberList?: { id: number; name: string; gender?: string | null }[]
+  /** An individual's gender ('male' | 'female'); null on a team. */
+  gender?: string | null
 }
 export type Assignment = {
   id: number; heatNumber: number; lane: number; athlete: Athlete
@@ -40,6 +43,8 @@ export type Workout = {
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
   partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; doubleWeight?: boolean; secret?: boolean
   tiebreakBestLane?: boolean
+  /** The printable score card structure; null prints a plain card. */
+  scoreCard?: ScoreCardSpec | null
   knockout?: boolean; knockoutRounds?: number | null; knockoutAdvance?: number | null
   knockoutDecides?: boolean
   knockoutConsolation?: boolean

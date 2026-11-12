@@ -79,6 +79,18 @@ describe('GET /api/leaderboard', () => {
 
   // A double weight workout counts its place twice, the mirror of half weight.
   // Bob wins B but was 3rd in A; doubled, B is enough to put him ahead.
+  it('never sends a workout’s score card structure', async () => {
+    const wk = {
+      id: 10, number: 1, name: '1', scoreType: 'time', status: 'completed', tiebreakEnabled: false, tiebreakScoreType: 'time',
+      halfWeight: false, doubleWeight: false, competitionId: 1, knockout: false, knockoutDecides: false,
+      scoreCard: { version: 1, versions: [] },
+    }
+    mock.queueResults([], [], [], [], [], [wk], [], [], [])
+    const body = await (await GET(getReq())).json()
+    expect(body.workouts).toHaveLength(1)
+    expect(body.workouts[0]).not.toHaveProperty('scoreCard')
+  })
+
   it('counts a double weight workout twice and names it', async () => {
     const wk = (id: number, number: number, weight: { halfWeight?: boolean; doubleWeight?: boolean }) => ({
       id, number, name: String(number), scoreType: 'time', status: 'completed',

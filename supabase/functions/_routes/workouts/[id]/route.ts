@@ -35,6 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           advanced: heatAssignment.advanced,
           consolation: heatAssignment.consolation,
           athleteName: athleteTable.name,
+          athleteGender: athleteTable.gender,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
           divisionName: divisionTable.name,
@@ -95,7 +96,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         id: r.athleteId,
         name: r.athleteName,
         members: (members.get(r.athleteId) ?? []).map((m) => m.name),
-        memberList: (members.get(r.athleteId) ?? []).map((m) => ({ id: m.id, name: m.name })),
+        // Gender picks the men's or women's numbers on a printed score card.
+        memberList: (members.get(r.athleteId) ?? []).map((m) => ({ id: m.id, name: m.name, gender: m.gender })),
+        gender: r.athleteGender,
         bibNumber: r.bibNumber,
         divisionId: r.divisionId,
         division: r.divisionId != null
@@ -188,6 +191,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // A knockout heat has one result per lane; Part B does not apply.
     if (d.knockout === true) patch.partBEnabled = false
     if ('locationId' in d) patch.locationId = d.locationId ?? null
+    if (d.scoreCard !== undefined) patch.scoreCard = d.scoreCard
 
     // Best-lane tiebreak: a split team's tiebreak is its best lane's score, so
     // the tiebreak is on and ranks the way the score does. A knockout has no

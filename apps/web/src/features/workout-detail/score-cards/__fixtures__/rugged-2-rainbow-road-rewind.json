@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "cap": "20:00",
+  "team": {
+    "size": 3,
+    "levelChoice": "perAthlete",
+    "order": null,
+    "format": "Synchro movements: two athletes at once, a rep counts when both are at the top. Everything else: any split, one athlete at a time."
+  },
+  "repDefinitions": [
+    {
+      "key": "hsw",
+      "movement": "Handstand Walk",
+      "kind": "distancePerRep",
+      "value": 8,
+      "source": "description",
+      "question": "How many feet of handstand walk make 1 rep? (“16 ft handstand walk = 2 reps”)"
+    }
+  ],
+  "versions": [
+    {
+      "label": "All levels",
+      "tiebreak": "Time of the last completed movement",
+      "loads": [
+        "DB: Rx 50/35 · Int 35/25 · Sc 30/20 lb"
+      ],
+      "parts": [
+        {
+          "kind": "sequence",
+          "items": [
+            {
+              "movement": "Synchro Alt. DB Snatch",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            },
+            {
+              "movement": "Toes-to-Bar",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true,
+              "levels": {
+                "Sc": {
+                  "movement": "Hanging Knee Raise"
+                }
+              }
+            },
+            {
+              "movement": "Synchro Alt. DB Fwd Lunge",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            },
+            {
+              "movement": "Chest-to-Bar",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true,
+              "levels": {
+                "Int": {
+                  "movement": "Pull-Up"
+                },
+                "Sc": {
+                  "movement": "Ring Row"
+                }
+              }
+            },
+            {
+              "movement": "Wall Walk or HSW reps",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "repDef": "hsw",
+              "setFt": 16,
+              "tiebreakMark": true,
+              "note": "16 ft HS walk = 2 reps",
+              "levels": {
+                "Sc": {
+                  "movement": "Scaled Wall Walk"
+                }
+              }
+            },
+            {
+              "movement": "Chest-to-Bar",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true,
+              "levels": {
+                "Int": {
+                  "movement": "Pull-Up"
+                },
+                "Sc": {
+                  "movement": "Ring Row"
+                }
+              }
+            },
+            {
+              "movement": "Synchro Alt. DB Fwd Lunge",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            },
+            {
+              "movement": "Toes-to-Bar",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true,
+              "levels": {
+                "Sc": {
+                  "movement": "Hanging Knee Raise"
+                }
+              }
+            },
+            {
+              "movement": "Synchro Alt. DB Snatch",
+              "amount": {
+                "m": 40,
+                "f": 40
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Capped: circle the last box reached; the grey number is the total so far.",
+    "HSW: 4 ft sections unbroken; a break goes back to the last 4 ft line. Short of 16 ft scores nothing."
+  ],
+  "warnings": [
+    "Wall walks and handstand walks share one count of 40. A 16 ft walk is 2 reps, so the boxes go up in 2s.",
+    "The description doesn’t say what a Scaled wall walk is. Judges need the standard from the briefing."
+  ]
+}

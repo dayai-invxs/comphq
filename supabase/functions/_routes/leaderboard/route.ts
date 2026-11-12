@@ -206,7 +206,9 @@ export async function GET(req: Request) {
 
   return Response.json(
     {
-      workouts: visibleWorkouts,
+      // The printable score card is the organizer's, and heavy for a screen
+      // that polls: the leaderboard never sends it.
+      workouts: visibleWorkouts.map(({ scoreCard: _card, ...w }) => w),
       entries,
       tiebreakWorkoutId,
       decidingWorkoutId,

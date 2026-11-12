@@ -31,6 +31,7 @@
     "@/lib/request-context": "./_shared/request-context.ts",
     "@/lib/router": "./_shared/router.ts",
     "@/lib/schemas": "./_shared/schemas.ts",
+    "@/lib/scoreCard": "./_shared/scoreCard.ts",
     "@/lib/scoreFormat": "./_shared/scoreFormat.ts",
     "@/lib/scoring": "./_shared/scoring.ts",
     "@/lib/skippedPlace": "./_shared/skippedPlace.ts",

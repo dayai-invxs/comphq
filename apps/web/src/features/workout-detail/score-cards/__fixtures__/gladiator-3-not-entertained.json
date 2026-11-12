@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "cap": "10:00",
+  "versions": [
+    {
+      "label": "All",
+      "tiebreak": null,
+      "parts": [
+        {
+          "kind": "sequence",
+          "title": "Part A · For time",
+          "items": [
+            {
+              "movement": "Lateral Burpee Over Bar",
+              "amount": {
+                "m": 30,
+                "f": 30
+              },
+              "unit": "reps",
+              "box": "reps"
+            }
+          ]
+        },
+        {
+          "kind": "lift",
+          "title": "Part B · Remaining time",
+          "lift": "Clean & Jerk",
+          "count": 3,
+          "attempts": 12
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Part B: the 3 heaviest good lifts are added together."
+  ]
+}

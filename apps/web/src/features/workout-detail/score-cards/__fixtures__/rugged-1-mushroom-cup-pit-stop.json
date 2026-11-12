@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "cap": "18:00",
+  "team": {
+    "size": 3,
+    "levelChoice": "perAthlete",
+    "order": "letters",
+    "format": "One athlete works at a time: 1:30 on, 3:00 off, A → B → C until each has gone 4 times. Levels are set before the start and can’t change."
+  },
+  "versions": [
+    {
+      "label": "All levels",
+      "tiebreak": null,
+      "loads": [
+        "Box: Rx/Int jump-over 24/20 in · Sc step-over 20/20 in",
+        "Deadlift: athlete’s choice, one shared bar"
+      ],
+      "parts": [
+        {
+          "kind": "windows",
+          "windowSecs": 90,
+          "rotation": [
+            "A",
+            "B",
+            "C"
+          ],
+          "perAthlete": 4,
+          "items": [
+            {
+              "movement": "Cal Bike",
+              "amount": {
+                "m": 12,
+                "f": 9
+              },
+              "unit": "cal",
+              "box": "whole",
+              "levels": {
+                "Sc": {
+                  "amount": {
+                    "m": 9,
+                    "f": 7
+                  }
+                }
+              }
+            },
+            {
+              "movement": "Box Jump-Over",
+              "amount": {
+                "m": 12,
+                "f": 12
+              },
+              "unit": "reps",
+              "box": "reps",
+              "levels": {
+                "Sc": {
+                  "movement": "Box Step-Over",
+                  "amount": {
+                    "m": 10,
+                    "f": 10
+                  }
+                }
+              }
+            },
+            {
+              "movement": "Deadlift",
+              "box": "entry",
+              "entry": [
+                "lb",
+                "reps"
+              ],
+              "product": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Deadlift: max reps in the rest of the window, same weight the whole window.",
+    "Write 0 reps if the bike and box work aren’t done in time."
+  ],
+  "warnings": [
+    "No tiebreak in the description. Teams with the same total share the place unless you add one.",
+    "Checked: 12 windows × 1:30 = 18:00, matching the 18-minute total.",
+    "Box heights are men/women (24/20), so the card prints both: CompHQ knows each member’s gender but not the order they go in."
+  ]
+}

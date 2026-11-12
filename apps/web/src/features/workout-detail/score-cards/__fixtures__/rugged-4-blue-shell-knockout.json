@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "team": {
+    "size": 3,
+    "levelChoice": "perAthlete",
+    "order": "numbers",
+    "format": "Relay: each athlete does the whole round, runs back from the 75 ft mark and tags the next. Levels are set before each round."
+  },
+  "repDefinitions": [
+    {
+      "key": "suicide",
+      "movement": "Suicide line",
+      "kind": "repsPerLine",
+      "value": 1,
+      "source": "organizer",
+      "question": "If a team is capped during a suicide, how many reps is each line reached worth?"
+    }
+  ],
+  "versions": [
+    {
+      "label": "Round 1",
+      "round": 1,
+      "stage": "Round 1 · cap 7:00",
+      "cap": "7:00",
+      "tiebreak": null,
+      "loads": [
+        "KBs: Rx 53/35 · Int 35/26 · Sc 26/18 lb"
+      ],
+      "parts": [
+        {
+          "kind": "relay",
+          "tag": "Run back from 75 ft, tag the next athlete",
+          "items": [
+            {
+              "movement": "Double-Under",
+              "amount": {
+                "m": 50,
+                "f": 50
+              },
+              "unit": "reps",
+              "box": "reps",
+              "levels": {
+                "Int": {
+                  "movement": "DUs or 2× singles"
+                },
+                "Sc": {
+                  "movement": "Single-Unders"
+                }
+              }
+            },
+            {
+              "movement": "Suicide KB Farmer’s Carry",
+              "unit": "lines",
+              "box": "lines",
+              "lines": [
+                25,
+                0,
+                50,
+                0,
+                75
+              ],
+              "repDef": "suicide"
+            },
+            {
+              "movement": "KB Thruster",
+              "amount": {
+                "m": 10,
+                "f": 10
+              },
+              "unit": "reps",
+              "box": "reps"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Round 2",
+      "round": 2,
+      "stage": "Round 2 · top 3 only · cap 5:00",
+      "cap": "5:00",
+      "tiebreak": null,
+      "parts": [
+        {
+          "kind": "relay",
+          "tag": "Run back from 75 ft, tag the next athlete",
+          "resetTotalEachAthlete": true,
+          "items": [
+            {
+              "movement": "Double-Under",
+              "amount": {
+                "m": 75,
+                "f": 75
+              },
+              "unit": "reps",
+              "box": "reps",
+              "levels": {
+                "Int": {
+                  "movement": "DUs or 2× singles"
+                },
+                "Sc": {
+                  "movement": "Single-Unders"
+                }
+              }
+            },
+            {
+              "movement": "2 Suicide Runs",
+              "unit": "lines",
+              "box": "lines",
+              "lines": [
+                25,
+                0,
+                50,
+                0,
+                75,
+                0,
+                25,
+                0,
+                50,
+                0,
+                75
+              ],
+              "repDef": "suicide"
+            },
+            {
+              "movement": "Rope Climb",
+              "amount": {
+                "m": 3,
+                "f": 2
+              },
+              "unit": "reps",
+              "box": "reps",
+              "levels": {
+                "Int": {
+                  "movement": "Rope Climbs to tape",
+                  "amount": {
+                    "m": 2,
+                    "f": 1
+                  }
+                },
+                "Sc": {
+                  "movement": "Rope Let-Downs",
+                  "amount": {
+                    "m": 3,
+                    "f": 3
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Int singles: 2 singles = 1 double-under; each box is twice its number in singles.",
+    "Capped: circle the last box reached."
+  ],
+  "warnings": [
+    "Set the workout up as a CompHQ knockout: 2 rounds, top 3 per heat advance. Round 2 cards print once Round 1 decides who advances, or print blank Round 2 cards ahead.",
+    "Round 2: rope climbs differ by gender and level, so the grey total restarts for each athlete."
+  ]
+}

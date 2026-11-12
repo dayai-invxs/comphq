@@ -1,0 +1,27 @@
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mds-gap-loose);
+}
+
+@media (min-width: 1024px) {
+  .layout { grid-template-columns: 1fr auto; }
+}
+
+.form { display: flex; flex-direction: column; gap: var(--mds-gap); min-width: 0; }
+.json { font-family: var(--mds-font-mono); }
+.list { margin: 0; padding-left: var(--mds-gap-loose); }
+.error, .warn {
+  padding: var(--mds-pad-tight);
+  border: var(--mds-border-width) solid var(--mds-border-strong);
+  color: var(--mds-text-primary);
+}
+.error { border-color: var(--mds-status-danger); color: var(--mds-status-danger); }
+.buttons { display: flex; gap: var(--mds-gap-tight); }
+
+.previewCol { display: flex; flex-direction: column; gap: var(--mds-gap-tight); align-items: flex-start; }
+
+/* The card is drawn at its paper size and shown at two thirds, so the editor
+   keeps room for the text. The outer box takes the scaled size. */
+.preview { width: calc(5.5in * 0.66); height: calc(8.5in * 0.66); overflow: hidden; border: var(--mds-border-width) solid var(--mds-border-subtle); }
+.paper { transform: scale(0.66); transform-origin: top left; }

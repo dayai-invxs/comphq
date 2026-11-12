@@ -10,6 +10,8 @@ import {
 } from '@mond-design-system/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useMyCompetitions } from '@/api/competitions'
+import { useLogo } from '@/api/logo'
 import { useSetScorePoints } from '@/api/scores'
 import { useSettings } from '@/api/settings'
 import { useWorkoutLocations } from '@/api/workoutLocations'
@@ -27,6 +29,7 @@ import { WorkoutDescription } from '../components/WorkoutDescription/WorkoutDesc
 import { WorkoutEditForm } from '../components/WorkoutEditForm/WorkoutEditForm'
 import { WorkoutEquipmentPopover } from '../components/WorkoutEquipmentPopover/WorkoutEquipmentPopover'
 import { WorkoutLeaderboard } from '../components/WorkoutLeaderboard/WorkoutLeaderboard'
+import { ScoreCardEditor } from '../score-cards/components/ScoreCardEditor/ScoreCardEditor'
 import { useKnockoutHeats } from '../useKnockoutHeats'
 import { laneKey, useScoreInputs } from '../useScoreInputs'
 import { useWorkoutDetail, type AnyScorePayload, type Assignment } from '../useWorkoutDetail'
@@ -85,6 +88,9 @@ export function WorkoutDetailPage() {
   const workoutsPath = `/${slug}/admin/workouts`
 
   const [editing, setEditing] = useState(false)
+  const [cardsOpen, setCardsOpen] = useState(false)
+  const comps = useMyCompetitions(isAdmin)
+  const logo = useLogo(isAdmin ? slug : undefined)
   const [heatsUnlocked, setHeatsUnlocked] = useState(false)
   const [prompt, setPrompt] = useState<PromptKey | null>(null)
   const [heatToDelete, setHeatToDelete] = useState<number | null>(null)
@@ -471,6 +477,7 @@ export function WorkoutDetailPage() {
         <>
           {isAdmin && <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit Settings</Button>}
           {isAdmin && <WorkoutEquipmentPopover workoutId={id} slug={slug} />}
+          {isAdmin && <Button size="sm" variant="secondary" onClick={() => setCardsOpen((o) => !o)}>Score Cards</Button>}
           {workout.status === 'draft' && <Button size="sm" disabled={detail.loading} onClick={() => detail.setStatus('active')}>Activate</Button>}
           {workout.status === 'active' && <Button size="sm" variant="secondary" disabled={detail.loading} onClick={() => detail.setStatus('draft')}>Deactivate</Button>}
           {workout.status === 'completed' && <Button size="sm" disabled={detail.loading} onClick={() => detail.setStatus('active')}>Reactivate</Button>}
@@ -500,6 +507,19 @@ export function WorkoutDetailPage() {
           <WorkoutDescription text={workout.description} />
         </DataPanel>
       ) : null}
+
+      {cardsOpen && isAdmin && (
+        <ScoreCardEditor
+          workout={workout}
+          slug={slug}
+          competitionName={comps.data?.find((c) => c.slug === slug)?.name ?? ''}
+          logoUrl={logo.data?.url}
+          showBib={!!settings.data?.showBib}
+          loading={detail.loading}
+          onSave={detail.updateSettings}
+          onClose={() => setCardsOpen(false)}
+        />
+      )}
 
       {heatNums.length === 0 ? (
         <EmptyState

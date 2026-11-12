@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "cap": "14:00",
+  "repDefinitions": [
+    {
+      "key": "run",
+      "movement": "Run",
+      "kind": "repsPerItem",
+      "value": null,
+      "source": null,
+      "question": "If an athlete is capped later in the workout, how many reps is each finished run worth?"
+    }
+  ],
+  "versions": [
+    {
+      "label": "RX",
+      "tiebreak": "Time of the last completed set of pull-up bar movement",
+      "loads": {
+        "m": [
+          "DB: 2 × 50 lb",
+          "Box: 24 in"
+        ],
+        "f": [
+          "DB: 2 × 35 lb",
+          "Box: 20 in"
+        ]
+      },
+      "parts": [
+        {
+          "kind": "sequence",
+          "items": [
+            {
+              "movement": "Run",
+              "amount": {
+                "m": 300,
+                "f": 300
+              },
+              "unit": "m",
+              "box": "whole",
+              "repDef": "run"
+            },
+            {
+              "movement": "DB Box Step-Over",
+              "amount": {
+                "m": 18,
+                "f": 18
+              },
+              "unit": "reps",
+              "box": "reps"
+            },
+            {
+              "movement": "Toes-to-Bar",
+              "amount": {
+                "m": 30,
+                "f": 30
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

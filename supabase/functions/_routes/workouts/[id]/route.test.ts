@@ -231,3 +231,33 @@ describe('PUT /api/workouts/[id] as a competition user', () => {
     expect(mock.calls.some((c) => c.method === 'update')).toBe(false)
   })
 })
+
+describe('PUT /api/workouts/[id], score card', () => {
+  const card = {
+    version: 1,
+    versions: [{ label: 'RX', parts: [{ kind: 'sequence', items: [{ movement: 'Cal Row', amount: { m: 20, f: 16 }, unit: 'cal', box: 'whole' }] }] }],
+  }
+
+  it('saves a structure that passes its checks', async () => {
+    mock.queueResult([{ scoreType: 'time', knockout: false, tiebreakBestLane: false }])
+    mock.queueResult([{ id: 1 }])
+    const res = await PUT(putReq({ scoreCard: card }), params('1'))
+    expect(res.status).toBe(200)
+    const set = mock.calls.find((c) => c.method === 'set')!.args[0] as Record<string, unknown>
+    expect(set.scoreCard).toEqual(card)
+  })
+
+  it('clears it with null', async () => {
+    mock.queueResult([{ scoreType: 'time', knockout: false, tiebreakBestLane: false }])
+    mock.queueResult([{ id: 1 }])
+    await PUT(putReq({ scoreCard: null }), params('1'))
+    const set = mock.calls.find((c) => c.method === 'set')!.args[0] as Record<string, unknown>
+    expect(set).toHaveProperty('scoreCard', null)
+  })
+
+  it('refuses one that does not', async () => {
+    const res = await PUT(putReq({ scoreCard: { version: 1, versions: [{ label: 'RX', parts: [{ kind: 'sequence', items: [{ movement: 'Row', box: 'whole' }] }] }] } }), params('1'))
+    expect(res.status).toBe(400)
+    expect(mock.calls.some((c) => c.method === 'set')).toBe(false)
+  })
+})

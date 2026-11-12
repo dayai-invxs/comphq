@@ -162,6 +162,22 @@ function routeTable(): RouteObject[] {
     ),
   },
 
+  // The judges' score cards print on paper, so the page is the paper: no
+  // admin frame. Signed in only; the workout read answers only the
+  // competition's own people.
+  {
+    path: '/:slug/admin/workouts/:id/score-cards',
+    lazy: lazyPage(
+      () => import('@/features/workout-detail/score-cards/pages/ScoreCardsPage'),
+      'ScoreCardsPage',
+      (page) => (
+        <RequireSession>
+          <RequireCompetition>{page}</RequireCompetition>
+        </RequireSession>
+      ),
+    ),
+  },
+
   {
     path: '/:slug/admin',
     element: <CompetitionAdminApp />,

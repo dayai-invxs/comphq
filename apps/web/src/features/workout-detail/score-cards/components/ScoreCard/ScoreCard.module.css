@@ -1,0 +1,150 @@
+/* A printed object: half-letter paper, black ink, in both themes on purpose.
+   Lengths are in inches and points because the card is measured on paper,
+   not on a screen; colours are ink names because the paper never changes
+   with the app's theme. */
+.card {
+  box-sizing: border-box;
+  width: 5.5in;
+  height: 8.5in;
+  overflow: hidden;
+  padding: 0.19in 0.23in;
+  display: flex;
+  flex-direction: column;
+  gap: 5pt;
+  background: white;
+  color: black;
+  font-family: var(--mds-font-body);
+  font-size: 8.25pt;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.blocked {
+  border: 1.5pt dashed black;
+  font-weight: 700;
+  font-size: 7.5pt;
+  padding: 3pt 6pt;
+}
+
+.top { display: grid; grid-template-columns: 0.66in 1fr; gap: 9pt; align-items: center; }
+.noLogo { grid-template-columns: 1fr; }
+.logo { width: 0.66in; height: 0.66in; object-fit: contain; }
+.comp { font-size: 6.75pt; text-transform: uppercase; letter-spacing: 0.56pt; color: dimgray; }
+.event { font-family: var(--mds-font-display); font-size: 15pt; font-weight: 800; line-height: 1.05; }
+.meta { display: flex; flex-wrap: wrap; gap: 3pt 10pt; font-size: 8pt; margin-top: 3pt; align-items: baseline; }
+.meta b { font-weight: 600; }
+.write { display: inline-block; width: 0.45in; border-bottom: 0.75pt solid black; height: 9pt; vertical-align: bottom; }
+
+.who { display: grid; grid-template-columns: 1fr auto; border: 1.1pt solid black; }
+.noBib { grid-template-columns: 1fr; }
+.whoMain { padding: 4pt 6pt; display: flex; flex-direction: column; gap: 2pt; }
+.name { font-family: var(--mds-font-display); font-size: 13.5pt; font-weight: 700; line-height: 1.05; }
+.div { font-size: 7.5pt; color: dimgray; }
+.writeLine { display: flex; align-items: flex-end; gap: 5pt; font-size: 7.5pt; color: dimgray; min-height: 14pt; }
+.writeLine i { flex: 1; border-bottom: 0.75pt solid black; }
+.bib { border-left: 1.1pt solid black; text-align: center; min-width: 0.66in; padding: 4pt 6pt; }
+.bib span { display: block; font-size: 6pt; text-transform: uppercase; letter-spacing: 0.56pt; color: dimgray; }
+.bib strong { font-family: var(--mds-font-display); font-size: 15pt; }
+.lvl { display: flex; align-items: center; gap: 4.5pt; font-size: 6.75pt; color: dimgray; }
+
+.lv { display: inline-flex; gap: 6pt; color: black; }
+.lv span { display: inline-flex; align-items: center; gap: 2pt; font-size: 6.5pt; font-weight: 600; letter-spacing: 0.28pt; }
+.lv span::before { content: ""; width: 7.5pt; height: 7.5pt; border: 0.75pt solid black; }
+
+.roster { border: 0.75pt solid gray; display: flex; flex-direction: column; }
+.rh { display: flex; justify-content: space-between; gap: 6pt; font-size: 6.25pt; color: dimgray; padding: 1.5pt 6pt; border-bottom: 0.75pt solid gray; text-transform: uppercase; letter-spacing: 0.42pt; }
+.r { display: grid; grid-template-columns: auto 1fr auto; gap: 6pt; align-items: center; padding: 1pt 6pt; border-bottom: 0.4pt solid lightgray; font-size: 8pt; min-height: 13pt; }
+.r:last-child { border-bottom: 0; }
+.r em { font-style: normal; color: dimgray; font-size: 6.75pt; }
+.ord { width: 16pt; height: 12pt; border: 0.75pt solid black; }
+.blankName { border-bottom: 0.75pt solid black; height: 10pt; }
+
+.loads { display: flex; flex-wrap: wrap; gap: 1.5pt 9pt; font-size: 7.5pt; }
+.loads span::before { content: "■ "; color: dimgray; font-size: 5pt; vertical-align: 1pt; }
+
+.grid { display: flex; flex-direction: column; }
+.partTitle {
+  font-family: var(--mds-font-display); font-size: 9.75pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.42pt;
+  border-bottom: 1.1pt solid black; padding-bottom: 1.5pt; display: flex; justify-content: space-between; gap: 6pt; align-items: baseline;
+}
+.partTitle small { font-family: var(--mds-font-body); font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 6.75pt; color: dimgray; text-align: right; }
+
+.row { display: grid; grid-template-columns: 1.17in 1fr auto; gap: 4.5pt; align-items: center; padding: 1.5pt 0; border-bottom: 0.4pt solid lightgray; }
+.withLead { grid-template-columns: 0.23in 1.2in 1fr auto; }
+.mv { font-size: 7.5pt; line-height: 1.15; }
+.mv b { font-weight: 600; }
+.mv em { font-style: normal; color: dimgray; font-size: 6.4pt; display: block; }
+.rn { font-family: var(--mds-font-display); font-size: 9.75pt; font-weight: 800; }
+
+.cells { display: flex; flex-wrap: wrap; gap: 1.5pt; }
+/* A box: the movement's own count, and the running total small beneath it. */
+.cell {
+  min-width: 0.29in; height: 20pt; border: 0.75pt solid gray;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75pt;
+  padding: 0 2pt; line-height: 1;
+}
+.cell b { font-size: 7.25pt; font-weight: 500; white-space: nowrap; }
+.cell small { font-size: 5.6pt; color: gray; }
+.whole { min-width: 0.66in; }
+.sm { min-width: 0.19in; height: 22pt; padding: 0 1pt; }
+.sm b { font-size: 7.5pt; }
+.sm small { font-size: 5.25pt; }
+
+.tb { font-size: 6.4pt; display: flex; align-items: center; gap: 2pt; color: dimgray; }
+.tb i { display: inline-block; width: 0.46in; height: 15pt; border: 0.75pt solid black; }
+
+.ladder .row { padding: 0.75pt 0; }
+.ladder .cell { height: 16.5pt; }
+.ladder .withLead:has(.rn:not(:empty)) { border-top: 1.1pt solid black; }
+
+.more { font-size: 6.75pt; color: dimgray; padding-top: 3pt; }
+
+.attempts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3pt; }
+.attempt { border: 0.75pt solid gray; height: 25pt; position: relative; font-size: 6pt; color: dimgray; padding: 1.5pt 3pt; }
+.attempt::after { content: "lb   ✓ / ✗"; position: absolute; right: 3pt; bottom: 1.5pt; white-space: pre; }
+
+.win {
+  --counted: 2;
+  display: grid; grid-template-columns: 0.25in 0.52in repeat(var(--counted), auto) 1fr;
+  gap: 4.5pt; align-items: center; padding: 1.5pt 0; border-bottom: 0.4pt solid lightgray;
+}
+.win.first { border-top: 1.1pt solid black; }
+.winHead { font-size: 6pt; line-height: 1.15; color: dimgray; align-items: end; border-bottom: 0.75pt solid black; padding-bottom: 2pt; }
+.winHead b { color: black; font-weight: 600; font-size: 6.4pt; display: block; }
+.win .cell { height: 16.5pt; }
+.win .whole { min-width: 0.6in; }
+.wl { display: flex; align-items: baseline; gap: 3pt; }
+.wl b { font-family: var(--mds-font-display); font-size: 10.5pt; font-weight: 800; }
+.wl small { font-size: 6pt; color: dimgray; }
+.entry { display: flex; align-items: center; gap: 2pt; font-size: 6pt; color: dimgray; justify-content: flex-end; }
+.entry i { display: inline-block; width: 0.42in; height: 15pt; border: 0.75pt solid gray; vertical-align: middle; }
+.entry i.repsBox { width: 0.31in; }
+.entry i.wideBox { width: 0.52in; border-color: black; }
+
+.emom { --items: 2; }
+.emom .row { grid-template-columns: 0.27in repeat(var(--items), 1fr); padding: 1.5pt 0; }
+.emomHead { font-size: 6.4pt; color: dimgray; border-bottom: 0.75pt solid black; }
+.emomHead b { color: black; font-weight: 600; }
+
+.relay .row { padding: 0.75pt 0; }
+.relay .cell { height: 17pt; }
+.legHead { display: flex; justify-content: space-between; align-items: baseline; gap: 6pt; border-top: 1.1pt solid black; padding-top: 2pt; margin-top: 1.5pt; }
+.legHead b { font-family: var(--mds-font-display); font-size: 9.75pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.28pt; }
+.legHead small { font-size: 6.4pt; color: dimgray; }
+
+.notes { font-size: 6.75pt; color: dimgray; display: flex; flex-direction: column; gap: 0.75pt; }
+.cardNotes { margin-top: auto; }
+.spacer { margin-top: auto; }
+
+.score { border: 1.1pt solid black; display: flex; flex-direction: column; }
+.line { display: flex; flex-wrap: wrap; align-items: center; gap: 4.5pt 9pt; padding: 3.5pt 6pt; border-bottom: 0.75pt solid gray; font-size: 7.5pt; }
+.score label { font-size: 6.75pt; text-transform: uppercase; letter-spacing: 0.42pt; font-weight: 600; }
+.box { display: inline-block; height: 18pt; border: 0.75pt solid black; vertical-align: middle; }
+.strong { border-width: 1.1pt; }
+.sum { display: inline-flex; align-items: center; gap: 3pt; }
+.grow { flex: 1; }
+.or { font-size: 6.75pt; color: dimgray; }
+.sign { display: grid; grid-template-columns: 0.6fr 2.4fr 0.62in; gap: 7.5pt; align-items: end; padding: 4.5pt 6pt; }
+.sign > div { font-size: 6.4pt; color: dimgray; border-top: 0.75pt solid black; padding-top: 1.5pt; }
+.sign > .qr { border-top: 0; display: flex; flex-direction: column; align-items: center; gap: 1pt; padding: 0; }
+.qrCode { width: 0.55in; height: 0.55in; }

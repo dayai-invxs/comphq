@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ScoreCardSpec } from '@/lib/scoreCard'
 
 /**
  * Shared zod schemas for every API route's request body.
@@ -176,6 +177,8 @@ export const WorkoutUpdate = z.object({
   tiebreakEnabled: z.boolean().optional(),
   tiebreakScoreType: ScoreType.optional(),
   tiebreakBestLane: z.boolean().optional(),
+  /** The printable score card structure; null goes back to the plain card. */
+  scoreCard: ScoreCardSpec.nullable().optional(),
   partBEnabled: z.boolean().optional(),
   partBScoreType: ScoreType.optional(),
   number: NumericInt.pipe(z.number().int().positive()).optional(),

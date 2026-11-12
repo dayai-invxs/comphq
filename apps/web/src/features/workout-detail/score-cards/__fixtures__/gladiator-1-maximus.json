@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "cap": "13:00",
+  "repDefinitions": [
+    {
+      "key": "hsw",
+      "movement": "Handstand Walk",
+      "kind": "distancePerRep",
+      "value": 20,
+      "source": "organizer"
+    }
+  ],
+  "versions": [
+    {
+      "label": "RX",
+      "divisions": [
+        "Rx - Individual Men",
+        "Rx - Individual Women"
+      ],
+      "estimatedRounds": 5,
+      "tiebreak": "Time of the last fully completed set of rope climbs",
+      "parts": [
+        {
+          "kind": "ladder",
+          "items": [
+            {
+              "movement": "Cal Row",
+              "amount": {
+                "m": 20,
+                "f": 16
+              },
+              "unit": "cal",
+              "box": "whole"
+            },
+            {
+              "movement": "Handstand Walk",
+              "amount": {
+                "m": 20,
+                "f": 20
+              },
+              "step": {
+                "m": 20,
+                "f": 20
+              },
+              "unit": "ft",
+              "box": "reps",
+              "repDef": "hsw"
+            },
+            {
+              "movement": "Rope Climb",
+              "amount": {
+                "m": 2,
+                "f": 1
+              },
+              "step": {
+                "m": 1,
+                "f": 1
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Scaled",
+      "divisions": [
+        "Scaled - Individual Men",
+        "Scaled - Individual Women"
+      ],
+      "estimatedRounds": 5,
+      "tiebreak": "Time of the last fully completed set of zombie rope climbs",
+      "parts": [
+        {
+          "kind": "ladder",
+          "items": [
+            {
+              "movement": "Cal Row",
+              "amount": {
+                "m": 15,
+                "f": 12
+              },
+              "unit": "cal",
+              "box": "whole"
+            },
+            {
+              "movement": "Scaled Wall Walk",
+              "amount": {
+                "m": 2,
+                "f": 2
+              },
+              "step": {
+                "m": 1,
+                "f": 1
+              },
+              "unit": "reps",
+              "box": "reps"
+            },
+            {
+              "movement": "Zombie Rope Climb",
+              "amount": {
+                "m": 2,
+                "f": 2
+              },
+              "step": {
+                "m": 1,
+                "f": 1
+              },
+              "unit": "reps",
+              "box": "reps",
+              "tiebreakMark": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

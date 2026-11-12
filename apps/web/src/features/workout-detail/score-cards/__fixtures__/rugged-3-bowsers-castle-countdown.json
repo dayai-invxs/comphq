@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "cap": "none",
+  "cardsPer": "athlete",
+  "team": {
+    "size": 3,
+    "levelChoice": "perAthlete",
+    "order": null,
+    "format": "Each athlete does the whole EMOM in their own heat (a split team in CompHQ). Team score = the three lanes added; tiebreak = the best single athlete."
+  },
+  "versions": [
+    {
+      "label": "All levels",
+      "tiebreak": "Highest individual rep count",
+      "loads": {
+        "m": [
+          "C&J: Rx 155 · Int 115 · Sc 95 lb"
+        ],
+        "f": [
+          "C&J: Rx 105 · Int 85 · Sc 65 lb"
+        ]
+      },
+      "parts": [
+        {
+          "kind": "emom",
+          "startReps": 3,
+          "step": 1,
+          "estimatedMinutes": 10,
+          "items": [
+            {
+              "movement": "Burpee Over Bar",
+              "unit": "reps",
+              "box": "reps",
+              "levels": {
+                "Sc": {
+                  "movement": "Burpee Step-Over"
+                }
+              }
+            },
+            {
+              "movement": "Clean & Jerk",
+              "unit": "reps",
+              "box": "reps"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Finished early? Rest until the next minute.",
+    "Capped: circle the last box reached; the grey number is this athlete’s total."
+  ],
+  "warnings": [
+    "Minutes printed: the strongest Scaled athletes may reach minute 10 (12 + 12), so 11 minutes print.",
+    "Turn on “Best Athlete Breaks Ties” in the workout settings: CompHQ then takes the team’s best lane as its tiebreak."
+  ]
+}

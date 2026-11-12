@@ -129,6 +129,8 @@ export const workout = pgTable('Workout', {
   tiebreakScoreType: text('tiebreakScoreType').notNull().default('time'),
   /** A team split across heats breaks ties on its best lane's score, not the sum of its lane tiebreaks. */
   tiebreakBestLane: boolean('tiebreakBestLane').notNull().default(false),
+  /** The printable judge's score card, as data (see _shared/scoreCard.ts). Null: a plain card. */
+  scoreCard: jsonb('scoreCard').$type<Record<string, unknown>>(),
   partBEnabled: boolean('partBEnabled').notNull().default(false),
   partBScoreType: text('partBScoreType').notNull().default('time'),
   halfWeight: boolean('halfWeight').notNull().default(false),
