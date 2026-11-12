@@ -453,7 +453,8 @@ export function HeatCard({
                       setWeight={scoreInputs.setWeightInputs}
                       capped={scoreInputs.cappedInputs}
                       setCapped={scoreInputs.setCappedInputs}
-                      tiebreakEnabled={workout.tiebreakEnabled}
+                      // A split team's best lane is its tiebreak: nothing to type per lane.
+                      tiebreakEnabled={workout.tiebreakEnabled && !(repeatHeats && workout.tiebreakBestLane)}
                       tiebreakScoreType={workout.tiebreakScoreType}
                       tiebreak={scoreInputs.tiebreakInputs}
                       setTiebreak={scoreInputs.setTiebreakInputs}

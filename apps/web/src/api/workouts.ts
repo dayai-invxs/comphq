@@ -23,6 +23,8 @@ export type Workout = {
   mixedHeats: boolean
   tiebreakEnabled: boolean
   tiebreakScoreType: string
+  /** A team split across heats breaks ties on its best member's score. */
+  tiebreakBestLane?: boolean
   partBEnabled: boolean
   partBScoreType: string
   halfWeight: boolean

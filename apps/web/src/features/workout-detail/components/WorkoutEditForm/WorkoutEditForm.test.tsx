@@ -142,6 +142,33 @@ describe('the weight switches', () => {
   })
 })
 
+describe('the best-athlete tiebreak', () => {
+  const bowsers = { ...WORKOUT, scoreType: 'rounds_reps', tiebreakEnabled: true, tiebreakScoreType: 'rounds_reps', tiebreakBestLane: true }
+
+  it('shows a saved best-athlete tiebreak, with no type to pick', () => {
+    mount({ workout: bowsers })
+    expect(screen.getByRole('switch', { name: 'Best Athlete Breaks Ties' })).toBeChecked()
+    expect(screen.queryByLabelText('Tie Break Score Type')).toBeNull()
+  })
+
+  it('turning it off gives the type back and saves it off', async () => {
+    const props = mount({ workout: bowsers })
+    fireEvent.click(screen.getByRole('switch', { name: 'Best Athlete Breaks Ties' }))
+    expect(screen.getByLabelText('Tie Break Score Type')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(props.onSave).toHaveBeenCalled())
+    expect(saved(props)).toMatchObject({ tiebreakEnabled: true, tiebreakBestLane: false })
+  })
+
+  it('saves the tiebreak as the score type when it is on', async () => {
+    const props = mount({ workout: { ...WORKOUT, scoreType: 'rounds_reps', tiebreakEnabled: true } })
+    fireEvent.click(screen.getByRole('switch', { name: 'Best Athlete Breaks Ties' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(props.onSave).toHaveBeenCalled())
+    expect(saved(props)).toMatchObject({ tiebreakBestLane: true, tiebreakScoreType: 'rounds_reps' })
+  })
+})
+
 describe('saving', () => {
   it('sends every setting, with the intervals back in seconds', async () => {
     const props = mount({ locations: LOCATIONS })
@@ -170,6 +197,7 @@ describe('saving', () => {
       mixedHeats: false,
       tiebreakEnabled: false,
       tiebreakScoreType: 'time',
+      tiebreakBestLane: false,
       partBEnabled: false,
       partBScoreType: 'weight',
       halfWeight: false,

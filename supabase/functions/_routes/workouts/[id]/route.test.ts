@@ -156,6 +156,50 @@ describe('PUT /api/workouts/[id]', () => {
   })
 })
 
+describe('PUT /api/workouts/[id], best athlete breaks ties', () => {
+  const setOf = (key: string) => mock.calls.find((c) => c.method === 'set' && key in (c.args[0] as Record<string, unknown>))!.args[0]
+
+  it('turns the tiebreak on, ranks it like the score, and rewrites split teams\' totals', async () => {
+    mock.queueResult([{ scoreType: 'higher_is_better', knockout: false, tiebreakBestLane: false }]) // current
+    mock.queueResult([{ id: 1, scoreType: 'higher_is_better', tiebreakBestLane: true }]) // update().returning()
+    mock.queueResult([{ athleteId: 7 }, { athleteId: 7 }]) // lanes with scores: one split team
+    mock.queueResult([
+      { rawScore: 52, tiebreakRawScore: null, partBRawScore: null },
+      { rawScore: 71, tiebreakRawScore: null, partBRawScore: null },
+    ])
+    mock.queueResult([{ id: 3 }]) // team score upsert
+
+    const res = await PUT(putReq({ tiebreakBestLane: true }), params('1'))
+    expect(res.status).toBe(200)
+    expect(setOf('tiebreakBestLane')).toEqual({ tiebreakBestLane: true, tiebreakEnabled: true, tiebreakScoreType: 'higher_is_better' })
+    const values = mock.calls.filter((c) => c.method === 'values').map((c) => c.args[0])
+    expect(values).toEqual([expect.objectContaining({ athleteId: 7, rawScore: 123, tiebreakRawScore: 71 })])
+  })
+
+  it('goes off with the tiebreak', async () => {
+    mock.queueResult([{ scoreType: 'higher_is_better', knockout: false, tiebreakBestLane: true }])
+    mock.queueResult([{ id: 1, scoreType: 'higher_is_better', tiebreakBestLane: false }])
+    mock.queueResult([]) // no split lanes scored yet
+    await PUT(putReq({ tiebreakEnabled: false }), params('1'))
+    expect(setOf('tiebreakBestLane')).toEqual({ tiebreakEnabled: false, tiebreakBestLane: false })
+  })
+
+  it('never applies to a knockout', async () => {
+    mock.queueResult([{ scoreType: 'time', knockout: true, tiebreakBestLane: false }])
+    mock.queueResult([{ id: 1 }])
+    await PUT(putReq({ tiebreakBestLane: true }), params('1'))
+    expect(setOf('tiebreakBestLane')).toEqual({ tiebreakBestLane: false })
+    expect(mock.calls.some((c) => c.method === 'values')).toBe(false)
+  })
+
+  it('leaves totals alone when nothing about the rule changes', async () => {
+    mock.queueResult([{ scoreType: 'time', knockout: false, tiebreakBestLane: false }])
+    mock.queueResult([{ id: 1 }])
+    await PUT(putReq({ tiebreakEnabled: true, tiebreakScoreType: 'time' }), params('1'))
+    expect(mock.calls.filter((c) => c.method === 'select')).toHaveLength(1)
+  })
+})
+
 describe('DELETE /api/workouts/[id]', () => {
   it('rejects unauthenticated', async () => {
     setAuthUser(null)

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
+import { laneTotalRule, rewriteTeamTotals } from '@/lib/laneScores'
 import { shiftHeatStartOverrides } from '@/lib/heatTime'
 import { membersByAthlete } from '@/lib/teamMembers'
 import { parseJson } from '@/lib/parseJson'
@@ -188,6 +189,28 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.knockout === true) patch.partBEnabled = false
     if ('locationId' in d) patch.locationId = d.locationId ?? null
 
+    // Best-lane tiebreak: a split team's tiebreak is its best lane's score, so
+    // the tiebreak is on and ranks the way the score does. A knockout has no
+    // split teams, and turning the tiebreak off turns this off with it.
+    let rewriteTotals = false
+    if ([d.tiebreakBestLane, d.tiebreakEnabled, d.scoreType, d.knockout].some((v) => v !== undefined)) {
+      const [cur] = await db
+        .select({ scoreType: workout.scoreType, knockout: workout.knockout, tiebreakBestLane: workout.tiebreakBestLane })
+        .from(workout)
+        .where(and(eq(workout.id, Number(id)), eq(workout.competitionId, competition.id)))
+      if (cur) {
+        const scoreType = d.scoreType ?? cur.scoreType
+        const best = !(d.knockout ?? cur.knockout) && d.tiebreakEnabled !== false && (d.tiebreakBestLane ?? cur.tiebreakBestLane)
+        patch.tiebreakBestLane = best
+        if (best) {
+          patch.tiebreakEnabled = true
+          patch.tiebreakScoreType = scoreType
+        }
+        // Team totals already written were made under the old rule.
+        rewriteTotals = !(d.knockout ?? cur.knockout) && (best !== cur.tiebreakBestLane || (best && scoreType !== cur.scoreType))
+      }
+    }
+
     // Moving the workout's start moves the heats whose own start was edited
     // by the same amount, so they stay where they were relative to it.
     if (d.startTime) {
@@ -214,6 +237,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         .set({ partBRawScore: null, partBPoints: null })
         .where(eq(score.workoutId, Number(id)))
     }
+
+    if (rewriteTotals) await rewriteTeamTotals(updated.id, laneTotalRule(updated))
 
     return Response.json(updated)
   } catch (e) {

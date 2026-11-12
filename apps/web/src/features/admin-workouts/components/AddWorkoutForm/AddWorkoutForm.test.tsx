@@ -152,6 +152,7 @@ describe('what it sends', () => {
       mixedHeats: true,
       tiebreakEnabled: false,
       tiebreakScoreType: 'time',
+      tiebreakBestLane: false,
       partBEnabled: false,
       partBScoreType: 'time',
       halfWeight: false,
@@ -175,6 +176,30 @@ describe('what it sends', () => {
       knockoutDecides: false,
       knockoutConsolation: false,
     }))
+  })
+
+  // Bowser's Castle: a team split across heats, ties broken by its best athlete.
+  it('can break ties on a split team\'s best athlete, ranked like the score', () => {
+    const { onCreate } = form()
+    fillRequired()
+    fireEvent.change(screen.getByLabelText('Score Type'), { target: { value: 'rounds_reps' } })
+    fireEvent.click(sheet().getByRole('switch', { name: /Tie Break Score/ }))
+    expect(sheet().getByLabelText(/^Tie Break Score Type/)).toBeInTheDocument()
+    fireEvent.click(sheet().getByRole('switch', { name: /Best Athlete Breaks Ties/ }))
+    // The tiebreak is the best athlete's score, so there is no type to pick.
+    expect(sheet().queryByLabelText(/^Tie Break Score Type/)).not.toBeInTheDocument()
+    submit()
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
+      tiebreakEnabled: true, tiebreakBestLane: true, tiebreakScoreType: 'rounds_reps',
+    }))
+  })
+
+  it('offers no best-athlete tiebreak for a knockout', () => {
+    form()
+    fillRequired()
+    fireEvent.change(screen.getByLabelText('Score Type'), { target: { value: 'knockout' } })
+    fireEvent.click(sheet().getByRole('switch', { name: /Tie Break Score/ }))
+    expect(sheet().queryByRole('switch', { name: /Best Athlete Breaks Ties/ })).toBeNull()
   })
 
   it('can give the tournament consolation heats', () => {

@@ -39,6 +39,7 @@ export type Workout = {
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
   partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; doubleWeight?: boolean; secret?: boolean
+  tiebreakBestLane?: boolean
   knockout?: boolean; knockoutRounds?: number | null; knockoutAdvance?: number | null
   knockoutDecides?: boolean
   knockoutConsolation?: boolean

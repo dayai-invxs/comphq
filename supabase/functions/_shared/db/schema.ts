@@ -127,6 +127,8 @@ export const workout = pgTable('Workout', {
   mixedHeats: boolean('mixedHeats').notNull().default(true),
   tiebreakEnabled: boolean('tiebreakEnabled').notNull().default(false),
   tiebreakScoreType: text('tiebreakScoreType').notNull().default('time'),
+  /** A team split across heats breaks ties on its best lane's score, not the sum of its lane tiebreaks. */
+  tiebreakBestLane: boolean('tiebreakBestLane').notNull().default(false),
   partBEnabled: boolean('partBEnabled').notNull().default(false),
   partBScoreType: text('partBScoreType').notNull().default('time'),
   halfWeight: boolean('halfWeight').notNull().default(false),

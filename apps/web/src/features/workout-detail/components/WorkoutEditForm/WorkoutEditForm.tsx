@@ -18,6 +18,7 @@ import type { FormEvent } from 'react'
 import { toIsoOrNull } from '@/lib/datetime'
 import { formatMinSec, parseMinSec } from '@/lib/minSec'
 import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
+import { BEST_LANE_HINT, tiebreakPatch } from '@/lib/tiebreakBestLane'
 import type { Workout } from '../../useWorkoutDetail'
 import { KnockoutFields, knockoutPatch, type KnockoutSettings } from '@/components/KnockoutFields/KnockoutFields'
 import styles from './WorkoutEditForm.module.css'
@@ -120,6 +121,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
   const [mixedHeats, setMixedHeats] = useState(workout.mixedHeats)
   const [tiebreakEnabled, setTiebreakEnabled] = useState(workout.tiebreakEnabled)
   const [tiebreakScoreType, setTiebreakScoreType] = useState(workout.tiebreakScoreType ?? 'time')
+  const [tiebreakBestLane, setTiebreakBestLane] = useState(workout.tiebreakBestLane ?? false)
   const [partBEnabled, setPartBEnabled] = useState(workout.partBEnabled)
   const [partBScoreType, setPartBScoreType] = useState(workout.partBScoreType)
   const [halfWeight, setHalfWeight] = useState(workout.halfWeight)
@@ -142,7 +144,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
       startTime: toIsoOrNull(startTime),
       mixedHeats,
       tiebreakEnabled,
-      tiebreakScoreType,
+      ...tiebreakPatch(tiebreakEnabled, tiebreakBestLane, tiebreakScoreType, format),
       partBEnabled: partBEnabled && !format.knockout,
       partBScoreType,
       halfWeight,
@@ -222,7 +224,15 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
             title="Tie Break Score"
             subtitle="Enter a tiebreak score per athlete to break ties"
           />
-          {tiebreakEnabled && (
+          {tiebreakEnabled && !format.knockout && (
+            <Toggle
+              on={tiebreakBestLane}
+              onToggle={() => setTiebreakBestLane((v) => !v)}
+              title="Best Athlete Breaks Ties"
+              subtitle={BEST_LANE_HINT}
+            />
+          )}
+          {tiebreakEnabled && !(tiebreakBestLane && !format.knockout) && (
             <ScoreTypeField
               label="Tie Break Score Type"
               value={tiebreakScoreType}

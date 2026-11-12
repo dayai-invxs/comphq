@@ -28,6 +28,7 @@ export async function POST(req: Request) {
   try {
     const { competition } = await requireCompetitionAdmin(parsed.data.slug)
     const d = parsed.data
+    const bestLane = d.tiebreakBestLane === true && d.knockout !== true && d.tiebreakEnabled !== false
 
     const { data, error } = await supabase
       .from('Workout')
@@ -45,8 +46,11 @@ export async function POST(req: Request) {
         startTime: d.startTime ?? null,
         status: 'draft',
         mixedHeats: d.mixedHeats !== false,
-        tiebreakEnabled: d.tiebreakEnabled === true,
-        tiebreakScoreType: d.tiebreakScoreType ?? 'time',
+        // A best-lane tiebreak is the score of a split team's best member, so
+        // it is always on and ranks the way the score does.
+        tiebreakEnabled: d.tiebreakEnabled === true || bestLane,
+        tiebreakScoreType: bestLane ? d.scoreType : d.tiebreakScoreType ?? 'time',
+        tiebreakBestLane: bestLane,
         // A knockout heat has one result per lane; Part B does not apply.
         partBEnabled: d.partBEnabled === true && d.knockout !== true,
         partBScoreType: d.partBScoreType ?? 'time',

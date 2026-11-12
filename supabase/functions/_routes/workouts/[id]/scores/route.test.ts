@@ -113,6 +113,22 @@ describe('POST /api/workouts/[id]/scores, a team split across heats', () => {
     expect(values).toMatchObject({ athleteId: 2, workoutId: 1, rawScore: 150_500, tiebreakRawScore: 3, capped: false, points: null })
   })
 
+  it('makes the best lane the team\'s tiebreak when the best athlete breaks ties', async () => {
+    mock.queueResult([{ id: 1, scoreType: 'higher_is_better', partBScoreType: 'time', tiebreakBestLane: true }])
+    mock.queueResult([{ id: 2 }]) // the athlete, in this competition
+    mock.queueResult([{ id: 31 }])
+    mock.queueResult([{ id: 32 }])
+    mock.queueResult([
+      { rawScore: 52, tiebreakRawScore: null, partBRawScore: null },
+      { rawScore: 71, tiebreakRawScore: 1, partBRawScore: null },
+    ])
+    mock.queueResult([{ id: 9, athleteId: 2, workoutId: 1, rawScore: 123, tiebreakRawScore: 71 }])
+
+    await POST(req('POST', { athleteId: 2, lanes: [{ assignmentId: 31, rawScore: 52 }, { assignmentId: 32, rawScore: 71, tiebreakRawScore: 1 }] }), params('1'))
+    const values = mock.calls.find((c) => c.method === 'values')!.args[0]
+    expect(values).toMatchObject({ athleteId: 2, workoutId: 1, rawScore: 123, tiebreakRawScore: 71 })
+  })
+
   it('removes the team score while a lane is still unscored', async () => {
     mock.queueResult([{ id: 1, scoreType: 'time', partBScoreType: 'time' }])
     mock.queueResult([{ id: 2 }]) // the athlete, in this competition

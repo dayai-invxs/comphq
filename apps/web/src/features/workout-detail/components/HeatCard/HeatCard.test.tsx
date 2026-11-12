@@ -139,6 +139,16 @@ describe('the lanes', () => {
     expect(screen.queryAllByText(/^Duplicate/)).toHaveLength(1)
   })
 
+  // Bowser's Castle: the team's best lane is its tiebreak, so a split lane
+  // has nothing to type; a team in one lane still has its tiebreak box.
+  it('asks no tiebreak of a split team\'s lane when the best athlete breaks ties', () => {
+    mount({
+      workout: { ...WORKOUT, scoreType: 'rounds_reps', tiebreakEnabled: true, tiebreakScoreType: 'rounds_reps', tiebreakBestLane: true },
+      repeats: new Map([[2, [1, 2]]]),
+    })
+    expect(screen.getAllByLabelText('Tiebreak score')).toHaveLength(ENTRIES.length - 1)
+  })
+
   it('offers a split team\'s members for each of its lanes', () => {
     const onLaneMemberChange = vi.fn()
     const team = { ...athlete(2, 'Team B', 'Rx'), memberList: [{ id: 7, name: 'Jo' }, { id: 8, name: 'Sam' }] }

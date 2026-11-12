@@ -18,6 +18,8 @@ export type CurrentWorkout = Omit<PlanWorkout, 'scoreType' | 'tiebreakScoreType'
   tiebreakScoreType: string
   partBScoreType: string
   externalId: string | null
+  /** Set in CompHQ only: the tiebreak is a split team's best lane, which an import leaves alone. */
+  tiebreakBestLane?: boolean
 }
 export type CurrentAssignment = { workoutId: number; athleteId: number; heatNumber: number; lane: number }
 
@@ -135,8 +137,13 @@ function workoutFields(p: PlanWorkout, c: CurrentWorkout): FieldChange[] {
   diff('name', p.name)
   diff('description', p.description)
   if (p.scoreType) diff('scoreType', p.scoreType)
-  diff('tiebreakEnabled', p.tiebreakEnabled)
-  if (p.tiebreakEnabled) diff('tiebreakScoreType', p.tiebreakScoreType)
+  if (c.tiebreakBestLane) {
+    // The tiebreak is the best member's score, so it follows the score type.
+    if (p.scoreType) diff('tiebreakScoreType', p.scoreType)
+  } else {
+    diff('tiebreakEnabled', p.tiebreakEnabled)
+    if (p.tiebreakEnabled) diff('tiebreakScoreType', p.tiebreakScoreType)
+  }
   diff('partBEnabled', p.partBEnabled)
   if (p.partBEnabled) diff('partBScoreType', p.partBScoreType)
   diff('lanes', p.lanes)

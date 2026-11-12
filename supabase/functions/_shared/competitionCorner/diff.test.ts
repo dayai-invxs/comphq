@@ -126,6 +126,22 @@ describe('diffPlan — athletes', () => {
 })
 
 describe('diffPlan — workouts', () => {
+  // Set in CompHQ only, so a re-import must not switch it back to the event's tiebreak.
+  it('leaves a best-athlete tiebreak alone', () => {
+    const current = { ...empty, workouts: [currentWorkout({ scoreType: 'rounds_reps', tiebreakEnabled: true, tiebreakScoreType: 'rounds_reps', tiebreakBestLane: true })] }
+    const changes = diffPlan(plan({ workouts: [planWorkout({ scoreType: 'rounds_reps', tiebreakEnabled: false, tiebreakScoreType: 'time' })] }), current)
+    expect(changes.filter((c) => c.entity === 'workout')).toEqual([])
+  })
+
+  it('moves a best-athlete tiebreak with the score type', () => {
+    const current = { ...empty, workouts: [currentWorkout({ scoreType: 'rounds_reps', tiebreakEnabled: true, tiebreakScoreType: 'rounds_reps', tiebreakBestLane: true })] }
+    const [c] = diffPlan(plan({ workouts: [planWorkout({ scoreType: 'weight' })] }), current)
+    expect(c.fields).toEqual([
+      { field: 'scoreType', before: 'rounds_reps', after: 'weight' },
+      { field: 'tiebreakScoreType', before: 'rounds_reps', after: 'weight' },
+    ])
+  })
+
   it('adds a new workout on the next free number when its number is taken', () => {
     const current = { ...empty, workouts: [currentWorkout({ externalId: null, name: 'Hand made', number: 1 })] }
     const [c] = diffPlan(plan({ workouts: [planWorkout()] }), current)

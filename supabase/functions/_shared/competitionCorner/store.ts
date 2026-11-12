@@ -19,7 +19,7 @@ export async function loadCurrent(q: Queryable, competitionId: number): Promise<
       .from(division).where(eq(division.competitionId, competitionId)),
     q.select({
       id: workout.id, number: workout.number, name: workout.name, description: workout.description,
-      scoreType: workout.scoreType, tiebreakEnabled: workout.tiebreakEnabled, tiebreakScoreType: workout.tiebreakScoreType,
+      scoreType: workout.scoreType, tiebreakEnabled: workout.tiebreakEnabled, tiebreakScoreType: workout.tiebreakScoreType, tiebreakBestLane: workout.tiebreakBestLane,
       partBEnabled: workout.partBEnabled, partBScoreType: workout.partBScoreType, lanes: workout.lanes,
       startTime: workout.startTime, heatIntervalSecs: workout.heatIntervalSecs, timeBetweenHeatsSecs: workout.timeBetweenHeatsSecs,
       heatStartOverrides: workout.heatStartOverrides, location: workoutLocation.name,

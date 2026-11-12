@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete as athleteTable, heatAssignment, score, workout } from '@/db/schema'
-import { clearLaneScores, sumLaneScores } from '@/lib/laneScores'
+import { clearLaneScores, laneTotalRule, writeTeamTotal, type LaneTotalRule } from '@/lib/laneScores'
 import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { ScoreUpsert, ScorePointsOverride } from '@/lib/schemas'
@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { competition } = await requireCompetitionAccess(slug)
     const { id } = await params
     const workoutId = Number(id)
-    const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string; knockout: boolean }>(workoutId, competition.id)
+    const wk = await requireWorkoutInCompetition<{ scoreType: string; partBScoreType: string; knockout: boolean; tiebreakBestLane: boolean }>(workoutId, competition.id)
 
     // The athlete has to be one of this competition's: a score for anyone
     // else's used to be stored all the same.
@@ -77,6 +77,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return await saveLanes(workoutId, parsed.data.athleteId, parsed.data.lanes, {
         knockout: wk.knockout === true,
         canCap: wk.scoreType === 'time',
+        rule: laneTotalRule(wk),
       })
     }
 
@@ -130,7 +131,7 @@ type LaneInput = {
  * Lanes not sent keep what they had, so saving one heat leaves the others.
  */
 async function saveLanes(
-  workoutId: number, athleteId: number, lanes: LaneInput[], opts: { knockout: boolean; canCap: boolean },
+  workoutId: number, athleteId: number, lanes: LaneInput[], opts: { knockout: boolean; canCap: boolean; rule: LaneTotalRule },
 ): Promise<Response> {
   try {
     return await writeLanes(workoutId, athleteId, lanes, opts)
@@ -143,7 +144,7 @@ async function saveLanes(
 class ForeignLane extends Error {}
 
 function writeLanes(
-  workoutId: number, athleteId: number, lanes: LaneInput[], opts: { knockout: boolean; canCap: boolean },
+  workoutId: number, athleteId: number, lanes: LaneInput[], opts: { knockout: boolean; canCap: boolean; rule: LaneTotalRule },
 ): Promise<Response> {
   return db.transaction(async (tx) => {
     for (const l of lanes) {
@@ -168,35 +169,10 @@ function writeLanes(
 
     if (opts.knockout) return Response.json({ athleteId, workoutId, lanes: lanes.length })
 
-    const all = await tx
-      .select({ rawScore: heatAssignment.rawScore, tiebreakRawScore: heatAssignment.tiebreakRawScore, partBRawScore: heatAssignment.partBRawScore })
-      .from(heatAssignment)
-      .where(and(eq(heatAssignment.workoutId, workoutId), eq(heatAssignment.athleteId, athleteId)))
-    const total = sumLaneScores(all)
-
+    const written = await writeTeamTotal(tx, workoutId, athleteId, opts.rule)
     // Not every member has gone yet: no team score, so no partial ranking.
-    if (!total) {
-      await tx.delete(score).where(and(eq(score.athleteId, athleteId), eq(score.workoutId, workoutId)))
-      return Response.json({ athleteId, workoutId, pending: true, lanesScored: all.filter((l) => l.rawScore != null).length, lanes: all.length })
-    }
-
-    const [row] = await tx
-      .insert(score)
-      .values({ athleteId, workoutId, ...total, points: null, partBPoints: null, capped: false, partBCapped: false })
-      .onConflictDoUpdate({
-        target: [score.athleteId, score.workoutId],
-        set: {
-          rawScore: sql`excluded."rawScore"`,
-          tiebreakRawScore: sql`excluded."tiebreakRawScore"`,
-          points: sql`NULL`,
-          partBRawScore: sql`excluded."partBRawScore"`,
-          partBPoints: sql`NULL`,
-          capped: false,
-          partBCapped: false,
-        },
-      })
-      .returning()
-    return Response.json(row)
+    if (!written.total) return Response.json({ athleteId, workoutId, pending: true, lanesScored: written.lanesScored, lanes: written.lanes })
+    return Response.json(written.total)
   })
 }
 

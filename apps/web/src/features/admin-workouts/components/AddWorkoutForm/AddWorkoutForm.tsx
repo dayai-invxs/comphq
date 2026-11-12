@@ -7,6 +7,7 @@ import type { WorkoutDraft } from '@/api/workouts'
 import { toIsoOrNull } from '@/lib/datetime'
 import { parseMinSec } from '@/lib/minSec'
 import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
+import { BEST_LANE_HINT, tiebreakPatch } from '@/lib/tiebreakBestLane'
 import { KnockoutFields, knockoutPatch, type KnockoutSettings } from '@/components/KnockoutFields/KnockoutFields'
 import styles from './AddWorkoutForm.module.css'
 
@@ -77,6 +78,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
   const [mixedHeats, setMixedHeats] = useState(true)
   const [tiebreakEnabled, setTiebreakEnabled] = useState(false)
   const [tiebreakScoreType, setTiebreakScoreType] = useState('time')
+  const [tiebreakBestLane, setTiebreakBestLane] = useState(false)
   const [partBEnabled, setPartBEnabled] = useState(false)
   const [partBScoreType, setPartBScoreType] = useState('time')
   const [halfWeight, setHalfWeight] = useState(false)
@@ -99,7 +101,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
       startTime: toIsoOrNull(startTime),
       mixedHeats,
       tiebreakEnabled,
-      tiebreakScoreType,
+      ...tiebreakPatch(tiebreakEnabled, tiebreakBestLane, tiebreakScoreType, format),
       partBEnabled: partBEnabled && !format.knockout,
       partBScoreType,
       halfWeight,
@@ -199,7 +201,15 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
                 checked={tiebreakEnabled}
                 onChange={setTiebreakEnabled}
               />
-              {tiebreakEnabled && (
+              {tiebreakEnabled && !format.knockout && (
+                <Toggle
+                  label="Best Athlete Breaks Ties"
+                  hint={BEST_LANE_HINT}
+                  checked={tiebreakBestLane}
+                  onChange={setTiebreakBestLane}
+                />
+              )}
+              {tiebreakEnabled && !(tiebreakBestLane && !format.knockout) && (
                 <ScoreType
                   label="Tie Break Score Type"
                   value={tiebreakScoreType}
