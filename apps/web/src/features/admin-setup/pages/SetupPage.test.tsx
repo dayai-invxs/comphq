@@ -25,6 +25,10 @@ const DIVISIONS = [
 ]
 const ROLES = [{ id: 7, name: 'Judge' }]
 const LOCATIONS = [{ id: 4, name: 'Main Floor' }]
+const WORKOUTS = [
+  { id: 11, number: 1, name: 'Fran' },
+  { id: 12, number: 2, name: 'Grace' },
+]
 const SETTINGS = {
   showBib: true,
   tiebreakWorkoutId: null,
@@ -40,6 +44,7 @@ function serve(over: { divisions?: unknown } = {}) {
     if (path.startsWith('/api/divisions')) return Promise.resolve(over.divisions ?? DIVISIONS)
     if (path.startsWith('/api/volunteer-roles')) return Promise.resolve(ROLES)
     if (path.startsWith('/api/workout-locations')) return Promise.resolve(LOCATIONS)
+    if (path.startsWith('/api/workouts')) return Promise.resolve(WORKOUTS)
     if (path.startsWith('/api/settings')) return Promise.resolve(SETTINGS)
     if (path === '/api/logo?slug=summer') return Promise.resolve({ url: null })
     return Promise.resolve(null)
@@ -85,6 +90,7 @@ it('reads everything the screen sets, for the competition in the address', async
   expect(apiGet).toHaveBeenCalledWith('/api/volunteer-roles?slug=summer')
   expect(apiGet).toHaveBeenCalledWith('/api/workout-locations?slug=summer')
   expect(apiGet).toHaveBeenCalledWith('/api/settings?slug=summer')
+  expect(apiGet).toHaveBeenCalledWith('/api/workouts?slug=summer')
   expect(apiGet).toHaveBeenCalledWith('/api/logo?slug=summer')
 })
 
@@ -94,13 +100,13 @@ it('names the screen and what it is for', async () => {
   expect(screen.getByText('Competition structure and roles')).toBeInTheDocument()
 })
 
-// Seven regions on one address, and a list that reaches the last without
+// Eight regions on one address, and a list that reaches the last without
 // scrolling past the ones before it.
 it('offers a way to each region without scrolling to it', async () => {
   mount()
   const nav = within(await screen.findByRole('navigation', { name: 'Setup sections' }))
   expect(nav.getAllByRole('link').map((a) => a.textContent)).toEqual([
-    'Settings', 'Logo', 'TV display', 'Divisions', 'Locations', 'Volunteer roles', 'Competition Corner',
+    'Settings', 'Tiebreaker', 'Logo', 'TV display', 'Divisions', 'Locations', 'Volunteer roles', 'Competition Corner',
   ])
   expect(nav.getByRole('link', { name: 'Volunteer roles' })).toHaveAttribute('href', '#setup-roles')
   expect(document.getElementById('setup-roles')).toBeInTheDocument()
@@ -184,6 +190,24 @@ it('writes a setting the moment it is toggled', async () => {
   mount()
   fireEvent.click(await screen.findByRole('switch', { name: 'Show Bib Numbers' }))
   await waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/api/settings', { slug: 'summer', showBib: false }))
+})
+
+// The leaderboard tiebreaker moved here from the workouts screen. It is saved
+// the moment it is picked, as it was there.
+it('picks the leaderboard tiebreaker workout from the competition\'s workouts', async () => {
+  mount()
+  const select = await screen.findByRole('combobox', { name: 'Tiebreak workout' })
+  expect(select).toHaveValue('')
+  expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['None', 'WOD 1: Fran', 'WOD 2: Grace'])
+  fireEvent.change(select, { target: { value: '12' } })
+  await waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/api/settings', { slug: 'summer', tiebreakWorkoutId: 12 }))
+})
+
+it('says so when the tiebreaker save is refused', async () => {
+  apiPatch.mockRejectedValue(new Error('Forbidden'))
+  mount()
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Tiebreak workout' }), { target: { value: '11' } })
+  expect(await screen.findByRole('alert')).toHaveTextContent('Save tiebreaker: Forbidden')
 })
 
 it('writes the TV settings against the same endpoint', async () => {
@@ -271,6 +295,7 @@ it('says the reads failed rather than pretending the lists are empty', async () 
   expect(screen.getByText('Could not load the locations')).toBeInTheDocument()
   expect(screen.getByText('Could not load the volunteer roles')).toBeInTheDocument()
   expect(screen.getByText('Could not load the settings')).toBeInTheDocument()
+  expect(screen.getByText('Could not load the tiebreaker')).toBeInTheDocument()
   expect(screen.getByText('Could not load the TV display')).toBeInTheDocument()
   expect(screen.getByText('Could not load the logo')).toBeInTheDocument()
   expect(screen.queryByText('No divisions yet')).not.toBeInTheDocument()
@@ -283,6 +308,7 @@ it('keeps the sections whose reads landed when one read fails', async () => {
     if (path.startsWith('/api/divisions')) return Promise.reject(new Error('boom'))
     if (path.startsWith('/api/volunteer-roles')) return Promise.resolve(ROLES)
     if (path.startsWith('/api/workout-locations')) return Promise.resolve(LOCATIONS)
+    if (path.startsWith('/api/workouts')) return Promise.resolve(WORKOUTS)
     if (path.startsWith('/api/settings')) return Promise.resolve(SETTINGS)
     return Promise.resolve({ url: null })
   })

@@ -10,3 +10,9 @@
   align-items: center;
   gap: var(--mds-gap-tight);
 }
+
+/* A WOD column is a fixed share of the table now, so the field and its two
+   buttons wrap inside it rather than spilling into the next column. */
+.editor {
+  flex-wrap: wrap;
+}

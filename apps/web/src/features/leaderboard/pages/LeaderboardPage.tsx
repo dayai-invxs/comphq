@@ -11,7 +11,7 @@ import {
   cx,
   type DataColumn,
 } from '@mond-design-system/react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { useParams } from 'react-router'
 import { useLeaderboard, type LeaderboardEntry } from '@/api/liveReads'
 import { queryKeys } from '@/api/queryKeys'
@@ -22,6 +22,7 @@ import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywh
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import styles from './LeaderboardPage.module.css'
+import standings from '@/components/ScoreCell/StandingsTable.module.css'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: src/app/[slug]/leaderboard/page.tsx. The standings, lowest total winning.
@@ -114,7 +115,7 @@ export function LeaderboardPage() {
     return (
       <>
         <Text as="span" variant="label">{hasAnyScore(entry) ? formatTotal(entry.totalPoints) : '—'}</Text>
-        {tiebreak && <Text variant="meta" tone="muted">TB {tiebreak}</Text>}
+        {tiebreak && <Text as="div" variant="meta" tone="muted">TB {tiebreak}</Text>}
       </>
     )
   }
@@ -123,7 +124,6 @@ export function LeaderboardPage() {
     {
       key: 'rank',
       header: 'Rank',
-      width: '4rem',
       cell: (r) => (
         <Text
           as="span"
@@ -149,8 +149,8 @@ export function LeaderboardPage() {
       header: (
         <>
           WOD {w.number}
-          {halfWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">½</Text></>}
-          {doubleWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">2×</Text></>}
+          {halfWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">(½)</Text></>}
+          {doubleWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">(2×)</Text></>}
         </>
       ),
       cell: (r: { entry: Entry }) => <ScoreCell score={r.entry.workoutScores[w.id]} />,
@@ -178,6 +178,8 @@ export function LeaderboardPage() {
       <DataPanel key={name} title={name} flush>
         <DataTable
           label={`${name} standings`}
+          className={cx(standings.aligned, workoutFilter === 'all' && standings.withTotal)}
+          style={{ '--wods': visibleWorkouts.length } as CSSProperties}
           columns={columns}
           rows={rankRows(rows, hasRelevantScore, isTrulyTied)}
           rowKey={(r) => String(r.entry.athleteId)}

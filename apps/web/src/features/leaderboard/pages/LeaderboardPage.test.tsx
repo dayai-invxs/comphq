@@ -177,7 +177,14 @@ describe('LeaderboardPage', () => {
   it('names a workout column per workout, marking the half-weight one', async () => {
     mount()
     const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1', 'WOD 2 ½', 'Total Pts'])
+    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1', 'WOD 2 (½)', 'Total Pts'])
+  })
+
+  it('marks a double-weight workout in brackets the same way', async () => {
+    serve({ ...DATA, halfWeightIds: [], doubleWeightIds: [11] })
+    mount()
+    const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1 (2×)', 'WOD 2', 'Total Pts'])
   })
 
   it('shows the placing, the score behind it and the tiebreak', async () => {
@@ -259,7 +266,7 @@ describe('LeaderboardPage', () => {
     await screen.findByRole('table', { name: 'Rx standings' })
     choose('Workout', '12')
     const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 2 ½'])
+    expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 2 (½)'])
     expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveValue('12')
   })
 
@@ -305,7 +312,7 @@ describe('LeaderboardPage', () => {
       await screen.findByRole('table', { name: 'Rx standings' })
       act(() => setViewport(900))
       const headers = (await table('Rx standings')).getAllByRole('columnheader').map((h) => h.textContent)
-      expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1', 'WOD 2 ½', 'Total Pts'])
+      expect(headers).toEqual(['Rank', 'Athlete/Team', 'WOD 1', 'WOD 2 (½)', 'Total Pts'])
     })
   })
 

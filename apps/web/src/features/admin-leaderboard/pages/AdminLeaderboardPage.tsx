@@ -1,11 +1,12 @@
-import { Button, Container, DataTable, EmptyState, Heading, Input, Skeleton, Stack, Text, type DataColumn } from '@mond-design-system/react'
-import { useEffect, useRef, useState } from 'react'
+import { Button, Container, DataTable, cx, EmptyState, Heading, Input, Skeleton, Stack, Text, type DataColumn } from '@mond-design-system/react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useParams } from 'react-router'
 import { useLeaderboard, type LeaderboardEntry } from '@/api/liveReads'
 import { useSetScorePoints } from '@/api/scores'
 import { ScoreCell } from '@/components/ScoreCell/ScoreCell'
 import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
 import styles from './AdminLeaderboardPage.module.css'
+import standings from '@/components/ScoreCell/StandingsTable.module.css'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
 
 // v1: src/app/[slug]/admin/leaderboard/page.tsx. The public board plus one
@@ -106,7 +107,7 @@ export function AdminLeaderboardPage() {
   }
 
   const columns: DataColumn<{ entry: Entry; rank: number | '—' }>[] = [
-    { key: 'rank', header: 'Rank', width: '4rem', cell: (r) => <Text as="span" variant="label" tone="muted">{r.rank}</Text> },
+    { key: 'rank', header: 'Rank', cell: (r) => <Text as="span" variant="label" tone="muted">{r.rank}</Text> },
     {
       key: 'athlete',
       header: 'Athlete/Team',
@@ -122,8 +123,8 @@ export function AdminLeaderboardPage() {
       header: (
         <>
           WOD {w.number}
-          {halfWeightIds.includes(w.id) && <Text as="span" variant="meta" tone="warning">½</Text>}
-          {doubleWeightIds.includes(w.id) && <Text as="span" variant="meta" tone="warning">2×</Text>}
+          {halfWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">(½)</Text></>}
+          {doubleWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">(2×)</Text></>}
         </>
       ),
       cell: (r: { entry: Entry }) => scoreCell(r.entry, w.id, w.number),
@@ -146,6 +147,8 @@ export function AdminLeaderboardPage() {
         <Heading level={2} tone="accent">{name}</Heading>
         <DataTable
           label={`${name} standings`}
+          className={cx(standings.aligned, standings.withTotal)}
+          style={{ '--wods': workouts.length } as CSSProperties}
           columns={columns}
           rows={rankRows(rows, hasAnyScore, (a, b) => sameEverywhere(a, b, workoutIds, data?.decidingWorkoutId))}
           rowKey={(r) => String(r.entry.athleteId)}

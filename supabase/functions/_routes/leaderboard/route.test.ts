@@ -116,6 +116,35 @@ describe('GET /api/leaderboard', () => {
     expect(body.halfWeightIds).toEqual([12])
   })
 
+  // Level on points and on countback, so the tiebreaker workout decides. Alice
+  // was capped at 3 rounds + 5 reps, stored as 30005; Bob finished in 5:00,
+  // stored as 300000 ms. Compared as plain numbers on a timed workout, the
+  // capped score used to win.
+  it('puts a finish ahead of a capped score in the tiebreaker workout', async () => {
+    const wk = (id: number, number: number) => ({
+      id, number, name: String(number), scoreType: 'time', status: 'completed',
+      tiebreakEnabled: false, tiebreakScoreType: 'time', halfWeight: false, doubleWeight: false,
+      competitionId: 1, lanes: 10, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+      callTimeSecs: 0, walkoutTimeSecs: 0, startTime: null, mixedHeats: false,
+      partBEnabled: false, partBScoreType: 'time', heatStartOverrides: '{}', locationId: null,
+      knockout: false, knockoutDecides: false,
+    })
+    const athletes = [
+      { id: 1, name: 'Alice', divisionName: 'Rx' },
+      { id: 2, name: 'Bob', divisionName: 'Rx' },
+    ]
+    const scores = [
+      { athleteId: 1, workoutId: 10, points: 1, rawScore: 100000, capped: false, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 10, points: 2, rawScore: 110000, capped: false, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 11, points: 1, rawScore: 300000, capped: false, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 11, points: 2, rawScore: 30005, capped: true, tiebreakRawScore: null },
+    ]
+    mock.queueResults([{ value: '11' }], [], [], [], [], [wk(10, 1), wk(11, 2)], athletes, [], scores)
+
+    const body = await (await GET(getReq())).json()
+    expect(body.entries.map((e: { athleteName: string }) => e.athleteName)).toEqual(['Bob', 'Alice'])
+  })
+
   // Skipping a workout ranks an athlete last in it. It used to add no points,
   // so Cy, who sat out B, led on 1 point to Ada's 2.
   it('ranks an athlete last in a finished workout they have no score in', async () => {

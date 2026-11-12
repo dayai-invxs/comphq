@@ -14,6 +14,7 @@ import {
 import {
   useAddWorkoutLocation, useDeleteWorkoutLocation, useSaveWorkoutLocation, useWorkoutLocations,
 } from '@/api/workoutLocations'
+import { useWorkouts } from '@/api/workouts'
 import { Notice } from '@/components/Notice/Notice'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { CompetitionCornerSection } from '../components/CompetitionCornerSection/CompetitionCornerSection'
@@ -22,6 +23,7 @@ import { DivisionsSection } from '../components/DivisionsSection/DivisionsSectio
 import { LogoSection } from '../components/LogoSection/LogoSection'
 import { NamedListSection } from '../components/NamedListSection/NamedListSection'
 import { SectionNav, type SectionLink } from '../components/SectionNav/SectionNav'
+import { TiebreakPicker } from '../components/TiebreakPicker/TiebreakPicker'
 import { TvLeaderboardSection } from '../components/TvLeaderboardSection/TvLeaderboardSection'
 import styles from './SetupPage.module.css'
 
@@ -31,12 +33,14 @@ import styles from './SetupPage.module.css'
 // reaches a section without scrolling past the five before it.
 //
 // The sections are in v1's order, which is not the order of the page heading:
-// settings, logo, TV, divisions, locations, roles. The Competition Corner import
-// is new in v3 and goes last; it reports its own errors in place, since a
+// settings, logo, TV, divisions, locations, roles. The leaderboard tiebreaker
+// sat on v1's workouts screen; it is a competition setting, so it follows the
+// settings here. The Competition Corner import is new in v3 and goes last; it reports its own errors in place, since a
 // rejected selection lists several problems rather than one.
 
 const LINKS: SectionLink[] = [
   { id: 'setup-settings', label: 'Settings' },
+  { id: 'setup-tiebreaker', label: 'Tiebreaker' },
   { id: 'setup-logo', label: 'Logo' },
   { id: 'setup-tv', label: 'TV display' },
   { id: 'setup-divisions', label: 'Divisions' },
@@ -52,6 +56,7 @@ export function SetupPage() {
   const roles = useVolunteerRoles(slug)
   const locations = useWorkoutLocations(slug)
   const settings = useSettings(slug)
+  const workouts = useWorkouts(slug)
   const logo = useLogo(slug)
 
   const addDivision = useAddDivision(slug)
@@ -133,6 +138,20 @@ export function SetupPage() {
                 judgePassword={settings.data.judgePassword ?? ''}
                 judgeMaxConsecutive={settings.data.judgeMaxConsecutive ?? 3}
                 onPatch={(next) => patch('Save setting', next)}
+              />
+            )}
+          </div>
+
+          <div id="setup-tiebreaker">
+            {(settings.isPending || workouts.isPending) && loading}
+            {!settings.data && settings.error && failed('tiebreaker', settings.error)}
+            {settings.data && !workouts.data && workouts.error && failed('workouts', workouts.error)}
+            {settings.data && workouts.data && (
+              <TiebreakPicker
+                workouts={workouts.data}
+                workoutId={settings.data.tiebreakWorkoutId ?? null}
+                onPick={(workoutId) => { patch('Save tiebreaker', { tiebreakWorkoutId: workoutId }).catch(() => {}) }}
+                saving={updateSettings.isPending}
               />
             )}
           </div>

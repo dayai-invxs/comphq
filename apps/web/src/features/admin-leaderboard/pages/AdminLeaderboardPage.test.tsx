@@ -139,7 +139,7 @@ describe('AdminLeaderboardPage', () => {
     const headers = (await table('Rx standings')).getAllByRole('columnheader')
     expect(headers[2]).toHaveTextContent('WOD 1')
     expect(headers[2]).not.toHaveTextContent('½')
-    expect(headers[3]).toHaveTextContent('WOD 2½')
+    expect(headers[3]).toHaveTextContent('WOD 2 (½)')
   })
 
   it('shows a half-weighted total to one decimal and leaves an unscored total blank', async () => {

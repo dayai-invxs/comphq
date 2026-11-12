@@ -42,7 +42,7 @@ export function ScoreCell({ score, onEditPoints, editLabel }: ScoreCellProps) {
         <Text as="span" variant="meta" tone="muted"> / B#{score.partBPoints}</Text>
       )}
       <Text as="span" variant="meta" tone="muted"> {score.display}</Text>
-      {score.tiebreakDisplay && <Text variant="meta" tone="accent">TB {score.tiebreakDisplay}</Text>}
+      {score.tiebreakDisplay && <Text as="div" variant="meta" tone="accent">TB {score.tiebreakDisplay}</Text>}
     </>
   )
 }

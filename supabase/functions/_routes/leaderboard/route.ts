@@ -5,6 +5,7 @@ import { athlete, division, score, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/competitionDefaults'
+import { compareResults } from '@/lib/scoring'
 import { skippedPlaces } from '@/lib/skippedPlace'
 import { workoutWeight } from '@/lib/workoutWeight'
 
@@ -180,12 +181,19 @@ export async function GET(req: Request) {
       const bCount = Object.values(b.workoutScores).filter((s) => s?.points === rank).length
       if (aCount !== bCount) return bCount - aCount // more of a better rank wins
     }
-    // Still tied: use designated tiebreaker workout score
+    // Still tied: the better result in the designated tiebreaker workout. Read
+    // from the scores themselves, not the cells: a capped score holds rounds
+    // and reps rather than a time, so it has to lose to any finish rather than
+    // be compared by value, and a "No score" cell carries a stand-in 0 that
+    // would otherwise beat every real time.
     if (tiebreakWorkout) {
-      const aRaw = a.workoutScores[tiebreakWorkout.id]?.rawScore ?? null
-      const bRaw = b.workoutScores[tiebreakWorkout.id]?.rawScore ?? null
-      if (aRaw != null && bRaw != null && aRaw !== bRaw) {
-        return tiebreakWorkout.scoreType === 'time' ? aRaw - bRaw : bRaw - aRaw
+      const aScore = scoreMap.get(`${a.athleteId}-${tiebreakWorkout.id}`)
+      const bScore = scoreMap.get(`${b.athleteId}-${tiebreakWorkout.id}`)
+      if (aScore && !bScore) return -1
+      if (!aScore && bScore) return 1
+      if (aScore && bScore) {
+        const better = compareResults(aScore.rawScore, aScore.capped, bScore.rawScore, bScore.capped, tiebreakWorkout.scoreType)
+        if (better !== 0) return better
       }
     }
     return a.athleteName.localeCompare(b.athleteName)

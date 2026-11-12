@@ -1,0 +1,33 @@
+/* The overall standings draw one table per division, and a table sizes its
+   columns from what is in it — so a division with long team names pushed its
+   WOD columns right of the next division's and nothing lined up down the page.
+   Fixed layout cuts every division's table the same way: Rank, Athlete/Team
+   and Total Pts take set widths, and the WOD columns split what is left
+   evenly. The table never gets narrower than its WOD columns need (--wods is
+   their count, set inline), so a long competition pans sideways inside the
+   table instead of crushing the scores. */
+.aligned table {
+  table-layout: fixed;
+  min-width: calc(3.5rem + 8rem + var(--wods, 0) * 7rem + 5.5rem);
+}
+
+.aligned th,
+.aligned td {
+  overflow-wrap: anywhere;
+}
+
+.aligned th:nth-child(1) { width: 3.5rem; }
+.aligned th:nth-child(2) { width: clamp(8rem, 28%, 18rem); }
+.withTotal th:last-child { width: 5.5rem; }
+
+/* Header cells do not wrap by default; "WOD 3 ½" has to fit its column. */
+.aligned th {
+  white-space: normal;
+}
+
+@media (max-width: 599px) {
+  .aligned th,
+  .aligned td {
+    padding-inline: var(--mds-pad-tight);
+  }
+}

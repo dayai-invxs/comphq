@@ -15,7 +15,6 @@ const WORKOUTS = [
   { id: 12, number: 2, name: 'Grace', scoreType: 'weight', lanes: 6, status: 'draft' },
 ]
 const LOCATIONS = [{ id: 3, name: 'Main Floor' }]
-const SETTINGS = { tiebreakWorkoutId: 12 }
 const EQUIPMENT = {
   items: [
     {
@@ -34,7 +33,6 @@ function serve(over: Record<string, unknown> = {}) {
       key in over ? Promise.resolve(over[key]) : Promise.resolve(value)
     if (path.startsWith('/api/workouts')) return answer('workouts', WORKOUTS)
     if (path.startsWith('/api/workout-locations')) return answer('locations', LOCATIONS)
-    if (path.startsWith('/api/settings')) return answer('settings', SETTINGS)
     if (path.startsWith('/api/equipment-summary')) return answer('equipment', EQUIPMENT)
     return Promise.resolve(null)
   })
@@ -47,8 +45,8 @@ function mount(isAdmin = true) {
   )
 }
 
-// The tiebreak select names workouts exactly as the list does, so the row is
-// reached by the one thing only it is: a link to the workout's own screen.
+// A row is reached by the one thing only it is: a link to the workout's own
+// screen.
 const row = (name: RegExp) => screen.findByRole('link', { name })
 
 /** Four regions on this screen carry the same controls as each other — two
@@ -74,7 +72,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   serve()
   apiPost.mockResolvedValue({ id: 13 })
-  apiPatch.mockResolvedValue(SETTINGS)
+  apiPatch.mockResolvedValue({})
 })
 
 describe('the workout list', () => {
@@ -194,31 +192,6 @@ describe('adding a workout', () => {
   })
 })
 
-describe('the tiebreaker', () => {
-  it('shows the workout already designated', async () => {
-    mount()
-    await waitFor(() => expect(screen.getByLabelText('Tiebreak workout')).toHaveValue('12'))
-  })
-
-  // v1 saved on change, with no save button.
-  it('saves a new pick straight away', async () => {
-    mount()
-    await waitFor(() => expect(screen.getByLabelText('Tiebreak workout')).toHaveValue('12'))
-    fireEvent.change(screen.getByLabelText('Tiebreak workout'), { target: { value: '11' } })
-    await waitFor(() =>
-      expect(apiPatch).toHaveBeenCalledWith('/api/settings', { slug: 'summer', tiebreakWorkoutId: 11 }),
-    )
-  })
-
-  it('says so when the save is refused', async () => {
-    apiPatch.mockRejectedValue(new Error('Forbidden'))
-    mount()
-    await waitFor(() => expect(screen.getByLabelText('Tiebreak workout')).toHaveValue('12'))
-    fireEvent.change(screen.getByLabelText('Tiebreak workout'), { target: { value: '11' } })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Save tiebreaker: Forbidden')
-  })
-})
-
 describe('the equipment master list', () => {
   // The walk across every workout's equipment is not what this screen is for,
   // so v1 put it behind a button and so does this.
@@ -283,20 +256,10 @@ describe('when a read fails', () => {
     apiGet.mockImplementation((path: string) => {
       if (path.startsWith('/api/workout-locations')) return Promise.reject(new Error('Forbidden'))
       if (path.startsWith('/api/workouts')) return Promise.resolve(WORKOUTS)
-      return Promise.resolve(SETTINGS)
+      return Promise.resolve(null)
     })
     mount()
     expect(await screen.findByRole('alert')).toHaveTextContent('Load locations: Forbidden')
-  })
-
-  it('names the settings read when that is the one that failed', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/settings')) return Promise.reject(new Error('Forbidden'))
-      if (path.startsWith('/api/workouts')) return Promise.resolve(WORKOUTS)
-      return Promise.resolve(LOCATIONS)
-    })
-    mount()
-    expect(await screen.findByRole('alert')).toHaveTextContent('Load settings: Forbidden')
   })
 
   // v1's banner had a dismiss link on it.
@@ -320,14 +283,13 @@ describe('when a read fails', () => {
 })
 
 // A competition user (scorekeeper) opens workouts to run them; adding them,
-// the tiebreak and the imports are the admin's.
+// and the imports are the admin's.
 describe('for a competition user', () => {
   it('lists the workouts with nothing to set up', async () => {
     serve()
     mount(false)
     await row(/Fran/)
     expect(screen.queryByRole('button', { name: 'Add workout' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: /tiebreak/i })).not.toBeInTheDocument()
     expect(screen.queryByText('Import Judge Assignments')).not.toBeInTheDocument()
   })
 })

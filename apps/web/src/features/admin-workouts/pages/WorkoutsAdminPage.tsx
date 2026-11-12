@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useParams } from 'react-router'
 import { useEquipmentSummary } from '@/api/equipmentSummary'
 import { useImportJudgeAssignments } from '@/api/imports'
-import { useSettings, useUpdateSettings } from '@/api/settings'
 import { useWorkoutLocations } from '@/api/workoutLocations'
 import { useCreateWorkout, useWorkouts, type Workout, type WorkoutDraft } from '@/api/workouts'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
@@ -18,15 +17,14 @@ import { AddWorkoutForm } from '../components/AddWorkoutForm/AddWorkoutForm'
 import { CsvImportPanel } from '../components/CsvImportPanel/CsvImportPanel'
 import { HeatImportPanel } from '../components/HeatImportPanel/HeatImportPanel'
 import { EquipmentMasterList } from '../components/EquipmentMasterList/EquipmentMasterList'
-import { TiebreakPicker } from '../components/TiebreakPicker/TiebreakPicker'
 
-// v1: src/app/[slug]/admin/workouts/page.tsx. The workouts of one competition,
-// the settings that order the leaderboard once they are scored, and the two
-// CSV imports that fill their heats.
+// v1: src/app/[slug]/admin/workouts/page.tsx. The workouts of one competition
+// and the two CSV imports that fill their heats. The leaderboard tiebreaker
+// that v1 kept here is a competition setting, and lives on Setup.
 //
 // v1 funnelled every failure through one `run(label, op)` wrapper into one
 // dismissible banner. The labels are kept because they are what says which of
-// four requests failed; the create's own failure stays in the form, where the
+// three requests failed; the create's own failure stays in the form, where the
 // values that caused it still are.
 //
 // v1 drew the workouts as a column of cards, each one a link. A workout has a
@@ -41,14 +39,12 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export function WorkoutsAdminPage() {
   // A competition user (scorekeeper) activates workouts and opens them to
-  // score; adding them, the tiebreak and the imports are the admin's.
+  // score; adding them and the imports are the admin's.
   const isAdmin = useIsCompetitionAdmin()
   const { slug = '' } = useParams()
 
   const workouts = useWorkouts(slug)
   const locations = useWorkoutLocations(slug)
-  const settings = useSettings(slug)
-  const saveSettings = useUpdateSettings(slug)
   const create = useCreateWorkout(slug)
 
   const [showEquipment, setShowEquipment] = useState(false)
@@ -64,8 +60,6 @@ export function WorkoutsAdminPage() {
   const labelled = [
     ['Load workouts', workouts.error],
     ['Load locations', locations.error],
-    ['Load settings', settings.error],
-    ['Save tiebreaker', saveSettings.error],
     ['Load equipment summary', equipment.error],
   ] as const
   const found = labelled.find(([, e]) => e != null)
@@ -166,13 +160,6 @@ export function WorkoutsAdminPage() {
       />
 
       {isAdmin && <>
-      <TiebreakPicker
-        workouts={rows}
-        workoutId={settings.data?.tiebreakWorkoutId ?? null}
-        onPick={(workoutId) => saveSettings.mutate({ tiebreakWorkoutId: workoutId })}
-        saving={saveSettings.isPending}
-      />
-
       <HeatImportPanel slug={slug} />
 
       <CsvImportPanel

@@ -130,7 +130,7 @@ export function lowerIsBetter(scoreType: string): boolean {
 // A finished time beats any capped score, whatever the numbers say: a capped
 // score holds rounds and reps, not milliseconds, so the two never compare by
 // value. Between capped scores, more work done is better.
-function compareResults(
+export function compareResults(
   a: number, aCapped: boolean,
   b: number, bCapped: boolean,
   scoreType: string,
