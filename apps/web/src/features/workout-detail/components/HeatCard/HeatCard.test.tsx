@@ -212,6 +212,20 @@ describe('the lanes', () => {
     expect(screen.getAllByText(/Round 2 Consolation · Heat 1/).length).toBeGreaterThan(0)
   })
 
+  // A heat shared with a consolation group: its lanes are marked, and only the
+  // winners' lanes have a box.
+  it('marks consolation lanes in a shared heat and gives only the others a box', () => {
+    mount({
+      entries: [ENTRIES[0], { ...ENTRIES[1], consolation: true }],
+      knockout: {
+        label: 'Round 2 + Consolation', isFinal: false, editable: true, byHand: false, problem: null,
+        advancing: () => false, onToggle: vi.fn(), onUseScores: vi.fn(),
+      },
+    })
+    expect(screen.getAllByRole('checkbox', { name: 'Advances' })).toHaveLength(1)
+    expect(screen.getByText('Consolation')).toBeInTheDocument()
+  })
+
   // A winner ticked before the box went still counts until it is cleared.
   it('still offers to go back to scores for a winner ticked earlier', () => {
     const onUseScores = vi.fn()

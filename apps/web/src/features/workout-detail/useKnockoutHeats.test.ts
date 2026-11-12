@@ -55,6 +55,22 @@ describe('useKnockoutHeats', () => {
     expect(result.current.problems).toEqual([])
   })
 
+  // A heat shared by the winners and a consolation group: ticks and advancing
+  // are about the winners' lanes only.
+  it('decides a shared heat on its winners\' lanes alone', () => {
+    const shared = [entry(21, 1, 2, 2), entry(22, 2, 2, 2), { ...entry(23, 3, 2, 2), consolation: true }]
+    const wk = { ...workout, knockoutRounds: 3, assignments: [...workout.assignments, ...shared] } as unknown as Workout
+    const setLaneAdvanced = vi.fn().mockResolvedValue(true)
+    const { result } = renderHook(() => {
+      const inputs = useScoreInputs(wk)
+      return { inputs, ko: useKnockoutHeats(wk, inputs, setLaneAdvanced) }
+    })
+    act(() => result.current.inputs.setTimeInputs(() => ({ [laneKey(21)]: '1:10', [laneKey(22)]: '1:00', [laneKey(23)]: '0:50' })))
+    const heat = result.current.ko.heat(shared)!
+    expect(heat).toMatchObject({ label: 'Round 2 + Consolation', problem: null })
+    expect(shared.map((a) => heat.advancing(a))).toEqual([false, true, false])
+  })
+
   it('reports an unsettled heat for the round in play', () => {
     const setLaneAdvanced = vi.fn()
     const { result } = renderHook(() => useKnockoutHeats(workout, useScoreInputs(workout), setLaneAdvanced))

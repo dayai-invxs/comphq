@@ -3,12 +3,15 @@ import { useEffect, useId, useState } from 'react'
 import { CORRAL_CALL_INSTRUCTION, corralCallHeadline, corralCallKey, corralCalls } from '@/lib/corralCall'
 import { pendingHeats, type AthleteChecks } from '@/lib/nowHeat'
 import type { OpsData } from '@/lib/opsHeats'
+import { useServerClockOffset } from '@/lib/serverClock'
 import { useNow } from '@/lib/useNow'
 import styles from './CorralCall.module.css'
 
 // The big "line up now" message the schedule screens put over everything when
 // a heat's corral time comes (lib/corralCall.ts has the rule). It keeps its
-// own clock so the page under it does not re-render every second.
+// own clock so the page under it does not re-render every second. The clock
+// is the server's (lib/serverClock.ts): the device's own time only ticks it
+// along, so a TV or phone set to the wrong time still calls the heat on time.
 //
 // On the TV nobody can touch the screen, so it simply runs its minute. On a
 // phone or a desktop the reader can close it; a closed call stays closed for
@@ -22,7 +25,7 @@ type Props = {
 }
 
 export function CorralCall({ data, checks, tv = false }: Props) {
-  const now = useNow()
+  const now = useNow() + useServerClockOffset()
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set())
   const titleId = useId()
 

@@ -70,26 +70,30 @@ export function useKnockoutHeats(
     }
   }
 
-  function heat(entries: Assignment[]): KnockoutHeat | undefined {
-    if (!rules || entries.length === 0) return undefined
-    const heatRound = roundOf(entries[0])
+  function heat(allEntries: Assignment[]): KnockoutHeat | undefined {
+    if (!rules || allEntries.length === 0) return undefined
+    const heatRound = roundOf(allEntries[0])
     const isFinal = heatRound >= rounds
     const editable = heatRound === round
-    const heatLanes = entries.map(toLane)
 
-    if (entries.some(isConsolation)) {
-      // Ranked by score for places among those who went out; no ticks.
+    // Consolation lanes are ranked by score for places among those who went
+    // out; nobody advances from them. A heat may hold both kinds of lane: the
+    // ticks below are about the winners' lanes only.
+    const entries = allEntries.filter((a) => !isConsolation(a))
+    if (entries.length === 0) {
       return {
         label: `Round ${heatRound} Consolation`, isFinal: false, consolation: true, editable,
         problem: null, byHand: false, advancing: () => false,
         onToggle: () => {}, onUseScores: () => {},
       }
     }
+    const withConsolation = entries.length < allEntries.length ? ' + Consolation' : ''
+    const heatLanes = entries.map(toLane)
 
     if (isFinal) {
       // The final is ranked by score; a tick only names a winner by hand.
       return {
-        label: 'Final', isFinal, editable, problem: null,
+        label: `Final${withConsolation}`, isFinal, editable, problem: null,
         byHand: entries.some((a) => advancedOf(a) != null),
         advancing: (a) => advancedOf(a) === true,
         onToggle: (a, on) => void save([[a.id, on ? true : null]]),
@@ -99,7 +103,7 @@ export function useKnockoutHeats(
 
     const result = heatResult(heatLanes, rules)
     return {
-      label: `Round ${heatRound}`, isFinal, editable,
+      label: `Round ${heatRound}${withConsolation}`, isFinal, editable,
       problem: editable ? result.problem : null,
       byHand: !result.suggested,
       advancing: (a) => result.advancing.has(a.id),

@@ -1,7 +1,17 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OpsData } from '@/lib/opsHeats'
 import { CorralCall } from './CorralCall'
+
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }))
+vi.mock('@/lib/api', () => ({ apiGet }))
+
+function render(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
 // Heat 1 starts 09:00 and is called to the corral 5 minutes before, at 08:55;
 // heat 2 starts 09:10 and is called at 09:05. A call is up for one minute.
@@ -24,7 +34,12 @@ const DATA: OpsData = {
 const HEADLINE_1 = "It's time for Workout 3 Heat 1 to line up!"
 const HEADLINE_2 = "It's time for Workout 3 Heat 2 to line up!"
 
-beforeEach(() => { vi.useFakeTimers() })
+beforeEach(() => {
+  vi.useFakeTimers()
+  // Unless a test says otherwise, the server cannot be reached: the device's
+  // own clock is used.
+  apiGet.mockReset().mockRejectedValue(new Error('offline'))
+})
 afterEach(() => { vi.useRealTimers() })
 
 function tick(ms: number) {
@@ -64,6 +79,33 @@ describe('the corral call', () => {
   it('is not raised for a workout that is not running', () => {
     vi.setSystemTime(at('08:55:10'))
     render(<CorralCall data={{ ...DATA, workouts: [{ ...DATA.workouts[0], status: 'draft' }] }} />)
+    expect(screen.queryByText(HEADLINE_1)).not.toBeInTheDocument()
+  })
+})
+
+// The server's clock decides, not the device's: a screen set to the wrong time
+// still calls the heat when the server says it is time.
+describe('the clock it goes by', () => {
+  async function settle() {
+    for (let i = 0; i < 5; i++) await act(async () => {})
+  }
+
+  it('calls the heat on the server\'s time when the device is 3 minutes slow', async () => {
+    vi.setSystemTime(at('08:52:05'))
+    apiGet.mockImplementation(async () => ({ now: at('08:55:05') }))
+    render(<CorralCall data={DATA} />)
+    await settle()
+    expect(apiGet).toHaveBeenCalledWith('/api/schedule/clock')
+    tick(1000)
+    expect(screen.getByText(HEADLINE_1)).toBeInTheDocument()
+  })
+
+  it('does not call it early when the device is 3 minutes fast', async () => {
+    vi.setSystemTime(at('08:55:05'))
+    apiGet.mockImplementation(async () => ({ now: at('08:52:05') }))
+    render(<CorralCall data={DATA} />)
+    await settle()
+    tick(1000)
     expect(screen.queryByText(HEADLINE_1)).not.toBeInTheDocument()
   })
 })

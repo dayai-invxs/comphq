@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { getCompletedHeats } from '@/lib/heatCompletion'
+import { shiftHeatStartOverrides } from '@/lib/heatTime'
 import { membersByAthlete } from '@/lib/teamMembers'
 import { parseJson } from '@/lib/parseJson'
 import { WorkoutUpdate } from '@/lib/schemas'
@@ -186,6 +187,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // A knockout heat has one result per lane; Part B does not apply.
     if (d.knockout === true) patch.partBEnabled = false
     if ('locationId' in d) patch.locationId = d.locationId ?? null
+
+    // Moving the workout's start moves the heats whose own start was edited
+    // by the same amount, so they stay where they were relative to it.
+    if (d.startTime) {
+      const [current] = await db
+        .select({ startTime: workout.startTime, heatStartOverrides: workout.heatStartOverrides })
+        .from(workout)
+        .where(and(eq(workout.id, Number(id)), eq(workout.competitionId, competition.id)))
+      const shifted = current && shiftHeatStartOverrides(current.heatStartOverrides, current.startTime, d.startTime)
+      if (shifted) patch.heatStartOverrides = shifted
+    }
 
     const [updated] = await db
       .update(workout)

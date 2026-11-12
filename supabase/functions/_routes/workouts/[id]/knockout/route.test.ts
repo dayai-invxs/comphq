@@ -92,6 +92,23 @@ describe('POST /api/workouts/[id]/knockout', () => {
     expect(inserted.every((r) => r.round === 2)).toBe(true)
   })
 
+  // 8 athletes, one heat of 8, top 4 advance: the 4 who went out and the 4
+  // who advanced fit in one heat of 8 lanes, so they share it.
+  it('runs consolation and winners in one heat when the lanes allow', async () => {
+    mock.queueResult([{ ...WK, lanes: 8, knockoutRounds: 2, knockoutAdvance: 4, knockoutConsolation: true }])
+    mock.queueResult([1, 2, 3, 4, 5, 6, 7, 8].map((i) => lane(i, i, 1, 60 + i)))
+    mock.queueResult([{ id: 7, order: 1 }]) // divisions
+    mock.queueResult(undefined) // insert
+
+    const res = await POST(post({ action: 'advance' }), params)
+    expect(await res.json()).toEqual({ round: 2, placed: 8 })
+    const inserted = mock.calls.find((c) => c.method === 'values')!.args[0] as
+      Array<{ athleteId: number; heatNumber: number; lane: number; consolation?: boolean }>
+    expect(inserted.every((r) => r.heatNumber === 2)).toBe(true)
+    expect(inserted.filter((r) => r.consolation).map((r) => r.athleteId).sort()).toEqual([5, 6, 7, 8])
+    expect(inserted.filter((r) => !r.consolation).map((r) => r.athleteId).sort()).toEqual([1, 2, 3, 4])
+  })
+
   it('places no consolation heats when the switch is off', async () => {
     mock.queueResult([{ ...WK, knockoutConsolation: false }])
     mock.queueResult([lane(1, 11, 1, 70), lane(2, 12, 1, 80), lane(3, 13, 1, 90)])

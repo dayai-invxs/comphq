@@ -223,6 +223,22 @@ describe('consolation', () => {
     expect(r.byDivision.get(1)).toEqual([1])
   })
 
+  it('shares a heat between a consolation group and the winners when both fit, each in its own lanes', () => {
+    const placed = buildRound([{ seeded: [5, 6, 7, 8], consolation: true }, { seeded: [1, 2, 3, 4] }], 8, 2, 3)
+    expect(new Set(placed.map((p) => p.heatNumber))).toEqual(new Set([3]))
+    const lanesOf = (ids: number[]) => placed.filter((p) => ids.includes(p.athleteId)).map((p) => p.lane).sort()
+    expect(lanesOf([5, 6, 7, 8])).toEqual([1, 2, 3, 4])
+    expect(lanesOf([1, 2, 3, 4])).toEqual([5, 6, 7, 8])
+    expect(placed.filter((p) => p.consolation).map((p) => p.athleteId).sort()).toEqual([5, 6, 7, 8])
+    expect(placed.filter((p) => !p.consolation).map((p) => p.athleteId).sort()).toEqual([1, 2, 3, 4])
+  })
+
+  it('keeps them in heats of their own when they do not fit together', () => {
+    const placed = buildRound([{ seeded: [5, 6, 7], consolation: true }, { seeded: [1, 2] }], 4, 2, 3)
+    expect(placed.filter((p) => p.consolation).every((p) => p.heatNumber === 3)).toBe(true)
+    expect(placed.filter((p) => !p.consolation).every((p) => p.heatNumber === 4)).toBe(true)
+  })
+
   it('places those out in a round by their consolation race, behind everyone who went further', () => {
     const lanes = [
       // Round 1: 1 and 2 advance; 3 and 4 go out (3 was faster there).

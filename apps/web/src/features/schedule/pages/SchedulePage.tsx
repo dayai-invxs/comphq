@@ -36,6 +36,7 @@ function Lanes({ now, showBib }: { now: PendingHeat; showBib: boolean }) {
           <span className={styles.who}>
             <Text as="span">{e.athleteName}</Text>
             <MemberNames members={e.members} />
+            {e.consolation && !now.heat.consolation && <Text as="span" variant="meta" tone="muted">Consolation</Text>}
           </span>
           {showBib && <Text as="span" variant="meta" tone="muted">Bib {e.bibNumber ?? '—'}</Text>}
         </li>

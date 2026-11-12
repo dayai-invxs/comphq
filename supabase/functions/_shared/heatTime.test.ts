@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcHeatStartMs } from './heatTime'
+import { calcHeatStartMs, shiftHeatStartOverrides } from './heatTime'
 
 describe('calcHeatStartMs', () => {
   it('returns null when workoutStartTime is null', () => {
@@ -35,5 +35,28 @@ describe('calcHeatStartMs', () => {
     const t = '2026-04-20T10:00:00Z'
     const overrides = JSON.stringify({ '5': '2026-04-20T20:00:00Z' })
     expect(calcHeatStartMs(2, t, 600, overrides, 0)).toBe(new Date(t).getTime() + 600_000)
+  })
+})
+
+// A workout moved to another day takes its edited heats with it.
+describe('shiftHeatStartOverrides', () => {
+  const overrides = { '2': '2026-11-14T19:05:00.000Z', '4': '2026-11-14T20:00:00.000Z' }
+
+  it('moves every override by however far the start moved', () => {
+    expect(shiftHeatStartOverrides(overrides, '2026-11-14T18:00:00.000Z', '2026-11-11T18:30:00.000Z')).toEqual({
+      '2': '2026-11-11T19:35:00.000Z', '4': '2026-11-11T20:30:00.000Z',
+    })
+  })
+
+  it('reads the legacy string form', () => {
+    expect(shiftHeatStartOverrides(JSON.stringify(overrides), '2026-11-14T18:00:00.000Z', '2026-11-14T18:10:00.000Z'))
+      .toEqual({ '2': '2026-11-14T19:15:00.000Z', '4': '2026-11-14T20:10:00.000Z' })
+  })
+
+  it('leaves nothing to do when the start did not move, there are no overrides, or a start is missing', () => {
+    expect(shiftHeatStartOverrides(overrides, '2026-11-14T18:00:00.000Z', '2026-11-14T18:00:00+00:00')).toBeNull()
+    expect(shiftHeatStartOverrides({}, '2026-11-14T18:00:00.000Z', '2026-11-11T18:00:00.000Z')).toBeNull()
+    expect(shiftHeatStartOverrides(overrides, null, '2026-11-11T18:00:00.000Z')).toBeNull()
+    expect(shiftHeatStartOverrides(overrides, '2026-11-14T18:00:00.000Z', null)).toBeNull()
   })
 })

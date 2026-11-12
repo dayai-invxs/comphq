@@ -13,6 +13,8 @@ export type HeatEntry = {
   bibNumber: string | null
   divisionName: string | null
   lane: number
+  /** A knockout consolation lane, which may share a heat with the winners'. */
+  consolation?: boolean
   scoreDisplay: string | null
   tiebreakDisplay: string | null
 }

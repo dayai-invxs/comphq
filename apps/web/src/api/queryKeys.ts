@@ -24,6 +24,8 @@ export const queryKeys = {
   judgeAssignments: (slug: string, workoutId: string) =>
     ['judge-assignments', slug, workoutId] as const,
   scheduleEquipment: (slug: string) => ['schedule-equipment', slug] as const,
+  // How far this device's clock is from the server's. Not per competition.
+  serverClock: ['server-clock'] as const,
   // The two rosters the admin screens read and write. Every mutation that
   // touches one names the key here rather than spelling the array again.
   athletes: (slug: string) => ['athletes', slug] as const,

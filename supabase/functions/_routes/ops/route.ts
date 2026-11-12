@@ -137,6 +137,8 @@ export async function GET(req: Request) {
           bibNumber: a.bibNumber,
           divisionName: a.divisionName ?? null,
           lane: a.lane,
+          // A knockout consolation lane, which may share a heat with the winners'.
+          ...(wk.knockout && a.consolation ? { consolation: true } : {}),
           // A knockout heat shows that round's result, not the final placing.
           scoreDisplay: wk.knockout
             ? (a.laneRawScore != null ? formatScore(a.laneRawScore, wk.scoreType, a.laneCapped) : null)
@@ -145,13 +147,13 @@ export async function GET(req: Request) {
         }))
       // A knockout heat's round (null on imported heats: round 1), so a
       // schedule can drop a round the tournament has moved past.
-      const first = wAssignments.find((a) => a.heatNumber === heatNumber)
-      const round = wk.knockout ? first?.round ?? 1 : undefined
+      const heatLanes = wAssignments.filter((a) => a.heatNumber === heatNumber)
+      const round = wk.knockout ? heatLanes[0]?.round ?? 1 : undefined
       return {
         heatNumber,
         ...(round !== undefined ? { round } : {}),
-        // A knockout consolation heat, so a schedule can say so.
-        ...(wk.knockout && first?.consolation ? { consolation: true } : {}),
+        // A heat of consolation lanes only, so a schedule can say so.
+        ...(wk.knockout && heatLanes.length > 0 && heatLanes.every((a) => a.consolation) ? { consolation: true } : {}),
         isComplete: completedHeats.includes(heatNumber),
         heatTime: heatStartMs != null ? new Date(heatStartMs).toISOString() : null,
         corralTime: heatStartMs != null ? new Date(heatStartMs - wk.callTimeSecs * 1000).toISOString() : null,

@@ -13,8 +13,10 @@
 // from a round races once more, in consolation heats of the next round, run
 // before that round's own heats. The race orders them among everyone else who
 // went out in the same round; they still rank behind anyone who went further.
-// The final has no consolation after it. Consolation heats never mix with the
-// winners' heats and decide no advancing.
+// The final has no consolation after it. Consolation lanes decide no
+// advancing. They share a heat with the winners' lanes when both fit, the way
+// divisions do: each keeps its own block of lanes and is judged only against
+// its own.
 
 import { formatScore } from '@/lib/scoreFormat'
 
@@ -152,17 +154,21 @@ export type Placement = { athleteId: number; heatNumber: number; lane: number; r
  * heats are made as if it ran alone; then a heat shares its spare lanes with
  * the next division's heat when both fit. Each division keeps its own block of
  * lanes in a shared heat, so the groups that face each other are unchanged.
+ *
+ * A consolation group is one more "division" here: listed first, it runs
+ * first, and it shares a heat with the next group when both fit. Its lanes
+ * come out marked `consolation`.
  */
 export function buildRound(
-  divisions: Array<{ seeded: number[] }>,
+  divisions: Array<{ seeded: number[]; consolation?: boolean }>,
   lanes: number,
   round: number,
   firstHeat: number,
 ): Placement[] {
   // Each division's heats, in running order, before any sharing.
-  const groups: Array<{ division: number; athletes: number[] }> = []
-  divisions.forEach(({ seeded }, division) => {
-    for (const athletes of snakeHeats(seeded, lanes).reverse()) groups.push({ division, athletes })
+  const groups: Array<{ division: number; athletes: number[]; consolation: boolean }> = []
+  divisions.forEach(({ seeded, consolation = false }, division) => {
+    for (const athletes of snakeHeats(seeded, lanes).reverse()) groups.push({ division, athletes, consolation })
   })
 
   // Neighbouring groups from different divisions share a heat when they fit.
@@ -176,16 +182,18 @@ export function buildRound(
 
   const out: Placement[] = []
   const fullOrder = middleOutLanes(lanes)
+  const place = (athleteId: number, heatNumber: number, lane: number, consolation: boolean) =>
+    out.push({ athleteId, heatNumber, lane, round, ...(consolation ? { consolation: true } : {}) })
   heats.forEach((heat, i) => {
     const heatNumber = firstHeat + i
     if (heat.length === 1) {
-      heat[0].athletes.forEach((athleteId, j) => out.push({ athleteId, heatNumber, lane: fullOrder[j], round }))
+      heat[0].athletes.forEach((athleteId, j) => place(athleteId, heatNumber, fullOrder[j], heat[0].consolation))
       return
     }
     let offset = 0
-    for (const { athletes } of heat) {
+    for (const { athletes, consolation } of heat) {
       const order = middleOutLanes(athletes.length)
-      athletes.forEach((athleteId, j) => out.push({ athleteId, heatNumber, lane: offset + order[j], round }))
+      athletes.forEach((athleteId, j) => place(athleteId, heatNumber, offset + order[j], consolation))
       offset += athletes.length
     }
   })

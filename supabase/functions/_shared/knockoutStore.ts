@@ -86,8 +86,8 @@ export async function startTournament(wk: KnockoutWorkoutRow): Promise<number> {
 
 /**
  * Builds the next round from the latest one. Refused while a heat is
- * unsettled. With consolation on, those who went out race first, in
- * consolation heats of their own, then the round's winners' heats.
+ * unsettled. With consolation on, those who went out race first, then the
+ * round's winners; the two share a heat when the lanes allow.
  */
 export async function advanceRound(wk: KnockoutWorkoutRow): Promise<{ round: number; placed: number }> {
   const lanes = await loadLanes(wk.id)
@@ -104,11 +104,9 @@ export async function advanceRound(wk: KnockoutWorkoutRow): Promise<{ round: num
     [...map].sort(([a], [b]) => order(a) - order(b)).map(([, seeded]) => ({ seeded }))
   const firstHeat = Math.max(0, ...lanes.map((l) => l.heatNumber)) + 1
   const consolation = wk.knockoutConsolation
-    ? buildRound(seededDivisions(outByDivision), wk.lanes, round + 1, firstHeat).map((p) => ({ ...p, consolation: true }))
+    ? seededDivisions(outByDivision).map((d) => ({ ...d, consolation: true }))
     : []
-  const afterConsolation = Math.max(firstHeat - 1, ...consolation.map((p) => p.heatNumber)) + 1
-  const winners = buildRound(seededDivisions(byDivision), wk.lanes, round + 1, afterConsolation)
-  const placed = [...consolation, ...winners]
+  const placed = buildRound([...consolation, ...seededDivisions(byDivision)], wk.lanes, round + 1, firstHeat)
   if (placed.length) {
     await db.insert(heatAssignment).values(placed.map((p) => ({ workoutId: wk.id, ...p })))
   }

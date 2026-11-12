@@ -414,6 +414,9 @@ export function HeatCard({
                         <MemberNames members={a.athlete.members} />
                       )}
                       {repeatHeats && <Text as="span" variant="meta" tone="warning">{repeatLabel(repeatHeats, heatNumber)}</Text>}
+                      {knockout && a.consolation && !knockout.consolation && (
+                        <Text as="span" variant="meta" tone="muted">Consolation</Text>
+                      )}
                     </Stack>
                   </td>
                   <td><Text as="span" variant="meta" tone="muted">{a.athlete.division?.name ?? '—'}</Text></td>
@@ -473,7 +476,7 @@ export function HeatCard({
                       />
                     </td>
                   )}
-                  {knockout && advanceBoxes && (
+                  {knockout && advanceBoxes && (a.consolation ? <td /> : (
                     <td>
                       <Checkbox
                         label="Advances"
@@ -486,7 +489,7 @@ export function HeatCard({
                         }}
                       />
                     </td>
-                  )}
+                  ))}
                   <td>
                     {!score ? (repeatHeats ? <Text as="span" variant="meta" tone="muted">Team total once every lane is scored</Text> : '—') : editPoints?.athleteId === a.athlete.id ? (
                       <Inline gap="hairline" align="center">

@@ -7,6 +7,27 @@ function parseOverrides(input: HeatStartOverrides | string | null | undefined): 
 }
 
 /**
+ * Moves every heat's own start time by however far the workout's start moved.
+ * An override is a full timestamp, so without this a workout moved to another
+ * day left its edited heats behind on the old one. Returns null when there is
+ * nothing to move: no overrides, the same start, or no start on either side
+ * (with no old start there is no distance to move them by).
+ */
+export function shiftHeatStartOverrides(
+  overrides: HeatStartOverrides | string | null | undefined,
+  oldStartTime: string | Date | null | undefined,
+  newStartTime: string | Date | null | undefined,
+): HeatStartOverrides | null {
+  if (!oldStartTime || !newStartTime) return null
+  const delta = new Date(newStartTime).getTime() - new Date(oldStartTime).getTime()
+  const parsed = parseOverrides(overrides)
+  if (!Number.isFinite(delta) || delta === 0 || Object.keys(parsed).length === 0) return null
+  return Object.fromEntries(
+    Object.entries(parsed).map(([heat, iso]) => [heat, new Date(new Date(iso).getTime() + delta).toISOString()]),
+  )
+}
+
+/**
  * Calculate the start time for a given heat, respecting per-heat overrides.
  *
  * Accepts overrides as either a parsed object (new jsonb column) or a JSON

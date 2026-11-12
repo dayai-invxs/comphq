@@ -107,6 +107,25 @@ describe('PUT /api/workouts/[id]', () => {
     expect(res.status).toBe(400)
   })
 
+  it('moves edited heat times along with the workout\'s start', async () => {
+    mock.queueResult([{ startTime: '2026-11-14 18:00:00+00', heatStartOverrides: { '2': '2026-11-14T19:05:00.000Z' } }])
+    mock.queueResult([{ id: 1 }]) // update().returning()
+    await PUT(putReq({ startTime: '2026-11-11T18:00:00.000Z' }), params('1'))
+    const setCall = mock.calls.find((c) => c.method === 'set')
+    expect(setCall!.args[0]).toEqual({
+      startTime: '2026-11-11T18:00:00.000Z',
+      heatStartOverrides: { '2': '2026-11-11T19:05:00.000Z' },
+    })
+  })
+
+  it('leaves heat times alone when the start does not move', async () => {
+    mock.queueResult([{ startTime: '2026-11-14 18:00:00+00', heatStartOverrides: { '2': '2026-11-14T19:05:00.000Z' } }])
+    mock.queueResult([{ id: 1 }])
+    await PUT(putReq({ startTime: '2026-11-14T18:00:00.000Z', name: 'Fran' }), params('1'))
+    const setCall = mock.calls.find((c) => c.method === 'set')
+    expect(setCall!.args[0]).toEqual({ name: 'Fran', startTime: '2026-11-14T18:00:00.000Z' })
+  })
+
   it('clears the description when sent null', async () => {
     mock.queueResult([{ id: 1 }]) // update().returning()
     await PUT(putReq({ description: null }), params('1'))

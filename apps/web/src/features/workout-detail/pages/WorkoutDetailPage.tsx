@@ -605,14 +605,18 @@ export function WorkoutDetailPage() {
                 {heatNums.map((heatNum, i) => {
                   const entries = byHeat[heatNum] ?? []
                   const heatRound = entries[0]?.round ?? 1
-                  // A round's consolation heats run first, under their own heading.
-                  const stage = (e: Assignment | undefined) => `${e?.round ?? 1}${e?.consolation ? 'c' : ''}`
-                  const newStage = i === 0 || stage(entries[0]) !== stage(byHeat[heatNums[i - 1]]?.[0])
+                  // A round's consolation-only heats run first, under their own
+                  // heading; a heat shared with the winners sits under the round.
+                  const onlyConsolation = (list: Assignment[] | undefined) =>
+                    !!list?.length && list.every((a) => a.consolation)
+                  const stage = (list: Assignment[] | undefined) =>
+                    `${list?.[0]?.round ?? 1}${onlyConsolation(list) ? 'c' : ''}`
+                  const newStage = i === 0 || stage(entries) !== stage(byHeat[heatNums[i - 1]])
                   return (
                   <section key={heatNum} id={`heat-${heatNum}`} aria-label={`Heat ${heatNum}`}>
                     {knockout.enabled && newStage && (
                       <Text variant="eyebrow" tone="muted" className={styles.roundHeading}>
-                        {entries[0]?.consolation
+                        {onlyConsolation(entries)
                           ? `Round ${heatRound} · Consolation`
                           : heatRound >= knockout.rounds ? 'Final' : `Round ${heatRound}`}
                       </Text>

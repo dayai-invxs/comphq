@@ -151,6 +151,10 @@ function HeatLanes({ heat, columns, mixed }: { heat: Heat; columns: number; mixe
                   {mixed && e.divisionName && (
                     <> <span className={styles.division}>- {e.divisionName}</span></>
                   )}
+                  {/* A consolation lane in a heat shared with the winners. */}
+                  {e.consolation && !heat.consolation && (
+                    <> <span className={styles.division}>· Consolation</span></>
+                  )}
                 </span>
               }
               description={e.members?.length
