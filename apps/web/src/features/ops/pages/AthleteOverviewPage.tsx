@@ -23,6 +23,7 @@ import { fmtHeatTime } from '@/lib/heatTime'
 import { getHeatMs, type Heat, type HeatEntry, type OpsData, type WorkoutData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import { statusBadge } from '@/lib/workoutStatus'
+import { MemberNames } from '@/components/MemberNames/MemberNames'
 import { TbaWorkout } from '@/components/TbaWorkout/TbaWorkout'
 import { athletesIn, matchAthletes, matchedMembers, type Athlete } from '../athleteTimeline'
 import styles from './AthleteOverviewPage.module.css'
@@ -114,16 +115,21 @@ export function AthleteOverviewPage() {
     {
       key: 'athlete',
       header: 'Athlete/Team',
+      // A team's members go on a line of their own under its name (the picked
+      // member alone, on a lane that splits the team), as on the Schedule.
       cell: (e) => (
-        <>
-          <Text as="span" variant="label">{e.athleteName}</Text>
-          {heat.isComplete && e.scoreDisplay && (
-            <Text as="span" variant="meta" tone="muted"> {e.scoreDisplay}</Text>
-          )}
-          {heat.isComplete && e.tiebreakDisplay && (
-            <Text as="span" variant="meta" tone="muted"> TB {e.tiebreakDisplay}</Text>
-          )}
-        </>
+        <Stack gap="hairline">
+          <span>
+            <Text as="span" variant="label">{e.athleteName}</Text>
+            {heat.isComplete && e.scoreDisplay && (
+              <Text as="span" variant="meta" tone="muted"> {e.scoreDisplay}</Text>
+            )}
+            {heat.isComplete && e.tiebreakDisplay && (
+              <Text as="span" variant="meta" tone="muted"> TB {e.tiebreakDisplay}</Text>
+            )}
+          </span>
+          <MemberNames members={e.members} />
+        </Stack>
       ),
     },
     ...(data?.showBib

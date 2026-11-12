@@ -315,4 +315,13 @@ describe('AthleteOverviewPage', () => {
     expect(panel.getByText('Teams · Dee Doe, Eve Ell')).toBeInTheDocument()
     expect(panel.getAllByRole('listitem')[0]).toHaveTextContent('Heat 3 · Lane 2')
   })
+
+  it('lists a team\'s members under its name on the floor', async () => {
+    const team = { ...entry(4, 'Thunder', 2, { divisionName: 'Teams' }), members: ['Dee Doe', 'Eve Ell'] }
+    serve({ ...OPS, workouts: [{ ...OPS.workouts[0], heats: [...OPS.workouts[0].heats, { heatNumber: 3, isComplete: false, entries: [team, entry(5, 'Deena Ray', 3)] }] }] })
+    mount()
+    const lanes = within(await screen.findByRole('table', { name: 'Heat 3 lanes' }))
+    expect(lanes.getByRole('row', { name: /Thunder/ })).toHaveTextContent('Dee Doe · Eve Ell')
+    expect(lanes.getByRole('row', { name: /Deena Ray/ })).not.toHaveTextContent('·')
+  })
 })
