@@ -4,30 +4,40 @@
    Fixed layout cuts every division's table the same way: Rank, Athlete/Team
    and Total Pts take set widths, and the WOD columns split what is left
    evenly. The table never gets narrower than its WOD columns need (--wods is
-   their count, set inline), so a long competition pans sideways inside the
-   table instead of crushing the scores. */
+   their count, set inline by the page), so a long competition pans sideways
+   inside the table instead of crushing the scores. */
+.aligned {
+  --wods: 0;
+  --rank-width: var(--mds-space-11);
+  --athlete-min: 16ch;
+  --wod-min: calc(2 * var(--mds-space-11));
+  --total-width: calc(var(--mds-space-11) + var(--mds-space-8));
+}
+
 .aligned table {
   table-layout: fixed;
-  min-width: calc(3.5rem + 8rem + var(--wods, 0) * 7rem + 5.5rem);
+  min-width: calc(var(--rank-width) + var(--athlete-min) + var(--wods) * var(--wod-min) + var(--total-width));
 }
 
 .aligned th,
 .aligned td {
   overflow-wrap: anywhere;
+  padding-inline: var(--mds-pad-tight);
 }
 
-.aligned th:nth-child(1) { width: 3.5rem; }
-.aligned th:nth-child(2) { width: clamp(8rem, 28%, 18rem); }
-.withTotal th:last-child { width: 5.5rem; }
+.aligned th:nth-child(1) { width: var(--rank-width); }
+.aligned th:nth-child(2) { width: clamp(var(--athlete-min), 28%, 36ch); }
+.withTotal th:last-child { width: var(--total-width); }
 
-/* Header cells do not wrap by default; "WOD 3 ½" has to fit its column. */
+/* Header cells do not wrap by default; "WOD 3 (½)" has to fit its column. */
 .aligned th {
   white-space: normal;
 }
 
-@media (max-width: 599px) {
+/* A phone keeps the tight padding; anything wider gets the table's own. */
+@media (min-width: 600px) {
   .aligned th,
   .aligned td {
-    padding-inline: var(--mds-pad-tight);
+    padding-inline: var(--mds-pad-control);
   }
 }
