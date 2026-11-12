@@ -315,3 +315,17 @@ it('fits again for the reads of the half on screen, and only those', async () =>
   expect(showing()).toHaveTextContent('Leaderboard')
   await waitFor(() => expect(measured.count).toBeGreaterThan(onLeaderboard))
 })
+
+// Heat 1 starts 09:00 with a 5-minute call, so its corral time is 08:55. The
+// call is for the whole room: it stays up when the board turns.
+it('puts the corral call over both the schedule and the leaderboard', async () => {
+  vi.setSystemTime(Date.parse('2026-08-27T08:55:02.000Z'))
+  mount()
+  await drawn()
+  const call = "It's time for Workout 1 Heat 1 to line up!"
+  expect(await screen.findByRole('alert')).toHaveTextContent(call)
+  turn()
+  expect(screen.getByRole('heading', { name: 'Leaderboard', level: 1 })).toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent(call)
+  expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+})

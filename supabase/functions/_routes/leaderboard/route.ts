@@ -6,6 +6,7 @@ import { resolveCompetition } from '@/lib/competition'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/competitionDefaults'
 import { skippedPlaces } from '@/lib/skippedPlace'
+import { workoutWeight } from '@/lib/workoutWeight'
 
 type AthleteRow = {
   id: number
@@ -116,14 +117,14 @@ export async function GET(req: Request) {
       if (skipped != null) {
         const partB = wo.partBEnabled ? skippedB(a.id, wo.id) : null
         const pts = skipped + (partB ?? 0)
-        totalPoints += wo.halfWeight ? pts * 0.5 : pts
+        totalPoints += pts * workoutWeight(wo)
         workoutScores[wo.id] = { points: skipped, rawScore: 0, display: 'No score', tiebreakDisplay: null, partBPoints: partB, skipped: true }
       } else if (entry) {
         // When partBEnabled, both Part A and Part B points count toward total
         const pts = wo.partBEnabled && entry.partBPoints != null
           ? entry.points + entry.partBPoints
           : entry.points
-        totalPoints += wo.halfWeight ? pts * 0.5 : pts
+        totalPoints += pts * workoutWeight(wo)
         const tiebreakDisplay = !wo.partBEnabled && entry.tiebreakEnabled && entry.tiebreakRawScore != null
           ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
           : null
@@ -201,7 +202,8 @@ export async function GET(req: Request) {
       entries,
       tiebreakWorkoutId,
       decidingWorkoutId,
-      halfWeightIds: visibleWorkouts.filter((w) => w.halfWeight).map((w) => w.id),
+      halfWeightIds: visibleWorkouts.filter((w) => workoutWeight(w) === 0.5).map((w) => w.id),
+      doubleWeightIds: visibleWorkouts.filter((w) => workoutWeight(w) === 2).map((w) => w.id),
       tvLeaderboardPercentages,
       tvLeaderboardOrder,
       /** The TV board's pace; it reads it here, with the other TV settings. */

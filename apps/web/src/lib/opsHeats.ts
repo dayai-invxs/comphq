@@ -21,6 +21,8 @@ export type Heat = {
   heatNumber: number
   /** A knockout heat's round; absent outside a knockout. */
   round?: number
+  /** A knockout consolation heat. */
+  consolation?: boolean
   isComplete: boolean
   entries: HeatEntry[]
 }

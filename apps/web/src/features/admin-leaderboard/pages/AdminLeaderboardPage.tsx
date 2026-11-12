@@ -39,6 +39,7 @@ export function AdminLeaderboardPage() {
   const workouts = data?.workouts ?? []
   const entries = data?.entries ?? []
   const halfWeightIds = data?.halfWeightIds ?? []
+  const doubleWeightIds = data?.doubleWeightIds ?? []
   const workoutIds = workouts.map((w) => w.id)
 
   function savePoints() {
@@ -122,6 +123,7 @@ export function AdminLeaderboardPage() {
         <>
           WOD {w.number}
           {halfWeightIds.includes(w.id) && <Text as="span" variant="meta" tone="warning">½</Text>}
+          {doubleWeightIds.includes(w.id) && <Text as="span" variant="meta" tone="warning">2×</Text>}
         </>
       ),
       cell: (r: { entry: Entry }) => scoreCell(r.entry, w.id, w.number),

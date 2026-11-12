@@ -112,6 +112,17 @@
   width: 6ch;
 }
 
+/* The pickers keep room for a name. On a phone the table already scrolls
+   sideways for the score boxes; without a floor the auto layout squeezed
+   these to their arrow and the picked judge or member could not be read. */
+.judgeSelect {
+  min-width: 18ch;
+}
+
+.memberSelect {
+  min-width: 22ch;
+}
+
 /* The placing is a button because it opens the override, but it reads as the
    number it is — the tone comes from the Text around it. */
 .placing {

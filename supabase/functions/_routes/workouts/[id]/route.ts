@@ -31,6 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           round: heatAssignment.round,
           capped: heatAssignment.capped,
           advanced: heatAssignment.advanced,
+          consolation: heatAssignment.consolation,
           athleteName: athleteTable.name,
           bibNumber: athleteTable.bibNumber,
           divisionId: athleteTable.divisionId,
@@ -87,6 +88,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       round: r.round,
       capped: r.capped,
       advanced: r.advanced,
+      consolation: r.consolation,
       athlete: {
         id: r.athleteId,
         name: r.athleteName,
@@ -168,11 +170,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.partBScoreType !== undefined) patch.partBScoreType = d.partBScoreType
     if (d.number !== undefined) patch.number = d.number
     if (d.halfWeight !== undefined) patch.halfWeight = d.halfWeight
+    if (d.doubleWeight !== undefined) patch.doubleWeight = d.doubleWeight
+    // Turning one weight on turns the other off, so a patch naming only one
+    // never leaves a workout both half and double.
+    if (d.halfWeight === true) patch.doubleWeight = false
+    if (d.doubleWeight === true) patch.halfWeight = false
     if (d.secret !== undefined) patch.secret = d.secret
     if (d.knockout !== undefined) patch.knockout = d.knockout
     if (d.knockoutRounds !== undefined) patch.knockoutRounds = d.knockoutRounds
     if (d.knockoutAdvance !== undefined) patch.knockoutAdvance = d.knockoutAdvance
     if (d.knockoutDecides !== undefined) patch.knockoutDecides = d.knockoutDecides
+    if (d.knockoutConsolation !== undefined) patch.knockoutConsolation = d.knockoutConsolation
     // Only a knockout can decide the competition.
     if (d.knockout === false) patch.knockoutDecides = false
     // A knockout heat has one result per lane; Part B does not apply.

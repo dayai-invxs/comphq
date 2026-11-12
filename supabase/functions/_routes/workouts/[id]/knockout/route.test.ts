@@ -70,6 +70,58 @@ describe('POST /api/workouts/[id]/knockout', () => {
     expect(await res.text()).toMatch(/round 1 of 2/)
   })
 
+  // 16 athletes, 4 heats of 4, top 2 advance: round 2 is two consolation heats
+  // for the 8 who went out, run first, then two heats for the 8 who advanced.
+  it('with consolation on, races those who went out first, in heats of their own', async () => {
+    mock.queueResult([{ ...WK, knockoutRounds: 3, knockoutConsolation: true }])
+    const round1 = [1, 2, 3, 4].flatMap((heat) =>
+      [0, 1, 2, 3].map((i) => lane(heat * 10 + i, heat * 10 + i, heat, 60 + i)))
+    mock.queueResult(round1)
+    mock.queueResult([{ id: 7, order: 1 }]) // divisions
+    mock.queueResult(undefined) // insert
+
+    const res = await POST(post({ action: 'advance' }), params)
+    expect(await res.json()).toEqual({ round: 2, placed: 16 })
+    const inserted = mock.calls.find((c) => c.method === 'values')!.args[0] as
+      Array<{ athleteId: number; heatNumber: number; round: number; consolation?: boolean }>
+    const heat = (n: number) => inserted.filter((r) => r.heatNumber === n)
+    expect([5, 6].map((n) => heat(n).every((r) => r.consolation === true))).toEqual([true, true])
+    expect([7, 8].map((n) => heat(n).every((r) => !r.consolation))).toEqual([true, true])
+    expect([...heat(5), ...heat(6)].map((r) => r.athleteId % 10).sort()).toEqual([2, 2, 2, 2, 3, 3, 3, 3])
+    expect([...heat(7), ...heat(8)].map((r) => r.athleteId % 10).sort()).toEqual([0, 0, 0, 0, 1, 1, 1, 1])
+    expect(inserted.every((r) => r.round === 2)).toBe(true)
+  })
+
+  it('places no consolation heats when the switch is off', async () => {
+    mock.queueResult([{ ...WK, knockoutConsolation: false }])
+    mock.queueResult([lane(1, 11, 1, 70), lane(2, 12, 1, 80), lane(3, 13, 1, 90)])
+    mock.queueResult([{ id: 7, order: 1 }])
+    mock.queueResult(undefined)
+    expect(await (await POST(post({ action: 'advance' }), params)).json()).toEqual({ round: 2, placed: 2 })
+  })
+
+  it('finishes on the final, whatever the consolation heats beside it hold', async () => {
+    mock.queueResult([{ ...WK, knockoutConsolation: true }])
+    mock.queueResult([
+      lane(1, 11, 1, 70), lane(2, 12, 1, 90), lane(3, 13, 1, 92),
+      { ...lane(4, 13, 2, null, 2), consolation: true },
+      { ...lane(5, 12, 2, 80, 2), consolation: true },
+      lane(6, 11, 3, 61, 2),
+    ])
+    mock.queueResult(undefined) // delete scores
+    mock.queueResult(undefined) // insert
+    mock.queueResult(undefined) // status
+
+    const res = await POST(post({ action: 'finish' }), params)
+    expect(res.status).toBe(200)
+    const rows = mock.calls.find((c) => c.method === 'values')!.args[0] as Array<{ athleteId: number; points: number; knockoutLabel: string }>
+    expect(rows.map((r) => [r.athleteId, r.points, r.knockoutLabel])).toEqual([
+      [11, 1, 'Final · 0:00.06'],
+      [12, 2, 'Out in Round 1 · Consolation 0:00.08'],
+      [13, 3, 'Out in Round 1 · 0:00.09'],
+    ])
+  })
+
   it('finishes: placings become points, labelled by how far each got', async () => {
     mock.queueResult([WK])
     mock.queueResult([

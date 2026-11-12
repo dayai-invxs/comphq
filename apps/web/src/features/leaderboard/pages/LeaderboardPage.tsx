@@ -61,6 +61,7 @@ export function LeaderboardPage() {
   // every render is a fresh sort every render.
   const entries = useMemo(() => data?.entries ?? [], [data])
   const halfWeightIds = data?.halfWeightIds ?? []
+  const doubleWeightIds = data?.doubleWeightIds ?? []
   const tiebreakWorkoutId = data?.tiebreakWorkoutId ?? null
   const decidingWorkoutId = data?.decidingWorkoutId ?? null
   const decided = decidedBy(data?.workouts ?? [], decidingWorkoutId)
@@ -149,6 +150,7 @@ export function LeaderboardPage() {
         <>
           WOD {w.number}
           {halfWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">½</Text></>}
+          {doubleWeightIds.includes(w.id) && <> <Text as="span" variant="meta" tone="warning">2×</Text></>}
         </>
       ),
       cell: (r: { entry: Entry }) => <ScoreCell score={r.entry.workoutScores[w.id]} />,

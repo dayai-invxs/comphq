@@ -26,6 +26,8 @@ export type Assignment = {
   round?: number | null
   capped?: boolean
   advanced?: boolean | null
+  /** A knockout consolation heat's lane. */
+  consolation?: boolean
 }
 export type Score = {
   id: number; athleteId: number; rawScore: number; tiebreakRawScore: number | null
@@ -36,9 +38,10 @@ export type Workout = {
   id: number; number: number; name: string; description: string | null; scoreType: string; lanes: number
   heatIntervalSecs: number; timeBetweenHeatsSecs: number; callTimeSecs: number; walkoutTimeSecs: number
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
-  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; secret?: boolean
+  partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; doubleWeight?: boolean; secret?: boolean
   knockout?: boolean; knockoutRounds?: number | null; knockoutAdvance?: number | null
   knockoutDecides?: boolean
+  knockoutConsolation?: boolean
   locationId: number | null; heatStartOverrides: Record<string, string> | string
   completedHeats: number[]
   assignments: Assignment[]; scores: Score[]

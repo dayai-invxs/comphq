@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, score, workout } from '@/db/schema'
 import { calcCumulativePoints, type AthleteWithScore } from '@/lib/scoring'
 import {
-  advancers, buildRound, currentRound, placings, roundOf,
+  advancers, buildRound, currentRound, isConsolation, placings, roundOf,
   type KnockoutLane, type KnockoutWorkout,
 } from '@/lib/knockout'
 
@@ -34,6 +34,7 @@ export async function loadLanes(workoutId: number): Promise<KnockoutLane[]> {
       capped: heatAssignment.capped,
       tiebreakRawScore: heatAssignment.tiebreakRawScore,
       advanced: heatAssignment.advanced,
+      consolation: heatAssignment.consolation,
     })
     .from(heatAssignment)
     .innerJoin(athlete, eq(athlete.id, heatAssignment.athleteId))
@@ -83,7 +84,11 @@ export async function startTournament(wk: KnockoutWorkoutRow): Promise<number> {
   return placed.length
 }
 
-/** Builds the next round from the latest one. Refused while a heat is unsettled. */
+/**
+ * Builds the next round from the latest one. Refused while a heat is
+ * unsettled. With consolation on, those who went out race first, in
+ * consolation heats of their own, then the round's winners' heats.
+ */
 export async function advanceRound(wk: KnockoutWorkoutRow): Promise<{ round: number; placed: number }> {
   const lanes = await loadLanes(wk.id)
   const round = currentRound(lanes)
@@ -91,13 +96,19 @@ export async function advanceRound(wk: KnockoutWorkoutRow): Promise<{ round: num
   const rounds = wk.knockoutRounds ?? 1
   if (round >= rounds) throw new KnockoutRefusal(`Round ${round} is the final. Finish the tournament instead.`)
 
-  const { byDivision, problems } = advancers(lanes.filter((l) => roundOf(l) === round), wk)
+  const { byDivision, outByDivision, problems } = advancers(lanes.filter((l) => roundOf(l) === round), wk)
   if (problems.length) throw new KnockoutRefusal(problems.join(' '))
 
   const order = await divisionOrder(wk.competitionId)
-  const divisions = [...byDivision].sort(([a], [b]) => order(a) - order(b)).map(([, seeded]) => ({ seeded }))
+  const seededDivisions = (map: Map<number | null, number[]>) =>
+    [...map].sort(([a], [b]) => order(a) - order(b)).map(([, seeded]) => ({ seeded }))
   const firstHeat = Math.max(0, ...lanes.map((l) => l.heatNumber)) + 1
-  const placed = buildRound(divisions, wk.lanes, round + 1, firstHeat)
+  const consolation = wk.knockoutConsolation
+    ? buildRound(seededDivisions(outByDivision), wk.lanes, round + 1, firstHeat).map((p) => ({ ...p, consolation: true }))
+    : []
+  const afterConsolation = Math.max(firstHeat - 1, ...consolation.map((p) => p.heatNumber)) + 1
+  const winners = buildRound(seededDivisions(byDivision), wk.lanes, round + 1, afterConsolation)
+  const placed = [...consolation, ...winners]
   if (placed.length) {
     await db.insert(heatAssignment).values(placed.map((p) => ({ workoutId: wk.id, ...p })))
   }
@@ -147,7 +158,7 @@ export async function finishTournament(wk: KnockoutWorkoutRow): Promise<number> 
   const rounds = wk.knockoutRounds ?? 1
   if (round === 0) throw new KnockoutRefusal('Start the tournament first.')
   if (round < rounds) throw new KnockoutRefusal(`The tournament is in round ${round} of ${rounds}. Run the remaining rounds first.`)
-  const final = lanes.filter((l) => roundOf(l) === round)
+  const final = lanes.filter((l) => roundOf(l) === round && !isConsolation(l))
   if (!final.some((l) => l.rawScore != null || l.advanced === true)) {
     throw new KnockoutRefusal('Enter the final\'s results first.')
   }

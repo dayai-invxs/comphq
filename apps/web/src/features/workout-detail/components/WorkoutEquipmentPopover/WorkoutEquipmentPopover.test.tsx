@@ -130,16 +130,66 @@ describe('adding an item', () => {
     ))
   })
 
+  function chip(panel: HTMLElement, name: string) {
+    return within(within(panel).getByRole('group', { name: 'Divisions' })).getByRole('button', { name })
+  }
+
+  it('starts on All Divisions', async () => {
+    const panel = await type('Ski erg')
+    expect(chip(panel, 'All Divisions')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip(panel, 'Rx')).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('posts the division that was picked', async () => {
     const panel = await type('Ski erg')
-    fireEvent.change(within(panel).getByRole('combobox', { name: 'Division' }), {
-      target: { value: '7' },
-    })
+    fireEvent.click(chip(panel, 'Scaled'))
+    expect(chip(panel, 'All Divisions')).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(within(panel).getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
       expect.any(String),
       { item: 'Ski erg', divisionId: 7 },
     ))
+    expect(apiPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('posts one row for each division picked', async () => {
+    answer(EQUIPMENT, [...DIVISIONS, { id: 9, name: 'Teens' }])
+    const panel = await type('Ski erg')
+    fireEvent.click(chip(panel, 'Rx'))
+    fireEvent.click(chip(panel, 'Scaled'))
+    fireEvent.click(within(panel).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(2))
+    expect(apiPost.mock.calls.map((c) => c[1])).toEqual([
+      { item: 'Ski erg', divisionId: 5 },
+      { item: 'Ski erg', divisionId: 7 },
+    ])
+  })
+
+  it('goes back to everyone when a picked division is un-picked or All is pressed', async () => {
+    const panel = await type('Ski erg')
+    fireEvent.click(chip(panel, 'Rx'))
+    fireEvent.click(chip(panel, 'Rx'))
+    expect(chip(panel, 'All Divisions')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(chip(panel, 'Scaled'))
+    fireEvent.click(chip(panel, 'All Divisions'))
+    expect(chip(panel, 'Scaled')).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(within(panel).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
+      expect.any(String),
+      { item: 'Ski erg', divisionId: null },
+    ))
+  })
+
+  it('names the division that was refused and still sends the rest', async () => {
+    apiPost.mockImplementation((_url: string, body: { divisionId: number }) =>
+      body.divisionId === 5 ? Promise.reject(new HttpError(409, 'Item already listed')) : Promise.resolve({}))
+    const panel = await type('Ski erg')
+    fireEvent.click(chip(panel, 'Rx'))
+    fireEvent.click(chip(panel, 'Scaled'))
+    fireEvent.click(within(panel).getByRole('button', { name: 'Add' }))
+    expect(await within(panel).findByText(/Could not add "Rx" \(Item already listed\)/)).toBeInTheDocument()
+    expect(apiPost).toHaveBeenCalledTimes(2)
+    expect(within(panel).getByRole('textbox', { name: 'Equipment item' })).toHaveValue('Ski erg')
   })
 
   it('empties the box and reads the list back', async () => {
@@ -165,7 +215,7 @@ describe('adding an item', () => {
     answer(EQUIPMENT, [])
     const panel = await open()
     await screen.findByText('Barbell')
-    expect(within(panel).queryByRole('combobox', { name: 'Division' })).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('group', { name: 'Divisions' })).not.toBeInTheDocument()
   })
 })
 

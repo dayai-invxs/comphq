@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useChecks, useOps } from '@/api/liveReads'
 import { queryKeys } from '@/api/queryKeys'
+import { CorralCall } from '@/components/CorralCall/CorralCall'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { LiveStatus } from '@/components/LiveStatus/LiveStatus'
 import { NowStrip } from '@/components/NowStrip/NowStrip'
@@ -59,7 +60,7 @@ function UpNextRow({ heat, showBib }: { heat: PendingHeat; showBib: boolean }) {
         <span className={styles.rowLine}>
           <span className={styles.time}>{fmtHeatTime(heat.startMs)}</span>
           <span className={styles.what}>
-            Workout {heat.workout.number} · Heat {heat.heat.heatNumber}
+            Workout {heat.workout.number} · Heat {heat.heat.heatNumber}{heat.heat.consolation && ' · Consolation'}
           </span>
           {heat.divisions.length > 0 && (
             <span className={styles.divisions}>{heat.divisions.join(' / ')}</span>
@@ -94,6 +95,8 @@ export function SchedulePage() {
 
   return (
     <PageFrame title="Schedule" status={<LiveStatus updatedAt={lastUpdated} />}>
+      <CorralCall data={data} checks={athleteChecks} />
+
       {!data && !error && (
         <div aria-busy="true">
           <Stack gap="base">

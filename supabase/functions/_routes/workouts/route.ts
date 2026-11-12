@@ -51,11 +51,13 @@ export async function POST(req: Request) {
         partBEnabled: d.partBEnabled === true && d.knockout !== true,
         partBScoreType: d.partBScoreType ?? 'time',
         halfWeight: d.halfWeight === true,
+        doubleWeight: d.doubleWeight === true,
         secret: d.secret === true,
         knockout: d.knockout === true,
         knockoutRounds: d.knockout === true ? (d.knockoutRounds ?? 2) : null,
         knockoutAdvance: d.knockout === true ? (d.knockoutAdvance ?? 1) : null,
         knockoutDecides: d.knockout === true && d.knockoutDecides === true,
+        knockoutConsolation: d.knockout === true && d.knockoutConsolation === true,
         locationId: d.locationId ?? null,
       })
       .select('*')

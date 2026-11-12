@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
-  Badge, Button, Inline, Input, Popover, PopoverBody, PopoverFooter, PopoverHeader,
+  Badge, Button, Chip, ChipGroup, Inline, Input, Popover, PopoverBody, PopoverFooter, PopoverHeader,
   SegmentedControl, Select, Stack, Text,
 } from '@mond-design-system/react'
 import { apiDel, apiGet, apiPost } from '@/lib/api'
@@ -33,6 +33,11 @@ import styles from './WorkoutEquipmentPopover.module.css'
 // COM-113: "Import many" takes a pasted or dropped list, Item, Division, one
 // item per line. A division is matched by name, never created, so a list
 // naming one that is not there sends nothing.
+//
+// "Add one" picks its divisions with chips, any number of them: one row per
+// division picked, so the same kit can go to Rx and Scaled but not Teens.
+// Picking none is "All Divisions", one row with no division. The picks stay
+// after an add, since the next item often goes to the same divisions.
 
 type Division = { id: number; name: string }
 type EquipmentItem = { id: number; item: string; divisionId: number | null; division: Division | null }
@@ -69,7 +74,7 @@ export function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
   const [equipment, setEquipment] = useState<EquipmentItem[]>([])
   const [divisions, setDivisions] = useState<Division[]>([])
   const [newItem, setNewItem] = useState('')
-  const [newDivisionId, setNewDivisionId] = useState('')
+  const [newDivisionIds, setNewDivisionIds] = useState<number[]>([])
   const [mode, setMode] = useState<'single' | 'bulk'>('single')
   const [bulkText, setBulkText] = useState('')
   const [bulkDivisionId, setBulkDivisionId] = useState('')
@@ -103,16 +108,23 @@ export function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
     setLoading(true)
     setError(null)
     try {
-      await apiPost(`/api/workouts/${workoutId}/equipment?slug=${slug}`, {
-        item: newItem.trim(),
-        divisionId: newDivisionId ? Number(newDivisionId) : null,
-      })
+      const item = newItem.trim()
+      const url = `/api/workouts/${workoutId}/equipment?slug=${slug}`
+      // A division that has since gone is dropped rather than posted.
+      const picked = divisions.filter((d) => newDivisionIds.includes(d.id))
+      if (picked.length <= 1) {
+        await apiPost(url, { item, divisionId: picked[0]?.id ?? null })
+      } else {
+        await postEach(picked, (d) => d.name, (d) => apiPost(url, { item, divisionId: d.id }))
+      }
       setNewItem('')
       await load()
     } catch (err) {
       // HttpError carries the response body as its message, so a refused post
       // shows the same string v1 read out of `await res.text()`.
       setError(err instanceof Error ? err.message : 'Unknown error')
+      // Some divisions may have landed before one was refused.
+      await load()
     } finally {
       setLoading(false)
     }
@@ -167,6 +179,23 @@ export function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
         <option key={d.id} value={String(d.id)}>{d.name}</option>
       ))}
     </Select>
+  )
+
+  function toggleDivision(id: number) {
+    setNewDivisionIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  const divisionChips = (
+    <ChipGroup role="group" aria-label="Divisions">
+      <Chip selected={newDivisionIds.length === 0} onClick={() => setNewDivisionIds([])}>
+        All Divisions
+      </Chip>
+      {divisions.map((d) => (
+        <Chip key={d.id} selected={newDivisionIds.includes(d.id)} onClick={() => toggleDivision(d.id)}>
+          {d.name}
+        </Chip>
+      ))}
+    </ChipGroup>
   )
 
   return (
@@ -272,8 +301,8 @@ export function WorkoutEquipmentPopover({ workoutId, slug }: Props) {
                     onChange={(e) => setNewItem(e.target.value)}
                     placeholder="e.g. Barbell, 20kg plates…"
                   />
-                  <Inline gap="tight" wrap>
-                    {divisions.length > 0 && divisionSelect(newDivisionId, setNewDivisionId, 'Division')}
+                  {divisions.length > 0 && divisionChips}
+                  <Inline justify="end">
                     <Button type="submit" size="sm" disabled={loading || !newItem.trim()}>Add</Button>
                   </Inline>
                 </Stack>

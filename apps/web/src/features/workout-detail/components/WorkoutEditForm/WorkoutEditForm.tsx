@@ -109,6 +109,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
     rounds: String(workout.knockoutRounds ?? 3),
     advance: String(workout.knockoutAdvance ?? 2),
     decides: workout.knockoutDecides ?? false,
+    consolation: workout.knockoutConsolation ?? false,
   })
   const [lanes, setLanes] = useState(String(workout.lanes))
   const [heatInterval, setHeatInterval] = useState(formatMinSec(workout.heatIntervalSecs))
@@ -122,6 +123,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
   const [partBEnabled, setPartBEnabled] = useState(workout.partBEnabled)
   const [partBScoreType, setPartBScoreType] = useState(workout.partBScoreType)
   const [halfWeight, setHalfWeight] = useState(workout.halfWeight)
+  const [doubleWeight, setDoubleWeight] = useState(workout.doubleWeight ?? false)
   const [secret, setSecret] = useState(workout.secret ?? false)
   const [locationId, setLocationId] = useState(workout.locationId ? String(workout.locationId) : '')
 
@@ -144,6 +146,7 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
       partBEnabled: partBEnabled && !format.knockout,
       partBScoreType,
       halfWeight,
+      doubleWeight,
       secret,
       locationId: locationId ? Number(locationId) : null,
     })
@@ -247,9 +250,16 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
 
           <Toggle
             on={halfWeight}
-            onToggle={() => setHalfWeight((v) => !v)}
+            onToggle={() => { setHalfWeight(!halfWeight); if (!halfWeight) setDoubleWeight(false) }}
             title="Half Weight"
             subtitle="This workout counts at 50% on the overall leaderboard"
+          />
+
+          <Toggle
+            on={doubleWeight}
+            onToggle={() => { setDoubleWeight(!doubleWeight); if (!doubleWeight) setHalfWeight(false) }}
+            title="Double Weight"
+            subtitle="This workout counts at 200% on the overall leaderboard"
           />
 
           <Toggle

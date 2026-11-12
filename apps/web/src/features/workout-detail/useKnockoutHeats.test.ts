@@ -43,6 +43,18 @@ describe('useKnockoutHeats', () => {
     expect(workout.assignments.map((a) => heat.advancing(a))).toEqual([true, true, false])
   })
 
+  // A consolation heat places those who went out; nobody advances from it,
+  // so it has no ticks and never holds the round up.
+  it('shows a consolation heat with nothing to tick and nothing to settle', () => {
+    const consolation = [2, 3].map((id) => ({ ...entry(10 + id, id, 2, 2), consolation: true }))
+    const wk = { ...workout, knockoutRounds: 3, assignments: [...workout.assignments, ...consolation] } as unknown as Workout
+    const { result } = renderHook(() => useKnockoutHeats(wk, useScoreInputs(wk), vi.fn()))
+    const heat = result.current.heat(consolation)!
+    expect(heat).toMatchObject({ label: 'Round 2 Consolation', consolation: true, isFinal: false, problem: null })
+    expect(consolation.map((a) => heat.advancing(a))).toEqual([false, false])
+    expect(result.current.problems).toEqual([])
+  })
+
   it('reports an unsettled heat for the round in play', () => {
     const setLaneAdvanced = vi.fn()
     const { result } = renderHook(() => useKnockoutHeats(workout, useScoreInputs(workout), setLaneAdvanced))

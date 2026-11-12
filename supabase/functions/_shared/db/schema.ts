@@ -130,6 +130,7 @@ export const workout = pgTable('Workout', {
   partBEnabled: boolean('partBEnabled').notNull().default(false),
   partBScoreType: text('partBScoreType').notNull().default('time'),
   halfWeight: boolean('halfWeight').notNull().default(false),
+  doubleWeight: boolean('doubleWeight').notNull().default(false),
   /** Kept off the public Workouts screen until the workout is active. */
   secret: boolean('secret').notNull().default(false),
   /** A knockout tournament: rounds of heats, top N per heat advance, last round is the final. */
@@ -138,6 +139,8 @@ export const workout = pgTable('Workout', {
   knockoutAdvance: integer('knockoutAdvance'),
   /** The finished knockout's placings are the competition's final standings. */
   knockoutDecides: boolean('knockoutDecides').notNull().default(false),
+  /** Those who do not advance race again in the next round's consolation heats. */
+  knockoutConsolation: boolean('knockoutConsolation').notNull().default(false),
   heatStartOverrides: jsonb('heatStartOverrides').$type<Record<string, string>>().notNull().default({}),
   locationId: integer('locationId').references(() => workoutLocation.id, { onDelete: 'set null' }),
   externalId: text('externalId'),
@@ -167,6 +170,8 @@ export const heatAssignment = pgTable('HeatAssignment', {
   capped: boolean('capped').notNull().default(false),
   /** A knockout advance decided by hand; null leaves it to the scores. */
   advanced: boolean('advanced'),
+  /** A knockout consolation heat's lane: places those out in the round before. */
+  consolation: boolean('consolation').notNull().default(false),
 }, (t) => [
   index('HeatAssignment_workoutId_athleteId_idx').on(t.workoutId, t.athleteId),
   uniqueIndex('heat_assignment_lane_unique').on(t.workoutId, t.heatNumber, t.lane),

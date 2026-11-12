@@ -15,6 +15,8 @@ export type KnockoutSettings = {
   /** The winner wins the competition: the finished tournament's placings
       are the final standings, earlier workouts' points set aside. */
   decides: boolean
+  /** Those who do not advance race again in the next round's consolation heats. */
+  consolation: boolean
 }
 
 const KNOCKOUT = 'knockout'
@@ -72,6 +74,16 @@ export function KnockoutFields({ value, onChange, lanes, wideClassName }: Props)
           )}
           <Stack gap="hairline" className={wideClassName}>
             <Switch
+              label="Consolation heats"
+              checked={value.consolation}
+              onChange={(e) => set({ consolation: e.target.checked })}
+            />
+            <Text as="p" variant="meta" tone="muted">
+              Everyone who does not advance races once more, in consolation heats run before the next round&apos;s heats. That race sets their place among everyone else who went out in the same round, behind everyone who went further.
+            </Text>
+          </Stack>
+          <Stack gap="hairline" className={wideClassName}>
+            <Switch
               label="Winner wins the competition"
               checked={value.decides}
               onChange={(e) => set({ decides: e.target.checked })}
@@ -94,5 +106,6 @@ export function knockoutPatch(v: KnockoutSettings) {
     knockoutRounds: v.knockout ? Number(v.rounds) : null,
     knockoutAdvance: v.knockout ? Number(v.advance) : null,
     knockoutDecides: v.knockout && v.decides,
+    knockoutConsolation: v.knockout && v.consolation,
   }
 }

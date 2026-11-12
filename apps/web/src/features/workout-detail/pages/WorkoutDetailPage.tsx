@@ -458,7 +458,7 @@ export function WorkoutDetailPage() {
         <Inline gap="tight" align="center" wrap>
           <Text variant="meta" tone="muted">
             {workout.lanes} lanes · {knockout.enabled
-              ? `Knockout (${scoreTypeLabel(workout.scoreType)}), ${knockout.rounds} rounds, top ${workout.knockoutAdvance ?? 1} per heat advance`
+              ? `Knockout (${scoreTypeLabel(workout.scoreType)}), ${knockout.rounds} rounds, top ${workout.knockoutAdvance ?? 1} per heat advance${workout.knockoutConsolation ? ', consolation heats' : ''}`
               : scoreTypeLabel(workout.scoreType)} · {workout.mixedHeats ? 'Mixed heats' : 'Separate heats'} · {Math.floor(between / 60)}m {between % 60 > 0 ? `${between % 60}s ` : ''}between heats
           </Text>
           {workout.startTime && (
@@ -605,12 +605,16 @@ export function WorkoutDetailPage() {
                 {heatNums.map((heatNum, i) => {
                   const entries = byHeat[heatNum] ?? []
                   const heatRound = entries[0]?.round ?? 1
-                  const prevRound = i > 0 ? (byHeat[heatNums[i - 1]]?.[0]?.round ?? 1) : null
+                  // A round's consolation heats run first, under their own heading.
+                  const stage = (e: Assignment | undefined) => `${e?.round ?? 1}${e?.consolation ? 'c' : ''}`
+                  const newStage = i === 0 || stage(entries[0]) !== stage(byHeat[heatNums[i - 1]]?.[0])
                   return (
                   <section key={heatNum} id={`heat-${heatNum}`} aria-label={`Heat ${heatNum}`}>
-                    {knockout.enabled && heatRound !== prevRound && (
+                    {knockout.enabled && newStage && (
                       <Text variant="eyebrow" tone="muted" className={styles.roundHeading}>
-                        {heatRound >= knockout.rounds ? 'Final' : `Round ${heatRound}`}
+                        {entries[0]?.consolation
+                          ? `Round ${heatRound} · Consolation`
+                          : heatRound >= knockout.rounds ? 'Final' : `Round ${heatRound}`}
                       </Text>
                     )}
                     <HeatCard

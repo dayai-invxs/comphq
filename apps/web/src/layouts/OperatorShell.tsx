@@ -13,13 +13,17 @@ import styles from './OperatorShell.module.css'
 // within thumb reach.
 //
 // No navigation. The operator is not browsing; the way out is back, once.
+// Back returns to the page that opened the station — an admin screen, the
+// schedule, wherever — like the browser's own back. Only a station opened
+// cold (a bookmark, a typed URL, a fresh tab) has no such page, and goes to
+// `back` instead.
 
 export interface OperatorShellProps {
   /** What is being worked on. */
   title: ReactNode
   /** The heat, the clock, the live mark — whatever names the moment. */
   context?: ReactNode
-  /** Where back goes. Omitted, there is no back. */
+  /** Where back goes when this app did not open the station. Omitted, there is no back. */
   back?: string
   backLabel?: string
   /** The single primary action, docked at the foot. */
@@ -38,7 +42,7 @@ export function OperatorShell({
   flush = false,
   children,
 }: OperatorShellProps) {
-  const { pathname } = useLocation()
+  const { pathname, key } = useLocation()
   const navigate = useNavigate()
 
   return (
@@ -54,7 +58,9 @@ export function OperatorShell({
                 size="sm"
                 iconOnly
                 aria-label={backLabel}
-                onClick={() => navigate(back)}
+                // 'default' is the key of the entry the app was loaded on:
+                // nothing of ours behind it to go back to.
+                onClick={() => (key === 'default' ? navigate(back) : navigate(-1))}
               >
                 <Glyph name="back" />
               </Button>

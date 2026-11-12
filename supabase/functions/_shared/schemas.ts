@@ -150,13 +150,15 @@ export const WorkoutCreate = z.object({
   partBEnabled: z.boolean().optional(),
   partBScoreType: ScoreType.optional(),
   halfWeight: z.boolean().optional(),
+  doubleWeight: z.boolean().optional(),
   secret: z.boolean().optional(),
   knockout: z.boolean().optional(),
   knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
   knockoutAdvance: NumericInt.pipe(z.number().int().min(1).max(19)).nullable().optional(),
   knockoutDecides: z.boolean().optional(),
+  knockoutConsolation: z.boolean().optional(),
   locationId: Id.nullable().optional(),
-})
+}).refine((v) => !(v.halfWeight && v.doubleWeight), 'A workout is half weight or double weight, not both')
 
 export const WorkoutUpdate = z.object({
   name: NonEmptyString.max(120).optional(),
@@ -176,13 +178,16 @@ export const WorkoutUpdate = z.object({
   partBScoreType: ScoreType.optional(),
   number: NumericInt.pipe(z.number().int().positive()).optional(),
   halfWeight: z.boolean().optional(),
+  doubleWeight: z.boolean().optional(),
   secret: z.boolean().optional(),
   knockout: z.boolean().optional(),
   knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
   knockoutAdvance: NumericInt.pipe(z.number().int().min(1).max(19)).nullable().optional(),
   knockoutDecides: z.boolean().optional(),
+  knockoutConsolation: z.boolean().optional(),
   locationId: Id.nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, 'At least one field required')
+  .refine((v) => !(v.halfWeight && v.doubleWeight), 'A workout is half weight or double weight, not both')
 
 export const WorkoutEquipmentCreate = z.object({
   item: NonEmptyString.max(200),

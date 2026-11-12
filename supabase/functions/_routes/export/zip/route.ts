@@ -74,8 +74,8 @@ export async function GET(req: Request) {
       divisions.map((d) => [d.id, d.name, d.order, d.teamSize, d.menCount ?? '', d.womenCount ?? '']),
     ),
     'workouts.csv': rows(
-      ['id', 'number', 'name', 'scoreType', 'status', 'lanes', 'halfWeight'],
-      workouts.map((w) => [w.id, w.number, w.name, w.scoreType, w.status, w.lanes, w.halfWeight ? 'true' : 'false']),
+      ['id', 'number', 'name', 'scoreType', 'status', 'lanes', 'halfWeight', 'doubleWeight'],
+      workouts.map((w) => [w.id, w.number, w.name, w.scoreType, w.status, w.lanes, w.halfWeight ? 'true' : 'false', w.doubleWeight ? 'true' : 'false']),
     ),
     'heat_assignments.csv': rows(
       ['workoutId', 'workoutNumber', 'heatNumber', 'lane', 'athleteId', 'athleteName', 'bibNumber'],

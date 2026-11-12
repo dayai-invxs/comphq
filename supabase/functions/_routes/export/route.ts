@@ -5,6 +5,7 @@ import { athlete as athleteTable, division as divisionTable, heatAssignment, sco
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
 import { formatScore } from '@/lib/scoreFormat'
 import { skippedPlaces } from '@/lib/skippedPlace'
+import { workoutWeight } from '@/lib/workoutWeight'
 
 function esc(val: string | number | null | undefined): string {
   const s = String(val ?? '')
@@ -82,9 +83,9 @@ export async function GET(req: Request) {
 
   // ── WORKOUTS ─────────────────────────────────────────────────────────────
   lines.push(section('WORKOUTS'))
-  lines.push(row('WOD #', 'Name', 'Score Type', 'Status', 'Lanes', 'Half Weight'))
+  lines.push(row('WOD #', 'Name', 'Score Type', 'Status', 'Lanes', 'Half Weight', 'Double Weight'))
   for (const w of workouts) {
-    lines.push(row(w.number, w.name, w.scoreType, w.status, w.lanes, w.halfWeight ? 'Yes' : 'No'))
+    lines.push(row(w.number, w.name, w.scoreType, w.status, w.lanes, w.halfWeight ? 'Yes' : 'No', w.doubleWeight ? 'Yes' : 'No'))
   }
 
   // ── HEAT ASSIGNMENTS ─────────────────────────────────────────────────────
@@ -107,7 +108,7 @@ export async function GET(req: Request) {
 
   // ── ATHLETES & SCORES ────────────────────────────────────────────────────
   lines.push(section('ATHLETES & SCORES'))
-  const scoreHeaders = workouts.map((w) => `WOD ${w.number}${w.halfWeight ? ' (½)' : ''}`)
+  const scoreHeaders = workouts.map((w) => `WOD ${w.number}${w.doubleWeight ? ' (2×)' : w.halfWeight ? ' (½)' : ''}`)
   lines.push(row('Name', 'Division', 'Bib #', 'Gender', 'Team Members', ...scoreHeaders, 'Total Points'))
 
   const byDivision = new Map<string, typeof athletes>()
@@ -126,10 +127,10 @@ export async function GET(req: Request) {
         if (!s || s.points == null) {
           const place = skipped(a.id, w.id)
           if (place == null) return 'DNS'
-          total += w.halfWeight ? place * 0.5 : place
+          total += place * workoutWeight(w)
           return `#${place} (DNS)`
         }
-        total += w.halfWeight ? s.points * 0.5 : s.points
+        total += s.points * workoutWeight(w)
         const display = formatScore(s.rawScore, w.scoreType, s.capped)
         return `#${s.points} (${display})`
       })
@@ -157,10 +158,10 @@ export async function GET(req: Request) {
       const s = scoreMap.get(scoreKey(a.id, w.id))
       const place = s && s.points != null ? null : skipped(a.id, w.id)
       if (s && s.points != null) {
-        total += w.halfWeight ? s.points * 0.5 : s.points
+        total += s.points * workoutWeight(w)
         workoutScores[w.id] = { points: s.points, rawScore: s.rawScore, capped: s.capped }
       } else if (place != null) {
-        total += w.halfWeight ? place * 0.5 : place
+        total += place * workoutWeight(w)
         workoutScores[w.id] = { points: place, rawScore: 0, capped: false, skipped: true }
       } else {
         workoutScores[w.id] = null

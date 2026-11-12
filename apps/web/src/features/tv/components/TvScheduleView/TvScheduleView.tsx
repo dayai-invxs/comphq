@@ -86,7 +86,7 @@ export function TvScheduleView({ data, error, checks, layout = 0 }: Props) {
                 {workout.locationName && <> · {workout.locationName}</>}
               </Text>
               <span className={styles.heatLine}>
-                <span className={styles.heat}>Heat {heat.heatNumber}</span>
+                <span className={styles.heat}>Heat {heat.heatNumber}{heat.consolation && ' · Consolation'}</span>
                 {i === 0 && <LiveBadge>Now</LiveBadge>}
                 {divisions.length > 0 && (
                   <Text tone="muted" className={styles.divisions}>{divisions.join(' / ')}</Text>
@@ -174,7 +174,7 @@ function UpNext({ heats }: { heats: PendingHeat[] }) {
       <ul className={styles.nextList}>
         {heats.map(({ workout, heat, corralMs, startMs, divisions }) => (
           <li key={`${workout.id}-${heat.heatNumber}`} className={styles.nextItem}>
-            <span className={styles.nextHeat}>Heat {heat.heatNumber}</span>
+            <span className={styles.nextHeat}>Heat {heat.heatNumber}{heat.consolation && ' · Consolation'}</span>
             <Text as="span" tone="muted" className={styles.nextMeta}>
               Workout {workout.number}
               {divisions.length > 0 && <> · {divisions.join(' / ')}</>}

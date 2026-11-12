@@ -1,0 +1,71 @@
+/* Over everything on the screen, page chrome included. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--mds-z-toast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mds-pad-page-x);
+  background: var(--mds-scrim-strong);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mds-gap-loose);
+  max-width: var(--mds-modal-w);
+  padding: var(--mds-pad-card);
+  border: var(--mds-border-width) solid var(--mds-status-warning);
+  border-radius: var(--mds-radius-modal);
+  background: var(--mds-surface-raised);
+  box-shadow: var(--mds-shadow-a4);
+  text-align: center;
+}
+
+.headline {
+  margin: 0;
+  color: var(--mds-status-warning);
+  font-size: var(--mds-text-2xl);
+  font-weight: var(--mds-weight-bold);
+  line-height: var(--mds-leading-tight);
+}
+
+.instruction {
+  margin: 0;
+  color: var(--mds-text-primary);
+  font-size: var(--mds-text-xl);
+  line-height: var(--mds-leading-snug);
+}
+
+/* A desktop has the room for a bigger call. */
+@media (min-width: 1024px) {
+  .headline {
+    font-size: var(--mds-text-3xl);
+  }
+
+  .instruction {
+    font-size: var(--mds-text-2xl);
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+}
+
+/* Read from across the room: the whole screen's width, and type past the
+   system's largest rung, which is sized for a page read at arm's length. */
+.tv .panel {
+  max-width: none;
+  width: 100%;
+  padding: var(--mds-space-12);
+}
+
+.tv .headline {
+  font-size: calc(var(--mds-text-4xl) * 2);
+}
+
+.tv .instruction {
+  font-size: calc(var(--mds-text-3xl) * 1.5);
+}

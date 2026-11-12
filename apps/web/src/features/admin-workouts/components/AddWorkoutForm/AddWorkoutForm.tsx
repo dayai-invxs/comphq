@@ -67,7 +67,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
   const [number, setNumber] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [format, setFormat] = useState<KnockoutSettings>({ knockout: false, scoreType: 'time', rounds: '3', advance: '2', decides: false })
+  const [format, setFormat] = useState<KnockoutSettings>({ knockout: false, scoreType: 'time', rounds: '3', advance: '2', decides: false, consolation: false })
   const [lanes, setLanes] = useState('5')
   const [heatInterval, setHeatInterval] = useState('10:00')
   const [timeBetweenHeats, setTimeBetweenHeats] = useState('2:00')
@@ -80,6 +80,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
   const [partBEnabled, setPartBEnabled] = useState(false)
   const [partBScoreType, setPartBScoreType] = useState('time')
   const [halfWeight, setHalfWeight] = useState(false)
+  const [doubleWeight, setDoubleWeight] = useState(false)
   const [secret, setSecret] = useState(false)
   const [locationId, setLocationId] = useState('')
 
@@ -102,6 +103,7 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
       partBEnabled: partBEnabled && !format.knockout,
       partBScoreType,
       halfWeight,
+      doubleWeight,
       secret,
       locationId: locationId ? Number(locationId) : null,
     })
@@ -225,7 +227,14 @@ export function AddWorkoutForm({ open, locations, saving, error, onClose, onCrea
                 label="Half Weight"
                 hint="This workout counts at 50% on the overall leaderboard"
                 checked={halfWeight}
-                onChange={setHalfWeight}
+                onChange={(on) => { setHalfWeight(on); if (on) setDoubleWeight(false) }}
+              />
+
+              <Toggle
+                label="Double Weight"
+                hint="This workout counts at 200% on the overall leaderboard"
+                checked={doubleWeight}
+                onChange={(on) => { setDoubleWeight(on); if (on) setHalfWeight(false) }}
               />
 
               <Toggle

@@ -200,6 +200,54 @@ describe('placings', () => {
   })
 })
 
+// Consolation: those who went out of a round race again in the next round.
+// Their consolation result orders them among everyone out in that round,
+// still behind everyone who went further.
+describe('consolation', () => {
+  it('seeds those who went out the same way as those who advance', () => {
+    const lanes = [
+      lane({ athleteId: 1, heatNumber: 1, rawScore: 70 }), lane({ athleteId: 2, heatNumber: 1, rawScore: 80 }), lane({ athleteId: 3, heatNumber: 1, rawScore: 90 }),
+      lane({ athleteId: 4, heatNumber: 2, rawScore: 60 }), lane({ athleteId: 5, heatNumber: 2, rawScore: 85 }), lane({ athleteId: 6, heatNumber: 2, rawScore: 95 }),
+    ]
+    // The two 3rd places, the faster one first.
+    expect(advancers(lanes, wk).outByDivision.get(1)).toEqual([3, 6])
+  })
+
+  it('leaves a round\'s consolation heats out of who advances from it', () => {
+    const lanes = [
+      lane({ athleteId: 1, round: 2, heatNumber: 3, rawScore: 70 }),
+      lane({ athleteId: 9, round: 2, heatNumber: 2, consolation: true }),
+    ]
+    const r = advancers(lanes, wk)
+    expect(r.problems).toEqual([])
+    expect(r.byDivision.get(1)).toEqual([1])
+  })
+
+  it('places those out in a round by their consolation race, behind everyone who went further', () => {
+    const lanes = [
+      // Round 1: 1 and 2 advance; 3 and 4 go out (3 was faster there).
+      lane({ athleteId: 1, round: 1, rawScore: 50 }), lane({ athleteId: 2, round: 1, rawScore: 55 }),
+      lane({ athleteId: 3, round: 1, rawScore: 60 }), lane({ athleteId: 4, round: 1, rawScore: 65 }),
+      // Round 2: the final, and the consolation race, which 4 wins.
+      lane({ athleteId: 1, round: 2, rawScore: 49 }), lane({ athleteId: 2, round: 2, rawScore: 48 }),
+      lane({ athleteId: 3, round: 2, rawScore: 70, consolation: true }), lane({ athleteId: 4, round: 2, rawScore: 62, consolation: true }),
+    ]
+    const p = placings(lanes, { ...wk, knockoutConsolation: true })
+    expect(p.map((x) => [x.athleteId, x.points])).toEqual([[2, 1], [1, 2], [4, 3], [3, 4]])
+    expect(p.find((x) => x.athleteId === 4)!.label).toBe('Out in Round 1 · Consolation 0:00.06')
+  })
+
+  it('puts a consolation result ahead of none, then goes by the round they went out in', () => {
+    const lanes = [
+      lane({ athleteId: 1, round: 2, rawScore: 49 }),
+      lane({ athleteId: 3, round: 1, rawScore: 60 }), lane({ athleteId: 4, round: 1, rawScore: 65 }), lane({ athleteId: 5, round: 1, rawScore: 58 }),
+      lane({ athleteId: 3, round: 2, consolation: true }), lane({ athleteId: 4, round: 2, rawScore: 70, consolation: true }),
+      lane({ athleteId: 5, round: 2, consolation: true }),
+    ]
+    expect(placings(lanes, wk).map((x) => x.athleteId)).toEqual([1, 4, 5, 3])
+  })
+})
+
 describe('roundSizes', () => {
   it('previews each round', () => {
     expect(roundSizes(40, 8, 2, 3)).toEqual([40, 10, 4])

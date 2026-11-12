@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useParams } from 'react-router'
 import { useChecks, useLeaderboard, useOps } from '@/api/liveReads'
 import { useLogo } from '@/api/logo'
+import { CorralCall } from '@/components/CorralCall/CorralCall'
 import { queryKeys } from '@/api/queryKeys'
 import type { OpsData } from '@/lib/opsHeats'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
@@ -124,6 +125,9 @@ export function TvPage() {
             : <TvLeaderboardView data={lbData} error={lbError} layout={layout} />}
         </div>
       </main>
+
+      {/* Over whichever half is showing: the call is for the whole room. */}
+      <CorralCall data={opsData} checks={athleteChecks} tv />
     </div>
   )
 }

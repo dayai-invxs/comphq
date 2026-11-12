@@ -40,7 +40,7 @@ export function NowStrip({ now, children, className }: NowStripProps) {
         </Inline>
 
         <Inline gap="base" align="baseline" wrap>
-          <span className={styles.heat}>Heat {heat.heatNumber}</span>
+          <span className={styles.heat}>Heat {heat.heatNumber}{heat.consolation && ' · Consolation'}</span>
           {now.divisions.length > 0 && (
             <Text as="span" variant="meta" tone="muted">{now.divisions.join(' / ')}</Text>
           )}

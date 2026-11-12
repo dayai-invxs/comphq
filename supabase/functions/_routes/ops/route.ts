@@ -63,6 +63,7 @@ export async function GET(req: Request) {
             laneRawScore: heatAssignment.rawScore,
             laneCapped: heatAssignment.capped,
             round: heatAssignment.round,
+            consolation: heatAssignment.consolation,
             athleteName: athlete.name,
             bibNumber: athlete.bibNumber,
             divisionName: division.name,
@@ -144,12 +145,13 @@ export async function GET(req: Request) {
         }))
       // A knockout heat's round (null on imported heats: round 1), so a
       // schedule can drop a round the tournament has moved past.
-      const round = wk.knockout
-        ? wAssignments.find((a) => a.heatNumber === heatNumber)?.round ?? 1
-        : undefined
+      const first = wAssignments.find((a) => a.heatNumber === heatNumber)
+      const round = wk.knockout ? first?.round ?? 1 : undefined
       return {
         heatNumber,
         ...(round !== undefined ? { round } : {}),
+        // A knockout consolation heat, so a schedule can say so.
+        ...(wk.knockout && first?.consolation ? { consolation: true } : {}),
         isComplete: completedHeats.includes(heatNumber),
         heatTime: heatStartMs != null ? new Date(heatStartMs).toISOString() : null,
         corralTime: heatStartMs != null ? new Date(heatStartMs - wk.callTimeSecs * 1000).toISOString() : null,

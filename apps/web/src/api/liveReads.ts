@@ -48,6 +48,8 @@ export type LeaderboardData = {
   workouts: WorkoutSummary[]
   entries: LeaderboardEntry[]
   halfWeightIds: number[]
+  /** Absent from a response the functions sent before double weight existed. */
+  doubleWeightIds?: number[]
   tiebreakWorkoutId?: number | null
   /** A finished knockout whose placings are the final standings. */
   decidingWorkoutId?: number | null

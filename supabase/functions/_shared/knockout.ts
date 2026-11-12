@@ -8,6 +8,13 @@
 // score. Each division runs its own bracket; all divisions move round by
 // round. Divisions may share a heat when the lanes allow, but each is still
 // judged only against its own: sharing saves heats, it changes no one's odds.
+//
+// Consolation (optional, `knockoutConsolation`): everyone who does not advance
+// from a round races once more, in consolation heats of the next round, run
+// before that round's own heats. The race orders them among everyone else who
+// went out in the same round; they still rank behind anyone who went further.
+// The final has no consolation after it. Consolation heats never mix with the
+// winners' heats and decide no advancing.
 
 import { formatScore } from '@/lib/scoreFormat'
 
@@ -18,6 +25,8 @@ export type KnockoutWorkout = {
   lanes: number
   knockoutRounds: number | null
   knockoutAdvance: number | null
+  /** Those who do not advance race again in the next round's consolation heats. */
+  knockoutConsolation?: boolean | null
 }
 
 /** One athlete/team in one heat of one round, with that round's result. */
@@ -34,9 +43,12 @@ export type KnockoutLane = {
   tiebreakRawScore: number | null
   /** Set by hand: true advances, false does not. Null leaves it to the scores. */
   advanced: boolean | null
+  /** A consolation heat's lane: places those who went out in the round before. */
+  consolation?: boolean | null
 }
 
 export const roundOf = (l: { round?: number | null }) => l.round ?? 1
+export const isConsolation = (l: { consolation?: boolean | null }) => l.consolation === true
 
 function lowerIsBetter(scoreType: string) {
   return scoreType === 'time' || scoreType === 'lower_is_better'
@@ -132,7 +144,7 @@ export function middleOutLanes(lanes: number): number[] {
   return order
 }
 
-export type Placement = { athleteId: number; heatNumber: number; lane: number; round: number }
+export type Placement = { athleteId: number; heatNumber: number; lane: number; round: number; consolation?: boolean }
 
 /**
  * Heats for one round. Divisions run one after another in the order given;
@@ -192,27 +204,35 @@ export function currentRound(lanes: KnockoutLane[]): number {
  */
 export function advancers(roundLanes: KnockoutLane[], wk: KnockoutWorkout): {
   byDivision: Map<number | null, number[]>
+  /** Who went out, seeded the same way: for the consolation heats. */
+  outByDivision: Map<number | null, number[]>
   problems: string[]
 } {
   const heats = new Map<number, KnockoutLane[]>()
-  for (const l of roundLanes) heats.set(l.heatNumber, [...(heats.get(l.heatNumber) ?? []), l])
+  for (const l of roundLanes.filter((x) => !isConsolation(x))) {
+    heats.set(l.heatNumber, [...(heats.get(l.heatNumber) ?? []), l])
+  }
 
   const problems: string[] = []
   const moving: Array<{ lane: KnockoutLane; place: number }> = []
+  const out: Array<{ lane: KnockoutLane; place: number }> = []
   for (const [, lanes] of [...heats].sort(([a], [b]) => a - b)) {
     const result = heatResult(lanes, wk)
     if (result.problem) problems.push(result.problem)
     for (const group of divisionGroups(lanes)) {
       const ordered = [...group].sort((a, b) => compareLanes(a, b, wk))
-      ordered.forEach((lane, place) => { if (result.advancing.has(lane.id)) moving.push({ lane, place }) })
+      ordered.forEach((lane, place) => (result.advancing.has(lane.id) ? moving : out).push({ lane, place }))
     }
   }
 
-  const byDivision = new Map<number | null, number[]>()
-  moving
-    .sort((a, b) => a.place - b.place || compareLanes(a.lane, b.lane, wk))
-    .forEach(({ lane }) => byDivision.set(lane.divisionId, [...(byDivision.get(lane.divisionId) ?? []), lane.athleteId]))
-  return { byDivision, problems }
+  const seed = (list: typeof moving) => {
+    const byDivision = new Map<number | null, number[]>()
+    list
+      .sort((a, b) => a.place - b.place || compareLanes(a.lane, b.lane, wk))
+      .forEach(({ lane }) => byDivision.set(lane.divisionId, [...(byDivision.get(lane.divisionId) ?? []), lane.athleteId]))
+    return byDivision
+  }
+  return { byDivision: seed(moving), outByDivision: seed(out), problems }
 }
 
 export type Placing = {
@@ -232,18 +252,31 @@ export type Placing = {
  */
 export function placings(allLanes: KnockoutLane[], wk: KnockoutWorkout): Placing[] {
   const finalRound = wk.knockoutRounds ?? currentRound(allLanes)
+  // How far each got in the winners' heats, and their consolation race if any.
   const last = new Map<number, KnockoutLane>()
+  const consolationOf = new Map<number, KnockoutLane>()
   for (const l of allLanes) {
-    const seen = last.get(l.athleteId)
-    if (!seen || roundOf(l) > roundOf(seen)) last.set(l.athleteId, l)
+    const into = isConsolation(l) ? consolationOf : last
+    const seen = into.get(l.athleteId)
+    if (!seen || roundOf(l) > roundOf(seen)) into.set(l.athleteId, l)
   }
 
   const byDivision = new Map<number | null, KnockoutLane[]>()
   for (const l of last.values()) byDivision.set(l.divisionId, [...(byDivision.get(l.divisionId) ?? []), l])
 
+  // Out in the same round: the consolation race decides first (no result
+  // there ranks after one), then the result in the round they went out in.
+  const consolation = (l: KnockoutLane) => consolationOf.get(l.athleteId)
+  const byConsolation = (a: KnockoutLane, b: KnockoutLane) => {
+    const ca = consolation(a), cb = consolation(b)
+    if (!ca && !cb) return 0
+    if (!ca || !cb) return ca ? -1 : 1
+    return compareLanes(ca, cb, wk)
+  }
   const order = (a: KnockoutLane, b: KnockoutLane) =>
     roundOf(b) - roundOf(a)
     || Number(b.advanced === true) - Number(a.advanced === true)
+    || byConsolation(a, b)
     || compareLanes(a, b, wk)
 
   const out: Placing[] = []
@@ -252,14 +285,18 @@ export function placings(allLanes: KnockoutLane[], wk: KnockoutWorkout): Placing
     sorted.forEach((lane, i) => {
       const tied = i > 0 && order(sorted[i - 1], lane) === 0
       const points = tied ? out[out.length - 1].points : i + 1
-      out.push({ athleteId: lane.athleteId, divisionId, points, lane, label: placingLabel(lane, finalRound, wk) })
+      out.push({ athleteId: lane.athleteId, divisionId, points, lane, label: placingLabel(lane, finalRound, wk, consolation(lane)) })
     })
   }
   return out
 }
 
-function placingLabel(lane: KnockoutLane, finalRound: number, wk: KnockoutWorkout): string {
+function placingLabel(lane: KnockoutLane, finalRound: number, wk: KnockoutWorkout, consolation?: KnockoutLane): string {
   const stage = roundOf(lane) >= finalRound ? 'Final' : `Out in Round ${roundOf(lane)}`
+  // After a consolation race, its result is the one that placed them.
+  if (consolation?.rawScore != null) {
+    return `${stage} · Consolation ${formatScore(consolation.rawScore, wk.scoreType, consolation.capped)}`
+  }
   return lane.rawScore == null ? stage : `${stage} · ${formatScore(lane.rawScore, wk.scoreType, lane.capped)}`
 }
 

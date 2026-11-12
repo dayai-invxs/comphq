@@ -57,5 +57,21 @@ describe('GET /api/export', () => {
     const leaderboard = body.slice(body.indexOf('OVERALL LEADERBOARD'))
     expect(leaderboard).toMatch(/2,"?Bob"?,"?Rx"?,"?#2 \(DNS\)"?,2/)
   })
+
+  // Totals agree with the leaderboard: a double weight place counts twice.
+  it('doubles a double weight workout in the totals and marks it', async () => {
+    mock.queueResults(
+      [{ id: 10, number: 1, name: 'WOD 1', scoreType: 'time', status: 'completed', lanes: 3, halfWeight: false, doubleWeight: true }],
+      [{ id: 1, name: 'Alice', bibNumber: null, divisionId: 1 }],
+      [{ id: 1, name: 'Rx', order: 0 }],
+      [],
+      [{ athleteId: 1, workoutId: 10, rawScore: 210, points: 3, partBRawScore: null, partBPoints: null, tiebreakRawScore: null }],
+    )
+    const body = await (await GET(req())).text()
+    expect(body).toMatch(/Half Weight,"?Double Weight"?/)
+    expect(body).toMatch(/WOD 1 \(2×\)/)
+    const leaderboard = body.slice(body.indexOf('OVERALL LEADERBOARD'))
+    expect(leaderboard).toMatch(/1,"?Alice"?,"?Rx"?,"?#3 \([^)]*\)"?,6/)
+  })
 })
 

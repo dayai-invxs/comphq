@@ -44,9 +44,11 @@ type JudgeInfo = { volunteerId: number; assignmentId: number; judgeName: string 
 
 /** A heat of a knockout tournament. */
 export type KnockoutHeat = {
-  /** "Round 2" or "Final". */
+  /** "Round 2", "Round 2 Consolation" or "Final". */
   label: string
   isFinal: boolean
+  /** A consolation heat: ranked by score, nobody advances from it. */
+  consolation?: boolean
   /** Whether this lane is shown as advancing (or, in the final, as the winner). */
   advancing: (a: Assignment) => boolean
   /** Ticks were set by hand rather than taken from the scores. */
@@ -232,7 +234,8 @@ export function HeatCard({
 
   // A knockout round has an Advances box per lane. The final has none: its
   // scores place it, and a tie for first is a shared placing.
-  const advanceBoxes = !!knockout && !knockout.isFinal
+  // A consolation heat has none either: nobody advances from it.
+  const advanceBoxes = !!knockout && !knockout.isFinal && !knockout.consolation
 
   // The touch handle only where a row can be moved.
   const handles = isTouch && !!onReorder
@@ -400,6 +403,7 @@ export function HeatCard({
                         <Select
                           size="sm"
                           aria-label={`Team member in lane ${a.lane}`}
+                          className={styles.memberSelect}
                           value={laneMember?.(a) ?? ''}
                           onChange={(e) => onLaneMemberChange?.(a.id, e.target.value ? Number(e.target.value) : null)}
                         >
@@ -422,6 +426,7 @@ export function HeatCard({
                       ) : <Select
                         size="sm"
                         aria-label={`Judge for lane ${a.lane}`}
+                        className={styles.judgeSelect}
                         value={judgesByLane?.get(a.lane)?.volunteerId ?? ''}
                         onChange={(e) =>
                           onJudgeChange?.(heatNumber, a.lane, e.target.value ? Number(e.target.value) : null)

@@ -118,6 +118,30 @@ describe('the settings that reveal another', () => {
   })
 })
 
+describe('the weight switches', () => {
+  // Half and double are one choice: a workout counts 50%, 100% or 200%.
+  it('turns half weight off when double weight goes on, and back', async () => {
+    const props = mount({ workout: { ...WORKOUT, halfWeight: true } })
+    const half = () => screen.getByRole('switch', { name: 'Half Weight' })
+    const double = () => screen.getByRole('switch', { name: 'Double Weight' })
+    expect(half()).toBeChecked()
+    fireEvent.click(double())
+    expect(double()).toBeChecked()
+    expect(half()).not.toBeChecked()
+    fireEvent.click(half())
+    expect(double()).not.toBeChecked()
+    fireEvent.click(double())
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(props.onSave).toHaveBeenCalled())
+    expect(saved(props)).toMatchObject({ halfWeight: false, doubleWeight: true })
+  })
+
+  it('shows a saved double weight workout as double weight', () => {
+    mount({ workout: { ...WORKOUT, doubleWeight: true } })
+    expect(screen.getByRole('switch', { name: 'Double Weight' })).toBeChecked()
+  })
+})
+
 describe('saving', () => {
   it('sends every setting, with the intervals back in seconds', async () => {
     const props = mount({ locations: LOCATIONS })
@@ -136,6 +160,7 @@ describe('saving', () => {
       knockoutRounds: null,
       knockoutAdvance: null,
       knockoutDecides: false,
+      knockoutConsolation: false,
       lanes: 8,
       heatIntervalSecs: 450,
       timeBetweenHeatsSecs: 300,
@@ -148,6 +173,7 @@ describe('saving', () => {
       partBEnabled: false,
       partBScoreType: 'weight',
       halfWeight: false,
+      doubleWeight: false,
       secret: false,
       locationId: 3,
     })

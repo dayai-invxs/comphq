@@ -77,6 +77,45 @@ describe('GET /api/leaderboard', () => {
     expect(res.headers.get('cache-control')).toMatch(/s-maxage=5/)
   })
 
+  // A double weight workout counts its place twice, the mirror of half weight.
+  // Bob wins B but was 3rd in A; doubled, B is enough to put him ahead.
+  it('counts a double weight workout twice and names it', async () => {
+    const wk = (id: number, number: number, weight: { halfWeight?: boolean; doubleWeight?: boolean }) => ({
+      id, number, name: String(number), scoreType: 'time', status: 'completed',
+      tiebreakEnabled: false, tiebreakScoreType: 'time', halfWeight: false, doubleWeight: false,
+      competitionId: 1, lanes: 10, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+      callTimeSecs: 0, walkoutTimeSecs: 0, startTime: null, mixedHeats: false,
+      partBEnabled: false, partBScoreType: 'time', heatStartOverrides: '{}', locationId: null,
+      knockout: false, knockoutDecides: false, ...weight,
+    })
+    const athletes = [
+      { id: 1, name: 'Alice', divisionName: 'Rx' },
+      { id: 2, name: 'Bob', divisionName: 'Rx' },
+      { id: 3, name: 'Cy', divisionName: 'Rx' },
+    ]
+    const scores = [
+      { athleteId: 1, workoutId: 10, points: 1, rawScore: 90, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 10, points: 2, rawScore: 95, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 10, points: 3, rawScore: 99, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 11, points: 1, rawScore: 80, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 11, points: 2, rawScore: 85, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 11, points: 3, rawScore: 88, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 12, points: 1, rawScore: 70, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 12, points: 2, rawScore: 75, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 12, points: 3, rawScore: 79, tiebreakRawScore: null },
+    ]
+    mock.queueResults([], [], [], [], [], [wk(10, 1, {}), wk(11, 2, { doubleWeight: true }), wk(12, 3, { halfWeight: true })], athletes, [], scores)
+
+    const body = await (await GET(getReq())).json()
+    const total = (name: string) => body.entries.find((e: { athleteName: string }) => e.athleteName === name).totalPoints
+    expect(total('Bob')).toBe(3 + 2 + 1) // 3rd, 1st ×2, 2nd ×½
+    expect(total('Alice')).toBe(1 + 6 + 0.5)
+    expect(total('Cy')).toBe(2 + 4 + 1.5)
+    expect(body.entries.map((e: { athleteName: string }) => e.athleteName)).toEqual(['Bob', 'Alice', 'Cy'])
+    expect(body.doubleWeightIds).toEqual([11])
+    expect(body.halfWeightIds).toEqual([12])
+  })
+
   // Skipping a workout ranks an athlete last in it. It used to add no points,
   // so Cy, who sat out B, led on 1 point to Ada's 2.
   it('ranks an athlete last in a finished workout they have no score in', async () => {

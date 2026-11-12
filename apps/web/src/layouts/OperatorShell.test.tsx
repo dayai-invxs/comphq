@@ -37,10 +37,27 @@ describe('OperatorShell', () => {
     expect(screen.getByRole('status').textContent).toBe('Heat 3')
   })
 
-  it('gives one way back when there is one', () => {
+  it('goes to its fallback when it was opened cold', () => {
     mount({ back: '/rugged' })
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(currentPath()).toBe('/rugged')
+  })
+
+  // Opened from inside the app, back returns where the operator was — an
+  // admin screen included — not to the public schedule.
+  it('goes back to the page that opened it', () => {
+    renderRoutes(
+      <>
+        <Route path="/rugged/admin/workouts/3" element={<p>Admin workout</p>} />
+        <Route
+          path="/rugged/judges"
+          element={<OperatorShell title="Judges" back="/rugged"><p>Lanes</p></OperatorShell>}
+        />
+      </>,
+      ['/rugged/admin/workouts/3', '/rugged/judges'],
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(currentPath()).toBe('/rugged/admin/workouts/3')
   })
 
   it('has no back control when there is nowhere to go', () => {

@@ -87,6 +87,7 @@ describe('what the form asks for', () => {
     expect(sheet().getByRole('switch', { name: /Tie Break Score/ })).not.toBeChecked()
     expect(sheet().getByRole('switch', { name: /Part A \/ Part B/ })).not.toBeChecked()
     expect(sheet().getByRole('switch', { name: /Half Weight/ })).not.toBeChecked()
+    expect(sheet().getByRole('switch', { name: /Double Weight/ })).not.toBeChecked()
   })
 
   it('will not create without a number and a name', () => {
@@ -141,6 +142,7 @@ describe('what it sends', () => {
       knockoutRounds: null,
       knockoutAdvance: null,
       knockoutDecides: false,
+      knockoutConsolation: false,
       lanes: 5,
       heatIntervalSecs: 600,
       timeBetweenHeatsSecs: 120,
@@ -153,6 +155,7 @@ describe('what it sends', () => {
       partBEnabled: false,
       partBScoreType: 'time',
       halfWeight: false,
+      doubleWeight: false,
       secret: false,
       locationId: null,
     })
@@ -170,7 +173,18 @@ describe('what it sends', () => {
     expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       scoreType: 'rounds_reps', knockout: true, knockoutRounds: 4, knockoutAdvance: 3, partBEnabled: false,
       knockoutDecides: false,
+      knockoutConsolation: false,
     }))
+  })
+
+  it('can give the tournament consolation heats', () => {
+    const { onCreate } = form()
+    fillRequired()
+    expect(screen.queryByRole('switch', { name: 'Consolation heats' })).toBeNull()
+    fireEvent.change(screen.getByLabelText('Score Type'), { target: { value: 'knockout' } })
+    fireEvent.click(screen.getByRole('switch', { name: 'Consolation heats' }))
+    submit()
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ knockout: true, knockoutConsolation: true }))
   })
 
   it('can make the tournament decide the competition', () => {
@@ -253,6 +267,16 @@ describe('what it sends', () => {
     expect(onCreate.mock.calls[0][0].mixedHeats).toBe(false)
     expect(onCreate.mock.calls[0][0].halfWeight).toBe(true)
     expect(onCreate.mock.calls[0][0].secret).toBe(true)
+  })
+
+  it('sends double weight, and only one of half and double', () => {
+    const { onCreate } = form()
+    fillRequired()
+    fireEvent.click(sheet().getByRole('switch', { name: /Half Weight/ }))
+    fireEvent.click(sheet().getByRole('switch', { name: /Double Weight/ }))
+    expect(sheet().getByRole('switch', { name: /Half Weight/ })).not.toBeChecked()
+    submit()
+    expect(onCreate.mock.calls[0][0]).toMatchObject({ halfWeight: false, doubleWeight: true })
   })
 })
 

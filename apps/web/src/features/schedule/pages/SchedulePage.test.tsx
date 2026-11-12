@@ -1,6 +1,6 @@
 import { Route } from 'react-router'
 import { fireEvent, screen, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderRoutes } from '@/test/harness'
 import { fmtHeatTime } from '@/lib/heatTime'
 import { SchedulePage } from './SchedulePage'
@@ -219,5 +219,25 @@ describe('SchedulePage', () => {
       ['leaderboard', 'summer'],
       ['checks', 'summer'],
     ])
+  })
+})
+
+// Heat 1 of Fran starts 09:00 with a 5-minute call: at 08:55 its athletes are
+// told to line up, and a spectator can close the message.
+describe('the corral call', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(Date.parse('2026-08-26T08:55:10.000Z'))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('tells the heat to line up, and can be closed', async () => {
+    serve()
+    mount()
+    const call = await screen.findByRole('alertdialog')
+    expect(call).toHaveTextContent("It's time for Workout 1 Heat 1 to line up!")
+    expect(call).toHaveTextContent('Athletes please go to the corral area asap.')
+    fireEvent.click(within(call).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 })

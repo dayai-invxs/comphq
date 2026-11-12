@@ -26,6 +26,8 @@ export type Workout = {
   partBEnabled: boolean
   partBScoreType: string
   halfWeight: boolean
+  /** Counts twice on the overall leaderboard; never alongside halfWeight. */
+  doubleWeight?: boolean
   /** Off the public Workouts screen until it is active. */
   secret: boolean
   /** A knockout tournament: rounds of heats, top N per heat advance. */
@@ -34,6 +36,8 @@ export type Workout = {
   knockoutAdvance?: number | null
   /** The finished tournament's placings are the final standings. */
   knockoutDecides?: boolean
+  /** Those who do not advance race again in the next round's consolation heats. */
+  knockoutConsolation?: boolean
   heatStartOverrides: Record<string, string>
   locationId: number | null
 }

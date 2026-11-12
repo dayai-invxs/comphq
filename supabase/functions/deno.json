@@ -39,6 +39,7 @@
     "@/lib/teamMembers": "./_shared/teamMembers.ts",
     "@/lib/unannounced": "./_shared/unannounced.ts",
     "@/lib/workoutEnums": "./_shared/workoutEnums.ts",
+    "@/lib/workoutWeight": "./_shared/workoutWeight.ts",
     "@/db/schema": "./_shared/db/schema.ts",
     "drizzle-orm": "npm:drizzle-orm@^0.45.2",
     "drizzle-orm/": "npm:/drizzle-orm@^0.45.2/",

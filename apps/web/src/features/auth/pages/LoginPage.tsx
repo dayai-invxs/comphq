@@ -30,7 +30,8 @@ export function LoginPage() {
       setError('Invalid email or password')
       return
     }
-    navigate(callbackUrl)
+    // Replace, so back from the page signed into does not land on this form.
+    navigate(callbackUrl, { replace: true })
   }
 
   return (

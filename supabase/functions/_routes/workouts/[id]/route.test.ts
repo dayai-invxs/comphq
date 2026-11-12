@@ -87,6 +87,26 @@ describe('PUT /api/workouts/[id]', () => {
     expect(setCall!.args[0]).toEqual({ description: '3 rounds for time' })
   })
 
+  // Half and double weight are one choice: turning one on turns the other off.
+  it('turns half weight off when double weight goes on', async () => {
+    mock.queueResult([{ id: 1 }]) // update().returning()
+    await PUT(putReq({ doubleWeight: true }), params('1'))
+    const setCall = mock.calls.find((c) => c.method === 'set')
+    expect(setCall!.args[0]).toEqual({ doubleWeight: true, halfWeight: false })
+  })
+
+  it('turns double weight off when half weight goes on', async () => {
+    mock.queueResult([{ id: 1 }]) // update().returning()
+    await PUT(putReq({ halfWeight: true }), params('1'))
+    const setCall = mock.calls.find((c) => c.method === 'set')
+    expect(setCall!.args[0]).toEqual({ halfWeight: true, doubleWeight: false })
+  })
+
+  it('refuses a workout that is both half and double weight', async () => {
+    const res = await PUT(putReq({ halfWeight: true, doubleWeight: true }), params('1'))
+    expect(res.status).toBe(400)
+  })
+
   it('clears the description when sent null', async () => {
     mock.queueResult([{ id: 1 }]) // update().returning()
     await PUT(putReq({ description: null }), params('1'))

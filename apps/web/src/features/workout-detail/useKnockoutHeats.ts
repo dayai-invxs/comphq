@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  advancers, currentRound, heatResult, roundOf,
+  advancers, currentRound, heatResult, isConsolation, roundOf,
   type KnockoutLane, type KnockoutWorkout,
 } from '@/lib/knockout'
 import type { KnockoutHeat } from './components/HeatCard/HeatCard'
@@ -34,6 +34,7 @@ export function useKnockoutHeats(
         scoreType: workout.scoreType, tiebreakEnabled: workout.tiebreakEnabled,
         tiebreakScoreType: workout.tiebreakScoreType, lanes: workout.lanes,
         knockoutRounds: workout.knockoutRounds ?? 1, knockoutAdvance: workout.knockoutAdvance ?? 1,
+        knockoutConsolation: workout.knockoutConsolation ?? false,
       }
     : null
 
@@ -45,6 +46,7 @@ export function useKnockoutHeats(
       heatNumber: a.heatNumber, lane: a.lane, round: a.round ?? null,
       rawScore: typed?.rawScore ?? null, capped: typed?.capped ?? false,
       tiebreakRawScore: typed?.tiebreakRawScore ?? null, advanced: advancedOf(a),
+      consolation: a.consolation ?? false,
     }
   }
 
@@ -74,6 +76,15 @@ export function useKnockoutHeats(
     const isFinal = heatRound >= rounds
     const editable = heatRound === round
     const heatLanes = entries.map(toLane)
+
+    if (entries.some(isConsolation)) {
+      // Ranked by score for places among those who went out; no ticks.
+      return {
+        label: `Round ${heatRound} Consolation`, isFinal: false, consolation: true, editable,
+        problem: null, byHand: false, advancing: () => false,
+        onToggle: () => {}, onUseScores: () => {},
+      }
+    }
 
     if (isFinal) {
       // The final is ranked by score; a tick only names a winner by hand.

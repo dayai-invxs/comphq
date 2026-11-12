@@ -200,6 +200,18 @@ describe('the lanes', () => {
     expect(screen.queryByRole('checkbox', { name: 'Advances' })).not.toBeInTheDocument()
   })
 
+  // Nobody advances from a consolation heat: no boxes, and it says what it is.
+  it('gives a consolation heat no tick box and names it', () => {
+    mount({
+      knockout: {
+        label: 'Round 2 Consolation', isFinal: false, consolation: true, editable: true, byHand: false, problem: null,
+        advancing: () => false, onToggle: vi.fn(), onUseScores: vi.fn(),
+      },
+    })
+    expect(screen.queryByRole('checkbox', { name: 'Advances' })).not.toBeInTheDocument()
+    expect(screen.getAllByText(/Round 2 Consolation · Heat 1/).length).toBeGreaterThan(0)
+  })
+
   // A winner ticked before the box went still counts until it is cleared.
   it('still offers to go back to scores for a winner ticked earlier', () => {
     const onUseScores = vi.fn()
