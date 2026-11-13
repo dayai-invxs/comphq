@@ -29,6 +29,20 @@ describe('score card structures', () => {
     expect(r.errors).toContain('versions.0.parts.0.items.1.repDef: "nope" is not one of the repDefinitions')
   })
 
+  it('checks the movements inside relay legs, and wants items or legs', () => {
+    const r = parseScoreCard({
+      version: 1,
+      versions: [{ label: 'R1', parts: [
+        { kind: 'relay', legs: [{ label: 'RX athlete', items: [{ movement: 'Carry', box: 'lines', lines: [25], repDef: 'nope' }] }] },
+        { kind: 'relay' },
+      ] }],
+    })
+    expect(r.ok ? [] : r.errors).toEqual([
+      'versions.0.parts.0.legs.0.items.0.repDef: "nope" is not one of the repDefinitions',
+      'versions.0.parts.1.items: a relay needs items or legs',
+    ])
+  })
+
   it('refuses another version number and unknown part kinds', () => {
     expect(parseScoreCard({ version: 2, versions: [] }).ok).toBe(false)
     expect(parseScoreCard({ version: 1, versions: [{ label: 'x', parts: [{ kind: 'tabata', items: [] }] }] }).ok).toBe(false)

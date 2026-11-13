@@ -68,6 +68,15 @@ export const ScoreCardItem = z.object({
 const Items = z.array(ScoreCardItem).min(1).max(40)
 const Title = Text.optional()
 
+/** One athlete's turn in a relay, when each level does something different. */
+export const ScoreCardLeg = z.object({
+  /** "RX athlete" — who runs this block, whatever the tag order. */
+  label: Name,
+  /** That athlete's load, e.g. "KBs 53/35 lb". */
+  load: Text.optional(),
+  items: Items,
+})
+
 export const ScoreCardPart = z.discriminatedUnion('kind', [
   /** For time / chipper: the grey total runs through the whole workout. */
   z.object({ kind: z.literal('sequence'), title: Title, items: Items }),
@@ -93,9 +102,15 @@ export const ScoreCardPart = z.discriminatedUnion('kind', [
     estimatedMinutes: z.number().int().min(1).max(40),
     items: z.array(ScoreCardItem).min(1).max(3),
   }),
-  /** Each team member does the items in turn, then tags the next. */
+  /**
+   * Each team member does the items in turn, then tags the next. With `legs`,
+   * each level has its own block instead (one Rx, one Int, one Sc athlete per
+   * team), and the grey total always restarts per athlete since the tag order
+   * isn't known when the card prints.
+   */
   z.object({
-    kind: z.literal('relay'), title: Title, items: Items,
+    kind: z.literal('relay'), title: Title, items: Items.optional(),
+    legs: z.array(ScoreCardLeg).min(1).max(12).optional(),
     tag: Text.optional(),
     /** Restart the grey total for each athlete (legs differ by gender or level). */
     resetTotalEachAthlete: z.boolean().optional(),
@@ -156,20 +171,23 @@ export const ScoreCardSpec = z.object({
 }).superRefine((spec, ctx) => {
   const keys = new Set((spec.repDefinitions ?? []).map((d) => d.key))
   spec.versions.forEach((v, vi) => v.parts.forEach((p, pi) => {
-    if (!('items' in p)) return
-    p.items.forEach((item, ii) => {
+    const at = ['versions', vi, 'parts', pi]
+    if (p.kind === 'relay' && !p.items && !p.legs) {
+      ctx.addIssue({ code: 'custom', path: [...at, 'items'], message: 'a relay needs items or legs' })
+    }
+    const lists: [ScoreCardItem[], (string | number)[]][] = p.kind === 'lift' ? [] : [
+      ...('items' in p && p.items ? [[p.items, [...at, 'items']] as [ScoreCardItem[], (string | number)[]]] : []),
+      ...(p.kind === 'relay' ? (p.legs ?? []).map((l, li) => [l.items, [...at, 'legs', li, 'items']] as [ScoreCardItem[], (string | number)[]]) : []),
+    ]
+    for (const [items, path] of lists) items.forEach((item, ii) => {
       if (item.repDef && !keys.has(item.repDef)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['versions', vi, 'parts', pi, 'items', ii, 'repDef'],
-          message: `"${item.repDef}" is not one of the repDefinitions`,
-        })
+        ctx.addIssue({ code: 'custom', path: [...path, ii, 'repDef'], message: `"${item.repDef}" is not one of the repDefinitions` })
       }
       if (item.box === 'lines' && !item.lines) {
-        ctx.addIssue({ code: 'custom', path: ['versions', vi, 'parts', pi, 'items', ii, 'lines'], message: 'a lines box needs its lines' })
+        ctx.addIssue({ code: 'custom', path: [...path, ii, 'lines'], message: 'a lines box needs its lines' })
       }
       if ((item.box === 'reps' || item.box === 'whole') && !item.amount && p.kind !== 'emom') {
-        ctx.addIssue({ code: 'custom', path: ['versions', vi, 'parts', pi, 'items', ii, 'amount'], message: 'needs an amount' })
+        ctx.addIssue({ code: 'custom', path: [...path, ii, 'amount'], message: 'needs an amount' })
       }
     })
   }))
@@ -180,6 +198,13 @@ export type ScoreCardVersion = z.infer<typeof ScoreCardVersion>
 export type ScoreCardPart = z.infer<typeof ScoreCardPart>
 export type ScoreCardItem = z.infer<typeof ScoreCardItem>
 export type ScoreCardRepDefinition = z.infer<typeof ScoreCardRepDefinition>
+export type ScoreCardLeg = z.infer<typeof ScoreCardLeg>
+
+/** Every movement in a part: its items, and each relay leg's. */
+export function partItems(part: ScoreCardPart): ScoreCardItem[] {
+  if (part.kind === 'lift') return []
+  return [...(part.items ?? []), ...(part.kind === 'relay' ? (part.legs ?? []).flatMap((l) => l.items) : [])]
+}
 
 export type ParsedScoreCard = { ok: true; spec: ScoreCardSpec } | { ok: false; errors: string[] }
 

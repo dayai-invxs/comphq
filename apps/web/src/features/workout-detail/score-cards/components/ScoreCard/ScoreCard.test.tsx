@@ -56,18 +56,23 @@ describe('ScoreCard', () => {
     expect(screen.getByText(/Can’t print yet: run needs a rep value/)).toBeTruthy()
   })
 
-  it('gives a knockout round’s single-under card its own count, and no conversion to do', () => {
+  it('gives each level its own block on a Blue Shell card, with the INT athlete’s singles counted as done', () => {
     const w = testWorkout([{ heat: 1, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 1 }], { knockout: true })
     const s = spec('rugged-4-blue-shell-knockout')
     expect(s.versions.map((v) => v.label)).toEqual([
-      'Round 1 · Double-unders', 'Round 1 · 100 single-unders', 'Round 2 · Double-unders', 'Round 2 · 150 single-unders',
+      'Round 1 · INT on double-unders', 'Round 1 · INT on single-unders', 'Round 2 · INT on double-unders', 'Round 2 · INT on single-unders',
     ])
     render(<ScoreCard card={laneCards(w, s, { ...opts, version: 1 })[0]} workout={w} spec={s} competitionName="Rugged" />)
-    expect(document.body.textContent?.match(/100 Single-Under/g)).toHaveLength(3)
-    expect(document.body.textContent).not.toMatch(/Double-Under/)
+    const text = document.body.textContent ?? ''
+    expect(['RX athlete', 'INT athlete', 'SC athlete'].map((l) => screen.getByText(l))).toHaveLength(3)
+    expect(text.match(/50 Double-Under/g)).toHaveLength(1)
+    expect(text.match(/100 Single-Under/g)).toHaveLength(1)
+    expect(text.match(/50 Single-Under/g)).toHaveLength(1)
+    expect(screen.getByText('KBs 35/26 lb')).toBeTruthy()
+    expect(screen.getAllByText('Tag order')).toHaveLength(3)
     expect(screen.getByText('Round 1 time')).toBeTruthy()
-    expect(screen.getByText('Int athletes doing single-unders instead of double-unders.')).toBeTruthy()
-    expect(screen.queryByText(/twice/)).toBeNull()
+    expect(screen.getByText(/Capped: finished athletes’ reps/)).toBeTruthy()
+    expect(text).not.toMatch(/twice/)
   })
 
   it('never prints the workout description', () => {

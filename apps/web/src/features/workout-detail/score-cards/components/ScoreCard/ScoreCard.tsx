@@ -1,6 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
 import type { CSSProperties, ReactNode } from 'react'
-import type { ScoreCardItem, ScoreCardPart, ScoreCardSpec, ScoreCardVersion } from '@/lib/scoreCard'
+import { partItems, type ScoreCardItem, type ScoreCardLeg, type ScoreCardPart, type ScoreCardSpec, type ScoreCardVersion } from '@/lib/scoreCard'
 import { amountLabel, boxesFor, fmtMF, levelSwaps, type Box, type Defs, type Gender } from '../../boxes'
 import type { CardData } from '../../cards'
 import styles from './ScoreCard.module.css'
@@ -150,7 +150,7 @@ function Roster({ roster, spec, blank }: { roster: { name: string; gender: Gende
 
 function Loads({ version, g }: { version: ScoreCardVersion; g: Gender | null }) {
   const own = Array.isArray(version.loads) ? version.loads : version.loads ? (g ? version.loads[g] : [...version.loads.m]) : []
-  const fromItems = version.parts.flatMap((p) => ('items' in p ? p.items : []))
+  const fromItems = version.parts.flatMap(partItems)
     .filter((i) => i.load)
     .map((i) => `${i.movement}: ${g ? i.load![g] : i.load!.m === i.load!.f ? i.load!.m : `${i.load!.m} / ${i.load!.f}`}`)
   const loads = [...new Set([...own, ...fromItems])]
@@ -371,8 +371,10 @@ function Emom({ part, ctx }: { part: PartOf<'emom'>; ctx: Ctx }) {
 }
 
 function Relay({ part, ctx }: { part: PartOf<'relay'>; ctx: Ctx }) {
+  if (part.legs) return <RelayByLevel part={part} legs={part.legs} ctx={ctx} />
+  const items = part.items ?? []
   // The level swaps are the same for every athlete, so they're stated once.
-  const swaps = part.items
+  const swaps = items
     .filter((i) => i.levels?.Int || i.levels?.Sc)
     .map((i) => `${bare(i)}: ${levelSwaps(i, null).join(', ')}`)
   let total: number | null = 0
@@ -394,16 +396,7 @@ function Relay({ part, ctx }: { part: PartOf<'relay'>; ctx: Ctx }) {
               <b>Athlete {n}</b>
               <small>{n === 1 ? 'starts on the clock' : `starts on athlete ${n - 1}’s tag`}</small>
             </div>
-            {part.items.map((item, i) => {
-              const r = boxesFor(item, total, ctx.defs, { g: ctx.g })
-              total = r.total
-              return (
-                <Row key={i}>
-                  <MovementLabel item={item} g={ctx.g} short />
-                  <Boxes boxes={r.boxes} />
-                </Row>
-              )
-            })}
+            <LegRows items={items} total={total} ctx={ctx} onTotal={(t) => { total = t }} />
           </div>
         )
       })}
@@ -411,8 +404,49 @@ function Relay({ part, ctx }: { part: PartOf<'relay'>; ctx: Ctx }) {
   )
 }
 
+function LegRows({ items, total, ctx, onTotal }: { items: ScoreCardItem[]; total: number | null; ctx: Ctx; onTotal?: (t: number | null) => void }) {
+  let t = total
+  const rows = items.map((item, i) => {
+    const r = boxesFor(item, t, ctx.defs, { g: ctx.g })
+    t = r.total
+    return (
+      <Row key={i}>
+        <MovementLabel item={item} g={ctx.g} short />
+        <Boxes boxes={r.boxes} />
+      </Row>
+    )
+  })
+  onTotal?.(t)
+  return <>{rows}</>
+}
+
+/**
+ * One block per level (RX athlete, INT athlete, SC athlete), each with its
+ * own movements and load. The tag order isn't known when the card prints, so
+ * the judge writes it in each block and every block counts from zero.
+ */
+function RelayByLevel({ part, legs, ctx }: { part: PartOf<'relay'>; legs: ScoreCardLeg[]; ctx: Ctx }) {
+  return (
+    <div className={`${styles.grid} ${styles.relay}`}>
+      <Title note="grey = this athlete’s reps">{part.title ?? ctx.version?.stage ?? ctx.version?.label ?? 'Relay'}</Title>
+      {part.tag && <div className={styles.notes}><span>Each athlete: {part.tag.charAt(0).toLowerCase()}{part.tag.slice(1)}.</span></div>}
+      {legs.map((leg) => (
+        <div key={leg.label}>
+          <div className={styles.legHead}>
+            <b>{leg.label}</b>
+            {leg.load && <span className={styles.legLoad}>{leg.load}</span>}
+            <span className={styles.grow} />
+            <small>Tag order</small><i className={styles.orderBox} />
+          </div>
+          <LegRows items={leg.items} total={0} ctx={ctx} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function Notes({ spec, version, workout }: { spec: ScoreCardSpec | null; version: ScoreCardVersion | null; workout: CardWorkout }) {
-  const hasMachine = !!version?.parts.some((p) => 'items' in p && p.items.some((i) => i.box === 'whole' && i.unit === 'cal'))
+  const hasMachine = !!version?.parts.some((p) => partItems(p).some((i) => i.box === 'whole' && i.unit === 'cal'))
   const notes = [
     ...(version?.notes ?? []),
     ...(spec?.notes ?? []),
@@ -472,7 +506,7 @@ function ScoreBlock({ card, workout, version }: { card: CardData; workout: CardW
           <label>{label}</label> <span className={styles.box} style={{ width: '1in' }} />
         </div>
       )}
-      {relay?.resetTotalEachAthlete && workout.scoreType === 'time' && (
+      {(relay?.resetTotalEachAthlete || relay?.legs) && workout.scoreType === 'time' && (
         <div className={styles.line}>
           <span className={styles.or}>Capped: finished athletes’ reps</span> <span className={styles.box} style={{ width: '0.55in' }} />
           + <span className={styles.or}>grey number reached</span> <span className={styles.box} style={{ width: '0.45in' }} />
@@ -487,7 +521,7 @@ function ScoreBlock({ card, workout, version }: { card: CardData; workout: CardW
         </div>
       )}
       {tbBox && workout.scoreType !== 'rounds_reps' && (
-        <div className={styles.line}>{tb}{parts.some((p) => 'items' in p && p.items.some((i) => i.tiebreakMark)) && <span className={styles.or}>the last TB box filled in</span>}</div>
+        <div className={styles.line}>{tb}{parts.some((p) => partItems(p).some((i) => i.tiebreakMark)) && <span className={styles.or}>the last TB box filled in</span>}</div>
       )}
       {memberCard && (
         <div className={styles.line}><span className={styles.or}>Enter on this athlete’s lane. CompHQ adds the team’s lanes.</span></div>
