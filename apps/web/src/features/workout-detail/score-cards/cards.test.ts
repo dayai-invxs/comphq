@@ -59,8 +59,16 @@ describe('laneCards', () => {
       { heat: 4, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 2 },
     ], { knockout: true })
     const cards = laneCards(w, spec(knockout), opts)
-    expect(cards.map((c) => c.version)).toEqual([0, 1])
+    expect(cards.map((c) => c.version)).toEqual([0, 2])
     expect(cards.every((c) => c.entrant.roster?.length === 3)).toBe(true)
+  })
+
+  it('prints every lane from the version asked for (a round’s single-under card)', () => {
+    const w = testWorkout([
+      { heat: 1, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 1 },
+      { heat: 1, lane: 2, athleteId: 6, name: 'Shy Guys', members: team, round: 1 },
+    ], { knockout: true })
+    expect(laneCards(w, spec(knockout), { ...opts, version: 1 }).map((c) => c.version)).toEqual([1, 1])
   })
 
   it('gives each lane its heat’s start time', () => {

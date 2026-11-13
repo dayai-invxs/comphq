@@ -53,6 +53,13 @@ export const ScoreCardItem = z.object({
   lines: z.array(z.number().nonnegative().max(1000)).min(1).max(30).optional(),
   /** A distance counts only in full sets of this many feet (16 ft HS walk = 2 reps). */
   setFt: z.number().positive().max(1000).optional(),
+  /**
+   * What each counted rep is worth toward the score, when it isn't 1: 0.5 for
+   * single-unders done in place of double-unders (2 singles = 1 rep). The boxes
+   * count what the athlete does; the grey total counts what it scores, so the
+   * judge never converts.
+   */
+  scoreEach: z.number().positive().max(100).optional(),
   /** Write-in boxes, multiplied together when `product` is set (lb × reps). */
   entry: z.array(z.enum(['lb', 'kg', 'reps'])).min(1).max(3).optional(),
   product: z.boolean().optional(),
@@ -110,6 +117,8 @@ export const ScoreCardVersion = z.object({
   /** AMRAP: the most rounds anyone should complete; one more is printed. */
   estimatedRounds: z.number().int().min(1).max(60).optional(),
   tiebreak: Text.nullable().optional(),
+  /** Judge reminders for this version's cards only, printed before the workout's. */
+  notes: z.array(Text).max(6).optional(),
   parts: z.array(ScoreCardPart).min(1).max(6),
 })
 
@@ -190,7 +199,8 @@ export function unansweredRepDefinitions(spec: ScoreCardSpec): ScoreCardRepDefin
 }
 
 /**
- * The version a lane's card is drawn from: the knockout round's, else the one
+ * The version a lane's card is drawn from: the knockout round's (the first, if
+ * a round has more than one card — the print page picks the others), else the one
  * naming the lane's division, else one that names no division, else the first.
  * Division names compare without case or surrounding space.
  */

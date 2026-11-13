@@ -18,13 +18,13 @@
   ],
   "versions": [
     {
-      "label": "Round 1",
+      "label": "Round 1 · Double-unders",
       "round": 1,
       "stage": "Round 1 · cap 7:00",
       "cap": "7:00",
       "tiebreak": null,
-      "loads": [
-        "KBs: Rx 53/35 · Int 35/26 · Sc 26/18 lb"
+      "notes": [
+        "Rx and Sc, and Int athletes doing double-unders."
       ],
       "parts": [
         {
@@ -40,9 +40,6 @@
               "unit": "reps",
               "box": "reps",
               "levels": {
-                "Int": {
-                  "movement": "DUs or 2× singles"
-                },
                 "Sc": {
                   "movement": "Single-Unders"
                 }
@@ -72,19 +69,77 @@
             }
           ]
         }
+      ],
+      "loads": [
+        "KBs: Rx 53/35 · Int 35/26 · Sc 26/18 lb"
       ]
     },
     {
-      "label": "Round 2",
-      "round": 2,
-      "stage": "Round 2 · top 3 only · cap 5:00",
-      "cap": "5:00",
+      "label": "Round 1 · 100 single-unders",
+      "round": 1,
+      "stage": "Round 1 · cap 7:00",
+      "cap": "7:00",
       "tiebreak": null,
+      "notes": [
+        "Int athletes doing single-unders instead of double-unders."
+      ],
       "parts": [
         {
           "kind": "relay",
           "tag": "Run back from 75 ft, tag the next athlete",
-          "resetTotalEachAthlete": true,
+          "items": [
+            {
+              "movement": "Single-Under",
+              "amount": {
+                "m": 100,
+                "f": 100
+              },
+              "unit": "reps",
+              "box": "reps",
+              "scoreEach": 0.5
+            },
+            {
+              "movement": "Suicide KB Farmer’s Carry",
+              "unit": "lines",
+              "box": "lines",
+              "lines": [
+                25,
+                0,
+                50,
+                0,
+                75
+              ],
+              "repDef": "suicide"
+            },
+            {
+              "movement": "KB Thruster",
+              "amount": {
+                "m": 10,
+                "f": 10
+              },
+              "unit": "reps",
+              "box": "reps"
+            }
+          ]
+        }
+      ],
+      "loads": [
+        "KBs: Rx 53/35 · Int 35/26 · Sc 26/18 lb"
+      ]
+    },
+    {
+      "label": "Round 2 · Double-unders",
+      "round": 2,
+      "stage": "Round 2 · top 3 only · cap 5:00",
+      "cap": "5:00",
+      "tiebreak": null,
+      "notes": [
+        "Rx and Sc, and Int athletes doing double-unders."
+      ],
+      "parts": [
+        {
+          "kind": "relay",
+          "tag": "Run back from 75 ft, tag the next athlete",
           "items": [
             {
               "movement": "Double-Under",
@@ -95,9 +150,6 @@
               "unit": "reps",
               "box": "reps",
               "levels": {
-                "Int": {
-                  "movement": "DUs or 2× singles"
-                },
                 "Sc": {
                   "movement": "Single-Unders"
                 }
@@ -147,17 +199,93 @@
                 }
               }
             }
-          ]
+          ],
+          "resetTotalEachAthlete": true
+        }
+      ]
+    },
+    {
+      "label": "Round 2 · 150 single-unders",
+      "round": 2,
+      "stage": "Round 2 · top 3 only · cap 5:00",
+      "cap": "5:00",
+      "tiebreak": null,
+      "notes": [
+        "Int athletes doing single-unders instead of double-unders."
+      ],
+      "parts": [
+        {
+          "kind": "relay",
+          "tag": "Run back from 75 ft, tag the next athlete",
+          "items": [
+            {
+              "movement": "Single-Under",
+              "amount": {
+                "m": 150,
+                "f": 150
+              },
+              "unit": "reps",
+              "box": "reps",
+              "scoreEach": 0.5
+            },
+            {
+              "movement": "2 Suicide Runs",
+              "unit": "lines",
+              "box": "lines",
+              "lines": [
+                25,
+                0,
+                50,
+                0,
+                75,
+                0,
+                25,
+                0,
+                50,
+                0,
+                75
+              ],
+              "repDef": "suicide"
+            },
+            {
+              "movement": "Rope Climb",
+              "amount": {
+                "m": 3,
+                "f": 2
+              },
+              "unit": "reps",
+              "box": "reps",
+              "levels": {
+                "Int": {
+                  "movement": "Rope Climbs to tape",
+                  "amount": {
+                    "m": 2,
+                    "f": 1
+                  }
+                },
+                "Sc": {
+                  "movement": "Rope Let-Downs",
+                  "amount": {
+                    "m": 3,
+                    "f": 3
+                  }
+                }
+              }
+            }
+          ],
+          "resetTotalEachAthlete": true
         }
       ]
     }
   ],
   "notes": [
-    "Int singles: 2 singles = 1 double-under; each box is twice its number in singles.",
     "Capped: circle the last box reached."
   ],
   "warnings": [
-    "Set the workout up as a CompHQ knockout: 2 rounds, top 3 per heat advance. Round 2 cards print once Round 1 decides who advances, or print blank Round 2 cards ahead.",
+    "Set the workout up as a CompHQ knockout: 2 rounds, top 3 per heat advance.",
+    "Each round has two cards: double-unders (Rx, Sc, and Int on DUs) and single-unders (Int on singles: 100 in Round 1, 150 in Round 2). On the print page, pick the card with the version menu.",
+    "On a single-under card the grey total counts 2 singles as 1 rep, so a capped team's reps match a double-under team's.",
+    "Round 2 cards print once Round 1 decides who advances, or print blank Round 2 cards ahead.",
     "Round 2: rope climbs differ by gender and level, so the grey total restarts for each athlete."
   ]
 }

@@ -43,7 +43,8 @@ export function ScoreCardsPage() {
   const spec: ScoreCardSpec | null = parsed?.ok ? parsed.spec : null
 
   const blankCount = Math.min(MAX_BLANK, Math.max(0, Number(params.get('blank')) || 0))
-  const versionIdx = Math.min(Math.max(0, Number(params.get('version')) || 0), (spec?.versions.length ?? 1) - 1)
+  const versionParam = params.get('version')
+  const versionIdx = Math.min(Math.max(0, Number(versionParam) || 0), (spec?.versions.length ?? 1) - 1)
   const heatParam = params.get('heat')
   const heat = heatParam ? Number(heatParam) : null
 
@@ -51,8 +52,11 @@ export function ScoreCardsPage() {
     if (!workout) return []
     const origin = window.location.origin
     if (blankCount > 0) return blankCards(workout, spec, { slug, origin, count: blankCount, version: versionIdx })
-    return laneCards(workout, spec, { slug, origin, showBib: !!settings.data?.showBib, heats: heat ? [heat] : undefined })
-  }, [workout, spec, slug, blankCount, versionIdx, heat, settings.data?.showBib])
+    return laneCards(workout, spec, {
+      slug, origin, showBib: !!settings.data?.showBib, heats: heat ? [heat] : undefined,
+      version: versionParam == null ? undefined : versionIdx,
+    })
+  }, [workout, spec, slug, blankCount, versionIdx, versionParam, heat, settings.data?.showBib])
 
   if (workoutQuery.isPending || settings.isPending) return <Centered><Spinner label="Loading" /></Centered>
   if (!workout) return <Centered><EmptyState title="Workout not found" description="It may have been deleted." /></Centered>
@@ -81,7 +85,7 @@ export function ScoreCardsPage() {
           onChange={(e) => {
             const v = e.target.value
             if (v === 'blank') set({ blank: String(blankCount || 10), heat: null })
-            else set({ blank: null, version: null, heat: v === 'all' ? null : v })
+            else set({ blank: null, heat: v === 'all' ? null : v })
           }}
         >
           <option value="all">Every heat ({workout.assignments.length} lanes)</option>
@@ -100,12 +104,18 @@ export function ScoreCardsPage() {
               onChange={(e) => set({ blank: String(Math.max(1, Math.min(MAX_BLANK, Number(e.target.value) || 1))) })}
               className={styles.count}
             />
-            {spec && spec.versions.length > 1 && (
-              <Select size="sm" aria-label="Version" value={String(versionIdx)} onChange={(e) => set({ version: e.target.value })}>
-                {spec.versions.map((v, i) => <option key={i} value={i}>{v.label}</option>)}
-              </Select>
-            )}
           </>
+        )}
+        {spec && spec.versions.length > 1 && (
+          <Select
+            size="sm"
+            aria-label="Card version"
+            value={versionParam == null && blankCount === 0 ? 'auto' : String(versionIdx)}
+            onChange={(e) => set({ version: e.target.value === 'auto' ? null : e.target.value })}
+          >
+            {blankCount === 0 && <option value="auto">Each lane’s own card</option>}
+            {spec.versions.map((v, i) => <option key={i} value={i}>{v.label}</option>)}
+          </Select>
         )}
         <span className={styles.grow} />
         <span className={styles.tally}>{cards.length} card{cards.length === 1 ? '' : 's'} · {Math.ceil(cards.length / 2)} sheet{cards.length > 2 ? 's' : ''}</span>

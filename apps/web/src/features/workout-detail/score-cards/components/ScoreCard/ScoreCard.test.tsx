@@ -56,6 +56,20 @@ describe('ScoreCard', () => {
     expect(screen.getByText(/Can’t print yet: run needs a rep value/)).toBeTruthy()
   })
 
+  it('gives a knockout round’s single-under card its own count, and no conversion to do', () => {
+    const w = testWorkout([{ heat: 1, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 1 }], { knockout: true })
+    const s = spec('rugged-4-blue-shell-knockout')
+    expect(s.versions.map((v) => v.label)).toEqual([
+      'Round 1 · Double-unders', 'Round 1 · 100 single-unders', 'Round 2 · Double-unders', 'Round 2 · 150 single-unders',
+    ])
+    render(<ScoreCard card={laneCards(w, s, { ...opts, version: 1 })[0]} workout={w} spec={s} competitionName="Rugged" />)
+    expect(document.body.textContent?.match(/100 Single-Under/g)).toHaveLength(3)
+    expect(document.body.textContent).not.toMatch(/Double-Under/)
+    expect(screen.getByText('Round 1 time')).toBeTruthy()
+    expect(screen.getByText('Int athletes doing single-unders instead of double-unders.')).toBeTruthy()
+    expect(screen.queryByText(/twice/)).toBeNull()
+  })
+
   it('never prints the workout description', () => {
     const w = testWorkout([{ heat: 1, lane: 1, athleteId: 1, name: 'Mario' }], { description: 'SECRET FULL DESCRIPTION' })
     render(<ScoreCard card={laneCards(w, null, opts)[0]} workout={w} spec={null} competitionName="Rugged" />)

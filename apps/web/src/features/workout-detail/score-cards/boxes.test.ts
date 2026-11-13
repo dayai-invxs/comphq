@@ -66,6 +66,14 @@ describe('boxesFor', () => {
     expect(boxesFor(rope, 0, {}, { g: 'f' }).boxes).toHaveLength(3)
   })
 
+  it('counts singles in the boxes and scores them 2 for 1 in the grey total', () => {
+    const su: ScoreCardItem = { movement: 'Single-Under', amount: both(100), box: 'reps', scoreEach: 0.5 }
+    const r = boxesFor(su, 0, {})
+    expect(r.boxes.map((b) => b.big)).toEqual(['10', '20', '30', '40', '50', '60', '70', '80', '90', '100'])
+    expect(r.boxes.map((b) => b.total)).toEqual(['5', '10', '15', '20', '25', '30', '35', '40', '45', '50'])
+    expect(r.total).toBe(50)
+  })
+
   it('takes an EMOM minute’s reps', () => {
     expect(boxesFor({ movement: 'Burpee', box: 'reps' }, 0, {}, { reps: 7 }).boxes).toHaveLength(7)
   })

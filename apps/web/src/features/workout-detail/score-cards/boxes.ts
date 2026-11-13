@@ -97,10 +97,13 @@ export function boxesFor(
     ? Math.max(1, Math.round(item.setFt / per))
     : isDistance ? 1 : groupSize(reps, item.groupBy)
   const label = (r: number) => (isDistance && per ? `${r * per} ft` : String(r))
+  // Singles for doubles: the box counts singles, the grey total what they score.
+  const each = item.scoreEach ?? 1
+  const worth = (r: number) => Math.round(r * each * 100) / 100
   const boxes: Box[] = []
-  for (let r = size; r <= reps; r += size) boxes.push({ big: label(r), total: grey(r) })
-  if (reps % size) boxes.push({ big: label(reps), total: grey(reps) })
-  return { boxes, total: after(reps) }
+  for (let r = size; r <= reps; r += size) boxes.push({ big: label(r), total: grey(worth(r)) })
+  if (reps % size) boxes.push({ big: label(reps), total: grey(worth(reps)) })
+  return { boxes, total: after(worth(reps)) }
 }
 
 /** "Int: 2/1 Rope Climbs to tape" — the other levels' swaps, for under a movement. */

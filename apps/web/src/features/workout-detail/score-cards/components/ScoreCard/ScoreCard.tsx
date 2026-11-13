@@ -414,6 +414,7 @@ function Relay({ part, ctx }: { part: PartOf<'relay'>; ctx: Ctx }) {
 function Notes({ spec, version, workout }: { spec: ScoreCardSpec | null; version: ScoreCardVersion | null; workout: CardWorkout }) {
   const hasMachine = !!version?.parts.some((p) => 'items' in p && p.items.some((i) => i.box === 'whole' && i.unit === 'cal'))
   const notes = [
+    ...(version?.notes ?? []),
     ...(spec?.notes ?? []),
     ...(hasMachine ? ['Capped partway through a machine: write the number reached in its box.'] : []),
     ...(version?.tiebreak && workout.tiebreakEnabled && !workout.tiebreakBestLane ? [`Tiebreak: ${version.tiebreak}.`] : []),
@@ -441,7 +442,9 @@ function ScoreBlock({ card, workout, version }: { card: CardData; workout: CardW
       <span className={styles.box} style={{ width: '1in' }} />
     </>
   )
-  const label = workout.knockout && version ? `${version.label} time` : SCORE_LABEL[workout.scoreType] ?? 'Score'
+  const label = workout.knockout && version
+    ? `${version.round ? `Round ${version.round}` : version.label} time`
+    : SCORE_LABEL[workout.scoreType] ?? 'Score'
 
   return (
     <div className={styles.score}>

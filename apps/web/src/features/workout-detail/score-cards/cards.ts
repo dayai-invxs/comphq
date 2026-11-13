@@ -50,6 +50,9 @@ type Options = {
   showBib: boolean
   /** Only these heats; all of them when absent. */
   heats?: number[]
+  /** Every card from this version, instead of each lane's own (a round's
+      second card, e.g. single-unders in place of double-unders). */
+  version?: number
 }
 
 /**
@@ -91,7 +94,7 @@ export function laneCards(workout: Workout, spec: ScoreCardSpec | null, opts: Op
         start,
         entrant,
         blank: false,
-        version: spec ? pickVersion(spec, { divisionName: division, round: a.round }) : 0,
+        version: !spec ? 0 : opts.version ?? pickVersion(spec, { divisionName: division, round: a.round }),
         qr: `${workoutUrl(opts.origin, opts.slug, workout.id)}#heat-${a.heatNumber}`,
       }
     })
