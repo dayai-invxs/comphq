@@ -63,6 +63,15 @@ describe('laneCards', () => {
     expect(cards.every((c) => c.entrant.roster?.length === 3)).toBe(true)
   })
 
+  it('gives a consolation lane its round’s card, marked as consolation', () => {
+    const w = testWorkout([
+      { heat: 3, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 2 },
+      { heat: 3, lane: 2, athleteId: 6, name: 'Shy Guys', members: team, round: 2, consolation: true },
+    ], { knockout: true, knockoutConsolation: true })
+    const cards = laneCards(w, spec(knockout), opts)
+    expect(cards.map((c) => [c.version, c.consolation])).toEqual([[2, false], [2, true]])
+  })
+
   it('prints every lane from the version asked for (a round’s single-under card)', () => {
     const w = testWorkout([
       { heat: 1, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 1 },

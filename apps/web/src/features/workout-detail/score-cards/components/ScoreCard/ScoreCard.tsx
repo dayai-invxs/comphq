@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import type { CSSProperties, ReactNode } from 'react'
 import { partItems, type ScoreCardItem, type ScoreCardLeg, type ScoreCardPart, type ScoreCardSpec, type ScoreCardVersion } from '@/lib/scoreCard'
-import { amountLabel, boxesFor, fmtMF, levelSwaps, type Box, type Defs, type Gender } from '../../boxes'
+import { amountLabel, boxesFor, fmtMF, levelSwaps, wholeLabel, type Box, type Defs, type Gender } from '../../boxes'
 import type { CardData } from '../../cards'
 import styles from './ScoreCard.module.css'
 
@@ -22,6 +22,7 @@ export type CardWorkout = {
   tiebreakBestLane?: boolean
   partBEnabled: boolean
   knockout?: boolean
+  knockoutConsolation?: boolean
 }
 
 type Props = {
@@ -73,6 +74,11 @@ export function ScoreCard({ card, workout, spec, competitionName, logoUrl }: Pro
             )}
             {capLabel && <span><b>{capLabel}</b></span>}
             {workout.knockout && version && <span><b>{version.label}</b></span>}
+            {card.consolation && <span className={styles.tag}>Consolation</span>}
+            {/* A blank card could be either: the judge marks it. Round 1 has no consolation. */}
+            {card.blank && workout.knockout && workout.knockoutConsolation && version?.round !== 1 && (
+              <span className={styles.lv}><span>CONSOLATION</span></span>
+            )}
           </div>
         </div>
       </header>
@@ -158,9 +164,9 @@ function Loads({ version, g }: { version: ScoreCardVersion; g: Gender | null }) 
   return <div className={styles.loads}>{loads.map((l) => <span key={l}>{l}</span>)}</div>
 }
 
-function Boxes({ boxes, small, wide }: { boxes: Box[]; small?: boolean; wide?: boolean }) {
+function Boxes({ boxes, small, wide, center }: { boxes: Box[]; small?: boolean; wide?: boolean; center?: boolean }) {
   return (
-    <div className={styles.cells}>
+    <div className={center ? `${styles.cells} ${styles.spread}` : styles.cells}>
       {boxes.map((b, i) => (
         <div key={i} className={[styles.cell, small && styles.sm, wide && styles.whole].filter(Boolean).join(' ')}>
           <b>{b.big}</b>
@@ -295,31 +301,41 @@ function Windows({ part, ctx }: { part: PartOf<'windows'>; ctx: Ctx }) {
       </span>
     )
   }
+  // Each rep column takes its share of the free width with its boxes centred
+  // under its own heading, so they read as that movement's and not the
+  // check-off box beside them. Check-off boxes stay narrow and name themselves.
+  const spread = (i: ScoreCardItem) => i.box !== 'whole'
+  const spacer = !counted.some(spread)
+  const cols = { '--cols': [...counted.map((i) => (spread(i) ? '1fr' : 'auto')), spacer ? '1fr' : '', entry ? 'auto' : ''].join(' ') } as CSSProperties
+  const col = (i: ScoreCardItem) => (spread(i) ? styles.spread : undefined)
   return (
     <div className={styles.grid}>
       <Title note={`${part.rotation.join(' → ')}, ${part.perAthlete} each${ctx.cap ? ` · cap ${ctx.cap}` : ''}`}>
         {part.title ?? `${count} windows of ${clock(part.windowSecs)}`}
       </Title>
-      <div className={`${styles.win} ${styles.winHead}`} style={{ '--counted': counted.length } as CSSProperties}>
+      <div className={`${styles.win} ${styles.winHead}`} style={cols}>
         <span /><span>Athlete</span>
-        {counted.map((i, k) => <div key={k}>{head(i)}</div>)}
+        {counted.map((i, k) => <div key={k} className={col(i)}>{head(i)}</div>)}
+        {spacer && <span />}
         {entry && <span><b>{entry.movement}</b>{(entry.entry ?? []).join(' × ')}{entry.product ? ' = total' : ''}</span>}
       </div>
       {Array.from({ length: count }, (_, i) => {
         const first = i % part.rotation.length === 0
         return (
-          <div key={i} className={first ? `${styles.win} ${styles.first}` : styles.win} style={{ '--counted': counted.length } as CSSProperties}>
+          <div key={i} className={first ? `${styles.win} ${styles.first}` : styles.win} style={cols}>
             <div className={styles.rn}>{first ? `R${i / part.rotation.length + 1}` : ''}</div>
             <div className={styles.wl}><b>{part.rotation[i % part.rotation.length]}</b><small>{clock(i * part.windowSecs)}</small></div>
             {counted.map((item, k) => (
               <Boxes
                 key={k}
                 boxes={item.box === 'whole'
-                  ? [{ big: item.movement.toLowerCase().replace(/^cal /, ''), total: null }]
+                  ? [{ big: wholeLabel(item, ctx.g), total: null }]
                   : boxesFor(item, 0, ctx.defs, { g: ctx.g, noTotal: true }).boxes}
                 wide={item.box === 'whole'}
+                center={spread(item)}
               />
             ))}
+            {spacer && <span />}
             {entry && (
               <div className={styles.entry}>
                 {(entry.entry ?? []).map((u, k) => (

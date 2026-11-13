@@ -33,6 +33,8 @@
 .event { font-family: var(--mds-font-display); font-size: 15pt; font-weight: 800; line-height: 1.05; }
 .meta { display: flex; flex-wrap: wrap; gap: 3pt 10pt; font-size: 8pt; margin-top: 3pt; align-items: baseline; }
 .meta b { font-weight: 600; }
+/* A consolation lane's card: the round's card, set apart so nobody reads it as advancing. */
+.tag { border: 1.1pt solid black; padding: 0 3pt; font-weight: 800; font-size: 7.5pt; letter-spacing: 0.56pt; text-transform: uppercase; }
 .write { display: inline-block; width: 0.45in; border-bottom: 0.75pt solid black; height: 9pt; vertical-align: bottom; }
 
 .who { display: grid; grid-template-columns: 1fr auto; border: 1.1pt solid black; }
@@ -104,8 +106,8 @@
 .attempt::after { content: "lb   ✓ / ✗"; position: absolute; right: 3pt; bottom: 1.5pt; white-space: pre; }
 
 .win {
-  --counted: 2;
-  display: grid; grid-template-columns: 0.25in 0.52in repeat(var(--counted), auto) 1fr;
+  --cols: auto 1fr;
+  display: grid; grid-template-columns: 0.25in 0.52in var(--cols);
   gap: 4.5pt; align-items: center; padding: 1.5pt 0; border-bottom: 0.4pt solid lightgray;
 }
 .win.first { border-top: 1.1pt solid black; }
@@ -113,6 +115,8 @@
 .winHead b { color: black; font-weight: 600; font-size: 6.4pt; display: block; }
 .win .cell { height: 16.5pt; }
 .win .whole { min-width: 0.6in; }
+/* A rep column: boxes and their heading centred in the column's own space. */
+.spread { justify-content: center; text-align: center; }
 .wl { display: flex; align-items: baseline; gap: 3pt; }
 .wl b { font-family: var(--mds-font-display); font-size: 10.5pt; font-weight: 800; }
 .wl small { font-size: 6pt; color: dimgray; }

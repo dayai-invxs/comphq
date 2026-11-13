@@ -50,4 +50,11 @@ describe('ScoreCardEditor', () => {
     expect(screen.getByRole('alert').textContent).toMatch(/versions/)
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
   })
+
+  it('won’t save a card that says who advances', () => {
+    renderEditor()
+    paste(JSON.stringify({ ...coliseum, versions: coliseum.versions.map((v) => ({ ...v, stage: 'Round 2 · top 3 only' })) }))
+    expect(screen.getByRole('alert').textContent).toMatch(/can’t say who advances.*versions\.0\.stage: Round 2 · top 3 only/)
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
+  })
 })

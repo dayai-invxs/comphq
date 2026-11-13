@@ -124,7 +124,7 @@ export const ScoreCardVersion = z.object({
   divisions: z.array(Name).max(50).optional(),
   /** A knockout round this version is for. */
   round: z.number().int().min(1).max(10).optional(),
-  /** A heading over the parts, e.g. "Round 2 · top 3 only". */
+  /** A heading over the parts, e.g. "Round 2 · cap 5:00". Never who advances: see advancementText. */
   stage: Text.optional(),
   /** Overrides the workout's cap for this version ("5:00"). */
   cap: Text.optional(),
@@ -216,6 +216,32 @@ export function parseScoreCard(input: unknown): ParsedScoreCard {
     ok: false,
     errors: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message)),
   }
+}
+
+// Who goes through is CompHQ's knockout setting, not the card's: a round's
+// consolation heats run the same card, so "top 3 only" would be wrong on half
+// of them. Printed text can't say it; the editor won't save a structure that does.
+const ADVANCES = /\btop\s*\d+\b|\badvanc|\bqualif|\bmoves? on\b|\beliminat/i
+
+/** Printed text that says who advances, as "versions.2.stage: Round 2 · top 3 only". */
+export function advancementText(spec: ScoreCardSpec): string[] {
+  const out: string[] = []
+  const look = (path: string, text: string | null | undefined) => {
+    if (text && ADVANCES.test(text)) out.push(`${path}: ${text}`)
+  }
+  spec.notes?.forEach((n, i) => look(`notes.${i}`, n))
+  spec.versions.forEach((v, vi) => {
+    const at = `versions.${vi}`
+    look(`${at}.label`, v.label)
+    look(`${at}.stage`, v.stage)
+    look(`${at}.tiebreak`, v.tiebreak)
+    v.notes?.forEach((n, i) => look(`${at}.notes.${i}`, n))
+    v.parts.forEach((p, pi) => {
+      look(`${at}.parts.${pi}.title`, p.title)
+      if (p.kind === 'relay') look(`${at}.parts.${pi}.tag`, p.tag)
+    })
+  })
+  return out
 }
 
 /** Rep definitions nobody has answered yet. A card that needs one can't print. */

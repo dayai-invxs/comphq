@@ -33,6 +33,8 @@ export type CardData = {
   blank: boolean
   /** Index into spec.versions; 0 when there is no structure. */
   version: number
+  /** A knockout consolation lane: the round's card, marked so nobody reads it as advancing. */
+  consolation: boolean
   /** Where the QR code goes: the heat, or the workout for a blank card. */
   qr: string
 }
@@ -95,6 +97,7 @@ export function laneCards(workout: Workout, spec: ScoreCardSpec | null, opts: Op
         entrant,
         blank: false,
         version: !spec ? 0 : opts.version ?? pickVersion(spec, { divisionName: division, round: a.round }),
+        consolation: !!a.consolation,
         qr: `${workoutUrl(opts.origin, opts.slug, workout.id)}#heat-${a.heatNumber}`,
       }
     })
@@ -125,6 +128,7 @@ export function blankCards(
     },
     blank: true,
     version: opts.version,
+    consolation: false,
     qr: workoutUrl(opts.origin, opts.slug, workout.id),
   }))
 }

@@ -2,7 +2,7 @@ import { Button, Field, Input, Select, Text, Textarea } from '@mond-design-syste
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
-import { parseScoreCard, type ParsedScoreCard } from '@/lib/scoreCard'
+import { advancementText, parseScoreCard, type ParsedScoreCard } from '@/lib/scoreCard'
 import type { Workout } from '@/features/workout-detail/useWorkoutDetail'
 import { blankCards, laneCards } from '../../cards'
 import { ScoreCard } from '../ScoreCard/ScoreCard'
@@ -44,7 +44,8 @@ export function ScoreCardEditor({ workout, slug, competitionName, logoUrl, showB
   const [preview, setPreview] = useState('lane')
   const read = useMemo(() => readScoreCardText(text), [text])
   const spec = !read.empty && read.json && read.ok ? read.spec : null
-  const valid = read.empty || spec != null
+  const advances = useMemo(() => (spec ? advancementText(spec) : []), [spec])
+  const valid = read.empty || (spec != null && advances.length === 0)
   const dirty = text.trim() !== saved.trim()
 
   const sample = useMemo(() => {
@@ -105,6 +106,13 @@ export function ScoreCardEditor({ workout, slug, competitionName, logoUrl, showB
             <div role="alert" className={styles.error}>
               Doesn’t pass its checks:
               <ul className={styles.list}>{read.errors.slice(0, 12).map((e) => <li key={e}>{e}</li>)}</ul>
+            </div>
+          )}
+
+          {advances.length > 0 && (
+            <div role="alert" className={styles.error}>
+              Cards can’t say who advances: a round’s consolation heats print the same card. CompHQ’s knockout settings decide who goes through. Take it out of:
+              <ul className={styles.list}>{advances.map((e) => <li key={e}>{e}</li>)}</ul>
             </div>
           )}
 

@@ -3,7 +3,7 @@ import type { Assignment, Workout } from '@/features/workout-detail/useWorkoutDe
 // A workout as the detail read returns it, with only what the cards read.
 
 type Lane = { heat: number; lane: number; athleteId: number; name: string; division?: string; bib?: string | null
-  gender?: string | null; members?: { id: number; name: string; gender?: string | null }[]; memberId?: number | null; round?: number }
+  gender?: string | null; members?: { id: number; name: string; gender?: string | null }[]; memberId?: number | null; round?: number; consolation?: boolean }
 
 export function testWorkout(lanes: Lane[], extra: Partial<Workout> = {}): Workout {
   const assignments: Assignment[] = lanes.map((l, i) => ({
@@ -12,6 +12,7 @@ export function testWorkout(lanes: Lane[], extra: Partial<Workout> = {}): Workou
     lane: l.lane,
     teamMemberId: l.memberId ?? null,
     round: l.round ?? null,
+    consolation: l.consolation ?? false,
     athlete: {
       id: l.athleteId,
       name: l.name,

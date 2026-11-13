@@ -279,7 +279,7 @@
     {
       "label": "Round 2 · INT on double-unders",
       "round": 2,
-      "stage": "Round 2 · top 3 only · cap 5:00",
+      "stage": "Round 2 · cap 5:00",
       "cap": "5:00",
       "tiebreak": null,
       "notes": [
@@ -423,7 +423,7 @@
     {
       "label": "Round 2 · INT on single-unders",
       "round": 2,
-      "stage": "Round 2 · top 3 only · cap 5:00",
+      "stage": "Round 2 · cap 5:00",
       "cap": "5:00",
       "tiebreak": null,
       "notes": [
@@ -570,7 +570,7 @@
     "Capped: circle the last box reached."
   ],
   "warnings": [
-    "Set the workout up as a CompHQ knockout: 2 rounds, top 3 per heat advance.",
+    "Set the workout up as a CompHQ knockout: 2 rounds, top 3 per heat advance. With consolation heats on, Round 2’s consolation lanes print the same Round 2 card marked CONSOLATION.",
     "Each round has two cards, one for a team whose INT athlete does double-unders and one for single-unders (100 in Round 1, 150 in Round 2). Pick the card in the print page’s version menu.",
     "Tag order isn’t known when cards print, so each athlete’s block counts from zero and the judge writes the order in it. Capped: finished athletes’ reps + the grey number reached.",
     "INT single-unders: the boxes count singles, and the grey total scores 2 singles as 1 rep so a capped team’s reps match a double-under team’s."

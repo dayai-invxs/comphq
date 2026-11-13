@@ -75,6 +75,34 @@ describe('ScoreCard', () => {
     expect(text).not.toMatch(/twice/)
   })
 
+  it('marks a consolation lane’s card and never says who advances', () => {
+    const w = testWorkout([
+      { heat: 3, lane: 1, athleteId: 5, name: 'Koopa Troop', members: team, round: 2 },
+      { heat: 3, lane: 2, athleteId: 6, name: 'Shy Guys', members: team, round: 2, consolation: true },
+    ], { knockout: true, knockoutConsolation: true })
+    const s = spec('rugged-4-blue-shell-knockout')
+    const [winners, consolation] = laneCards(w, s, opts)
+    const { unmount } = render(<ScoreCard card={winners} workout={w} spec={s} competitionName="Rugged" />)
+    expect(screen.queryByText('Consolation')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/top \d|advanc/i)
+    unmount()
+    render(<ScoreCard card={consolation} workout={w} spec={s} competitionName="Rugged" />)
+    expect(screen.getByText('Consolation')).toBeTruthy()
+    expect(screen.getByText('Round 2 time')).toBeTruthy()
+  })
+
+  it('gives a blank card past round 1 a consolation box to mark, when the workout has consolation heats', () => {
+    const s = spec('rugged-4-blue-shell-knockout')
+    const draw = (version: number, knockoutConsolation: boolean) => {
+      const w = testWorkout([], { knockout: true, knockoutConsolation })
+      const { unmount } = render(<ScoreCard card={blankCards(w, s, { ...opts, count: 1, version })[0]} workout={w} spec={s} competitionName="Rugged" />)
+      const has = !!screen.queryByText('CONSOLATION')
+      unmount()
+      return has
+    }
+    expect([draw(2, true), draw(0, true), draw(2, false)]).toEqual([true, false, false])
+  })
+
   it('never prints the workout description', () => {
     const w = testWorkout([{ heat: 1, lane: 1, athleteId: 1, name: 'Mario' }], { description: 'SECRET FULL DESCRIPTION' })
     render(<ScoreCard card={laneCards(w, null, opts)[0]} workout={w} spec={null} competitionName="Rugged" />)

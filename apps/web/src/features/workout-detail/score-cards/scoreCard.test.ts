@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseScoreCard, pickVersion, unansweredRepDefinitions, type ScoreCardSpec } from '@/lib/scoreCard'
+import { advancementText, parseScoreCard, pickVersion, unansweredRepDefinitions, type ScoreCardSpec } from '@/lib/scoreCard'
 
 // The structures saved for real workouts must pass the checks the server runs
 // on save. Each fixture is one workout's structure, as pasted into the editor.
@@ -9,6 +9,21 @@ describe('score card structures', () => {
   it.each(Object.entries(fixtures))('%s passes its checks', (_name, mod) => {
     const r = parseScoreCard(mod.default)
     expect(r.ok ? [] : r.errors).toEqual([])
+  })
+
+  it.each(Object.entries(fixtures))('%s never says who advances', (_name, mod) => {
+    const r = parseScoreCard(mod.default)
+    expect(r.ok && advancementText(r.spec)).toEqual([])
+  })
+
+  it('finds printed text that says who advances, but not organizer warnings', () => {
+    const r = parseScoreCard({
+      version: 1,
+      notes: ['Top 3 move on to the final.'],
+      versions: [{ label: 'Round 2', round: 2, stage: 'Round 2 · top 3 only', parts: [{ kind: 'sequence', items: [{ movement: 'Burpee', amount: { m: 10, f: 10 }, box: 'reps' }] }] }],
+      warnings: ['Set it up as a knockout: top 3 per heat advance.'],
+    })
+    expect(r.ok && advancementText(r.spec)).toEqual(['notes.0: Top 3 move on to the final.', 'versions.0.stage: Round 2 · top 3 only'])
   })
 
   it('has all four Rugged In House workouts', () => {

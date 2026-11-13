@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ScoreCardItem } from '@/lib/scoreCard'
-import { amountLabel, boxesFor, groupSize, levelSwaps, type Defs } from './boxes'
+import { amountLabel, boxesFor, groupSize, levelSwaps, wholeLabel, type Defs } from './boxes'
 
 const both = (n: number) => ({ m: n, f: n })
 const def = (key: string, value: number | null, kind: 'distancePerRep' | 'repsPerItem' | 'repsPerLine' = 'distancePerRep'): Defs =>
@@ -84,6 +84,13 @@ describe('labels', () => {
     const row: ScoreCardItem = { movement: 'Cal Row', amount: { m: 20, f: 16 }, step: both(5), box: 'whole', unit: 'cal' }
     expect(amountLabel(row, null)).toBe('20/16 cal')
     expect(amountLabel(row, 'm', 2)).toBe('25 cal')
+  })
+
+  it('names a check-off box with every level’s amount', () => {
+    const bike: ScoreCardItem = { movement: 'Cal Bike', amount: { m: 12, f: 9 }, unit: 'cal', box: 'whole', levels: { Sc: { amount: { m: 9, f: 7 } } } }
+    expect(wholeLabel(bike, null)).toBe('bike 12/9/7 cal')
+    expect(wholeLabel(bike, 'f')).toBe('bike 9/7 cal')
+    expect(wholeLabel({ movement: 'Run', box: 'whole' }, null)).toBe('run')
   })
 
   it('lists the level swaps', () => {

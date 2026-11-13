@@ -44,7 +44,21 @@ export function maxAmount(item: ScoreCardItem, g: Gender | null, round = 1): num
 export function amountLabel(item: ScoreCardItem, g: Gender | null, round = 1): string {
   const [rx] = amounts(item, round)
   if (!rx) return ''
-  return `${fmtMF(rx, g)}${item.unit === 'cal' ? ' cal' : item.unit === 'ft' ? ' ft' : item.unit === 'm' ? ' m' : ''}`
+  return `${fmtMF(rx, g)}${unitSuffix(item)}`
+}
+
+const unitSuffix = (item: ScoreCardItem) =>
+  item.unit === 'cal' ? ' cal' : item.unit === 'ft' ? ' ft' : item.unit === 'm' ? ' m' : ''
+
+/**
+ * What a check-off box says when it sits away from its movement's name:
+ * the movement and every level's amount, "bike 12/9/7 cal" (Rx men/women,
+ * then Int, then Sc, repeats dropped). A known gender keeps that side only.
+ */
+export function wholeLabel(item: ScoreCardItem, g: Gender | null, round = 1): string {
+  const name = item.movement.replace(/^cal\s+/i, '').toLowerCase()
+  const values = [...new Set(amounts(item, round).flatMap((a) => (g ? [a[g]] : [a.m, a.f])))]
+  return values.length ? `${name} ${values.join('/')}${unitSuffix(item)}` : name
 }
 
 export type Defs = Record<string, ScoreCardRepDefinition>
