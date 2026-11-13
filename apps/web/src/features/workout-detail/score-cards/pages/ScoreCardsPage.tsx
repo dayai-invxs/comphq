@@ -14,13 +14,14 @@ import { ScoreCard } from '../components/ScoreCard/ScoreCard'
 import { blankCards, laneCards, sheets } from '../cards'
 import styles from './ScoreCardsPage.module.css'
 
-// The judges' score cards for one workout, two to a letter sheet, ready for
-// the browser's print dialog. Outside the admin frame, like the TV: the page
+// The judges' score cards for one workout, two to a letter sheet (or one,
+// enlarged, for anyone without a cutter), ready for the browser's print dialog. Outside the admin frame, like the TV: the page
 // is the paper. The controls sit above the sheets and never print.
 //
 //   ?heat=3        one heat's lanes (absent: every heat)
 //   ?blank=12&version=1   12 blank cards from version 1 (a knockout round,
 //                  or a workout the leaderboard seeds later)
+//   ?per=1         one card per sheet, letter portrait (absent: two, landscape)
 
 const MAX_BLANK = 200
 
@@ -47,6 +48,7 @@ export function ScoreCardsPage() {
   const versionIdx = Math.min(Math.max(0, Number(versionParam) || 0), (spec?.versions.length ?? 1) - 1)
   const heatParam = params.get('heat')
   const heat = heatParam ? Number(heatParam) : null
+  const perSheet: 1 | 2 = params.get('per') === '1' ? 1 : 2
 
   const cards = useMemo(() => {
     if (!workout) return []
@@ -64,6 +66,7 @@ export function ScoreCardsPage() {
   const competitionName = comps.data?.find((c) => c.slug === slug)?.name ?? ''
   const heats = [...new Set(workout.assignments.map((a) => a.heatNumber))].sort((a, b) => a - b)
   const missing = spec ? unansweredRepDefinitions(spec) : []
+  const sheetCount = Math.ceil(cards.length / perSheet)
   const set = (next: Record<string, string | null>) => {
     const p = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
@@ -75,6 +78,8 @@ export function ScoreCardsPage() {
 
   return (
     <div className={styles.page}>
+      {/* The module's @page is two-up landscape; this later rule wins. */}
+      {perSheet === 1 && <style>{'@page { size: letter portrait; margin: 0; }'}</style>}
       <div className={styles.toolbar}>
         <Link to={`/${slug}/admin/workouts/${workout.id}`}>← Event {workout.number}</Link>
         <strong>{workout.name} · score cards</strong>
@@ -117,8 +122,17 @@ export function ScoreCardsPage() {
             {spec.versions.map((v, i) => <option key={i} value={i}>{v.label}</option>)}
           </Select>
         )}
+        <Select
+          size="sm"
+          aria-label="Cards per sheet"
+          value={String(perSheet)}
+          onChange={(e) => set({ per: e.target.value === '1' ? '1' : null })}
+        >
+          <option value="2">2 per sheet (cut in half)</option>
+          <option value="1">1 per sheet (no cutting)</option>
+        </Select>
         <span className={styles.grow} />
-        <span className={styles.tally}>{cards.length} card{cards.length === 1 ? '' : 's'} · {Math.ceil(cards.length / 2)} sheet{cards.length > 2 ? 's' : ''}</span>
+        <span className={styles.tally}>{cards.length} card{cards.length === 1 ? '' : 's'} · {sheetCount} sheet{sheetCount === 1 ? '' : 's'}</span>
         <Button size="sm" onClick={() => window.print()} disabled={cards.length === 0 || missing.length > 0}>Print</Button>
       </div>
       {parsed && !parsed.ok && (
@@ -130,8 +144,8 @@ export function ScoreCardsPage() {
       {cards.length === 0 && (
         <p className={styles.notice}>No lanes yet. Place athletes in heats, or print blank cards.</p>
       )}
-      {sheets(cards).map((pair) => (
-        <section key={pair[0].key} className={styles.sheet}>
+      {sheets(cards, perSheet).map((pair) => (
+        <section key={pair[0].key} className={perSheet === 1 ? `${styles.sheet} ${styles.single}` : styles.sheet}>
           {pair.map((card) => (
             <ScoreCard
               key={card.key}

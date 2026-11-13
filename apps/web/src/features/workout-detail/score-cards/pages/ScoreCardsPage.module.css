@@ -48,6 +48,16 @@
 /* The cut line between the two cards. */
 .sheet > * + * { border-left: 0.5pt dashed silver; }
 
+/* One card to a letter sheet, portrait, enlarged until its 8.5 in height
+   meets the 11 in page (just under, so it never spills onto a blank sheet). */
+.single {
+  width: 8.5in;
+  height: 11in;
+  justify-content: center;
+  overflow: hidden;
+}
+.single > * { zoom: 1.29; }
+
 @media print {
   .toolbar, .notice { display: none; }
   .page { display: block; background: white; padding: 0; min-height: 0; }

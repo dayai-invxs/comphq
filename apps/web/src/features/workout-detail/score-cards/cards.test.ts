@@ -94,3 +94,7 @@ describe('blankCards', () => {
 it('puts two cards on a sheet', () => {
   expect(sheets([1, 2, 3])).toEqual([[1, 2], [3]])
 })
+
+it('puts one card on a sheet when asked', () => {
+  expect(sheets([1, 2, 3], 1)).toEqual([[1], [2], [3]])
+})

@@ -129,9 +129,9 @@ export function blankCards(
   }))
 }
 
-/** Two cards to a letter sheet, cut in half. */
-export function sheets<T>(cards: T[]): T[][] {
+/** Cards to a letter sheet: two, cut in half, or one, enlarged to fill it. */
+export function sheets<T>(cards: T[], perSheet: 1 | 2 = 2): T[][] {
   const out: T[][] = []
-  for (let i = 0; i < cards.length; i += 2) out.push(cards.slice(i, i + 2))
+  for (let i = 0; i < cards.length; i += perSheet) out.push(cards.slice(i, i + perSheet))
   return out
 }
