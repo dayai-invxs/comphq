@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import type { CSSProperties, ReactNode } from 'react'
 import { partItems, type ScoreCardItem, type ScoreCardLeg, type ScoreCardPart, type ScoreCardSpec, type ScoreCardVersion } from '@/lib/scoreCard'
-import { amountLabel, boxesFor, fmtMF, levelSwaps, wholeLabel, type Box, type Defs, type Gender } from '../../boxes'
+import { amountLabel, boxesFor, fmtMF, levelLines, levelSwaps, wholeLabel, type Box, type Defs, type Gender, type Level } from '../../boxes'
 import type { CardData } from '../../cards'
 import styles from './ScoreCard.module.css'
 
@@ -44,7 +44,12 @@ export function ScoreCard({ card, workout, spec, competitionName, logoUrl }: Pro
   const g = card.entrant.gender
   const cap = version?.cap ?? spec?.cap
   const capLabel = !cap ? null : cap.toLowerCase() === 'none' ? 'No cap' : `Cap ${cap}`
-  const ctx: Ctx = { g, defs, cap: cap ?? null, version, teamSize: spec?.team?.size ?? card.entrant.roster?.length ?? 1 }
+  // Int is a level of its own when the card asks for it (per-athlete levels) or a movement names it.
+  const hasInt = spec?.team?.levelChoice === 'perAthlete' || !!spec?.versions.some((v) => v.parts.some((p) => partItems(p).some((i) => i.levels?.Int)))
+  const ctx: Ctx = {
+    g, defs, cap: cap ?? null, version, teamSize: spec?.team?.size ?? card.entrant.roster?.length ?? 1,
+    levels: hasInt ? ['Rx', 'Int', 'Sc'] : ['Rx', 'Sc'],
+  }
 
   return (
     <article className={styles.card} aria-label={`Score card: ${card.entrant.name ?? 'blank'}, Event ${workout.number}`}>
@@ -95,7 +100,7 @@ export function ScoreCard({ card, workout, spec, competitionName, logoUrl }: Pro
   )
 }
 
-type Ctx = { g: Gender | null; defs: Defs; cap: string | null; version: ScoreCardVersion | null; teamSize: number }
+type Ctx = { g: Gender | null; defs: Defs; cap: string | null; version: ScoreCardVersion | null; teamSize: number; levels: Level[] }
 
 function Who({ card, spec }: { card: CardData; spec: ScoreCardSpec | null }) {
   const e = card.entrant
@@ -292,61 +297,64 @@ function Windows({ part, ctx }: { part: PartOf<'windows'>; ctx: Ctx }) {
   const counted = part.items.filter((i) => i.box !== 'entry')
   const entry = part.items.find((i) => i.box === 'entry')
   const count = part.rotation.length * part.perAthlete
-  const head = (i: ScoreCardItem) => {
-    const sc = i.levels?.Sc
-    return (
-      <span>
-        <b>{amountLabel(i, ctx.g)} {bare(i).toLowerCase()}</b>
-        {sc && `Sc ${sc.amount ? fmtMF(sc.amount, ctx.g) : ''} ${(sc.movement ?? '').toLowerCase()}`.trim()}
-      </span>
-    )
-  }
-  // Each rep column takes its share of the free width with its boxes centred
-  // under its own heading, so they read as that movement's and not the
-  // check-off box beside them. Check-off boxes stay narrow and name themselves.
+  // One grid for the heading and every window, so a column is the same width
+  // all the way down and each heading sits centred on its own boxes. Rep
+  // columns share the free width; check-off and write-in columns stay narrow.
   const spread = (i: ScoreCardItem) => i.box !== 'whole'
   const spacer = !counted.some(spread)
   const cols = { '--cols': [...counted.map((i) => (spread(i) ? '1fr' : 'auto')), spacer ? '1fr' : '', entry ? 'auto' : ''].join(' ') } as CSSProperties
-  const col = (i: ScoreCardItem) => (spread(i) ? styles.spread : undefined)
   return (
     <div className={styles.grid}>
       <Title note={`${part.rotation.join(' → ')}, ${part.perAthlete} each${ctx.cap ? ` · cap ${ctx.cap}` : ''}`}>
         {part.title ?? `${count} windows of ${clock(part.windowSecs)}`}
       </Title>
-      <div className={`${styles.win} ${styles.winHead}`} style={cols}>
-        <span /><span>Athlete</span>
-        {counted.map((i, k) => <div key={k} className={col(i)}>{head(i)}</div>)}
-        {spacer && <span />}
-        {entry && <span><b>{entry.movement}</b>{(entry.entry ?? []).join(' × ')}{entry.product ? ' = total' : ''}</span>}
+      <div className={styles.winTable} style={cols}>
+        <div className={`${styles.win} ${styles.winHead}`}>
+          <span /><span>Athlete</span>
+          {counted.map((i, k) => (
+            <div key={k} className={styles.colHead}>
+              {levelLines(i, ctx.g, ctx.levels).map((l) => (
+                <span key={l.levels || 'all'}>{l.levels && <b>{l.levels}:</b>} {l.text}</span>
+              ))}
+            </div>
+          ))}
+          {spacer && <span />}
+          {entry && (
+            <div className={styles.colHead}>
+              <span><b>{entry.movement}</b></span>
+              <span>{(entry.entry ?? []).join(' × ')}{entry.product ? ' = total' : ''}</span>
+            </div>
+          )}
+        </div>
+        {Array.from({ length: count }, (_, i) => {
+          const first = i % part.rotation.length === 0
+          return (
+            <div key={i} className={first ? `${styles.win} ${styles.first}` : styles.win}>
+              <div className={styles.rn}>{first ? `R${i / part.rotation.length + 1}` : ''}</div>
+              <div className={styles.wl}><b>{part.rotation[i % part.rotation.length]}</b><small>{clock(i * part.windowSecs)}</small></div>
+              {counted.map((item, k) => (
+                <Boxes
+                  key={k}
+                  boxes={item.box === 'whole'
+                    ? [{ big: wholeLabel(item, ctx.g), total: null }]
+                    : boxesFor(item, 0, ctx.defs, { g: ctx.g, noTotal: true }).boxes}
+                  wide={item.box === 'whole'}
+                  center
+                />
+              ))}
+              {spacer && <span />}
+              {entry && (
+                <div className={styles.entry}>
+                  {(entry.entry ?? []).map((u, k) => (
+                    <span key={k}>{k > 0 && '×'} <i className={u === 'reps' ? styles.repsBox : undefined} /></span>
+                  ))}
+                  {entry.product && <>= <i className={styles.wideBox} /></>}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
-      {Array.from({ length: count }, (_, i) => {
-        const first = i % part.rotation.length === 0
-        return (
-          <div key={i} className={first ? `${styles.win} ${styles.first}` : styles.win} style={cols}>
-            <div className={styles.rn}>{first ? `R${i / part.rotation.length + 1}` : ''}</div>
-            <div className={styles.wl}><b>{part.rotation[i % part.rotation.length]}</b><small>{clock(i * part.windowSecs)}</small></div>
-            {counted.map((item, k) => (
-              <Boxes
-                key={k}
-                boxes={item.box === 'whole'
-                  ? [{ big: wholeLabel(item, ctx.g), total: null }]
-                  : boxesFor(item, 0, ctx.defs, { g: ctx.g, noTotal: true }).boxes}
-                wide={item.box === 'whole'}
-                center={spread(item)}
-              />
-            ))}
-            {spacer && <span />}
-            {entry && (
-              <div className={styles.entry}>
-                {(entry.entry ?? []).map((u, k) => (
-                  <span key={k}>{k > 0 && '×'} <i className={u === 'reps' ? styles.repsBox : undefined} /></span>
-                ))}
-                {entry.product && <>= <i className={styles.wideBox} /></>}
-              </div>
-            )}
-          </div>
-        )
-      })}
     </div>
   )
 }

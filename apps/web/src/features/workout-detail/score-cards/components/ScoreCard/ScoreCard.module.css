@@ -105,22 +105,27 @@
 .attempt { border: 0.75pt solid gray; height: 25pt; position: relative; font-size: 6pt; color: dimgray; padding: 1.5pt 3pt; }
 .attempt::after { content: "lb   ✓ / ✗"; position: absolute; right: 3pt; bottom: 1.5pt; white-space: pre; }
 
+/* Windows: one grid for the heading and every row (rows are subgrids), so a
+   column keeps its width all the way down and its heading centres on its boxes. */
+.winTable { --cols: auto 1fr; display: grid; grid-template-columns: 0.25in 0.52in var(--cols); column-gap: 4.5pt; }
 .win {
-  --cols: auto 1fr;
-  display: grid; grid-template-columns: 0.25in 0.52in var(--cols);
-  gap: 4.5pt; align-items: center; padding: 1.5pt 0; border-bottom: 0.4pt solid lightgray;
+  grid-column: 1 / -1; display: grid; grid-template-columns: subgrid;
+  align-items: center; padding: 1.5pt 0; border-bottom: 0.4pt solid lightgray;
 }
 .win.first { border-top: 1.1pt solid black; }
 .winHead { font-size: 6pt; line-height: 1.15; color: dimgray; align-items: end; border-bottom: 0.75pt solid black; padding-bottom: 2pt; }
-.winHead b { color: black; font-weight: 600; font-size: 6.4pt; display: block; }
+.colHead { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.colHead span { color: black; font-size: 6.4pt; white-space: nowrap; }
+.colHead span + span { color: dimgray; }
+.colHead b { font-weight: 700; }
 .win .cell { height: 16.5pt; }
 .win .whole { min-width: 0.6in; }
-/* A rep column: boxes and their heading centred in the column's own space. */
+/* Boxes centred in their column, under the heading's centre. */
 .spread { justify-content: center; text-align: center; }
 .wl { display: flex; align-items: baseline; gap: 3pt; }
 .wl b { font-family: var(--mds-font-display); font-size: 10.5pt; font-weight: 800; }
 .wl small { font-size: 6pt; color: dimgray; }
-.entry { display: flex; align-items: center; gap: 2pt; font-size: 6pt; color: dimgray; justify-content: flex-end; }
+.entry { display: flex; align-items: center; gap: 2pt; font-size: 6pt; color: dimgray; justify-content: center; }
 .entry i { display: inline-block; width: 0.42in; height: 15pt; border: 0.75pt solid gray; vertical-align: middle; }
 .entry i.repsBox { width: 0.31in; }
 .entry i.wideBox { width: 0.52in; border-color: black; }

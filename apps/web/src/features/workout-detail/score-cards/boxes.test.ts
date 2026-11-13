@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ScoreCardItem } from '@/lib/scoreCard'
-import { amountLabel, boxesFor, groupSize, levelSwaps, wholeLabel, type Defs } from './boxes'
+import { amountLabel, boxesFor, groupSize, levelLines, levelSwaps, wholeLabel, type Defs } from './boxes'
 
 const both = (n: number) => ({ m: n, f: n })
 const def = (key: string, value: number | null, kind: 'distancePerRep' | 'repsPerItem' | 'repsPerLine' = 'distancePerRep'): Defs =>
@@ -91,6 +91,14 @@ describe('labels', () => {
     expect(wholeLabel(bike, null)).toBe('bike 12/9/7 cal')
     expect(wholeLabel(bike, 'f')).toBe('bike 9/7 cal')
     expect(wholeLabel({ movement: 'Run', box: 'whole' }, null)).toBe('run')
+  })
+
+  it('heads a column one line per level, sharing lines that match', () => {
+    const bike: ScoreCardItem = { movement: 'Cal Bike', amount: { m: 12, f: 9 }, unit: 'cal', box: 'whole', levels: { Sc: { amount: { m: 9, f: 7 } } } }
+    expect(levelLines(bike, null)).toEqual([{ levels: 'Rx/Int', text: '12/9 cal bike' }, { levels: 'Sc', text: '9/7 cal bike' }])
+    const box: ScoreCardItem = { movement: 'Box Jump-Over', amount: { m: 12, f: 12 }, box: 'reps', levels: { Sc: { movement: 'Box Step-Over', amount: { m: 10, f: 10 } } } }
+    expect(levelLines(box, null, ['Rx', 'Sc'])).toEqual([{ levels: 'Rx', text: '12 box jump-over' }, { levels: 'Sc', text: '10 box step-over' }])
+    expect(levelLines({ movement: 'Burpee', amount: { m: 10, f: 10 }, box: 'reps' }, null)).toEqual([{ levels: '', text: '10 burpee' }])
   })
 
   it('lists the level swaps', () => {

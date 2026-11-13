@@ -61,6 +61,28 @@ export function wholeLabel(item: ScoreCardItem, g: Gender | null, round = 1): st
   return values.length ? `${name} ${values.join('/')}${unitSuffix(item)}` : name
 }
 
+export type Level = 'Rx' | 'Int' | 'Sc'
+
+/**
+ * A column heading, one line per level: "Rx/Int: 12/9 cal bike", then
+ * "Sc: 9/7 cal bike". Levels doing the same thing share a line; when every
+ * level does, there is one line and no level names.
+ */
+export function levelLines(item: ScoreCardItem, g: Gender | null, levels: Level[] = ['Rx', 'Int', 'Sc']): { levels: string; text: string }[] {
+  const lines: { levels: string[]; text: string }[] = []
+  for (const lvl of levels) {
+    const o = lvl === 'Rx' ? undefined : item.levels?.[lvl]
+    const amount = o?.amount ?? item.amount
+    const movement = (o?.movement ?? item.movement).replace(item.unit === 'cal' ? /^cal\s+/i : /^$/, '').toLowerCase()
+    const text = amount ? `${fmtMF(amount, g)}${unitSuffix(item)} ${movement}` : movement
+    const last = lines[lines.length - 1]
+    if (last?.text === text) last.levels.push(lvl)
+    else lines.push({ levels: [lvl], text })
+  }
+  if (lines.length === 1) return [{ levels: '', text: lines[0].text }]
+  return lines.map((l) => ({ levels: l.levels.join('/'), text: l.text }))
+}
+
 export type Defs = Record<string, ScoreCardRepDefinition>
 
 /**
