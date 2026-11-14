@@ -12,6 +12,7 @@ import { TvLeaderboardView } from '../components/TvLeaderboardView/TvLeaderboard
 import { TvScheduleView } from '../components/TvScheduleView/TvScheduleView'
 import { leaderboardLayoutCount } from '../leaderboardLayouts'
 import { SCHEDULE_LAYOUTS } from '../scheduleLayouts'
+import { useKeepAwake } from '../useKeepAwake'
 import { useScaleToFit } from '../useScaleToFit'
 import { TV_ZOOM_MAX, TV_ZOOM_MIN, useTvZoom } from '../useTvZoom'
 import styles from './TvPage.module.css'
@@ -47,6 +48,8 @@ export function TvPage() {
   const [view, setView] = useState<View>('schedule')
   const scanTo = qrTarget(slug)
   const { zoom, zoomIn, zoomOut } = useTvZoom()
+  // No screensaver over the board (useKeepAwake.ts).
+  useKeepAwake()
 
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData, error: lbError } = useLeaderboard(slug)
