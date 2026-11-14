@@ -123,3 +123,24 @@
   overflow: hidden;
   padding: var(--mds-pad-page-x);
 }
+
+/* The − 100% + that sizes the board for the room. Quiet: it is for whoever
+   sets the screen up, not for the room reading it. */
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--mds-gap-hairline);
+}
+
+/* Big enough to hit with a TV remote's pointer from the floor. */
+.zoomButton {
+  font-size: var(--tv-text-scan);
+  font-weight: var(--mds-weight-bold);
+}
+
+.zoomLevel {
+  min-width: 4ch;
+  font-size: var(--tv-text-meta);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

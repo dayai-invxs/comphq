@@ -6,7 +6,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 // A scoreboard has one screen, no scrollbar and nobody near it, so content
 // taller than the screen has to be shrunk rather than cut off. It is measured
 // at natural size — the reset is what stops a second pass from scaling an
-// already scaled box — and shrunk by exactly the ratio it overflows by.
+// already scaled box — and shrunk by the ratio it overflows by (see below).
 //
 // Before it shrinks anything it tries the content's other arrangements, when
 // the content has some (`layouts` > 1: the schedule can show fewer heats and
@@ -15,6 +15,13 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 // off the side of the screen. When none does it
 // goes back to the one that needs the least shrinking. Every try happens in a
 // layout effect, so the screen is only ever painted with the one it settles on.
+//
+// The width given back changes the content's height when the content reflows
+// with its width — the leaderboard's grid fits more division panels across a
+// wider box, so it gets shorter. Shrinking by the ratio measured at natural
+// width then leaves the bottom of the screen empty and the type smaller than
+// it needs to be (at a 150% board zoom, smaller than at 100%). So the ratio is
+// searched for: the largest that fits once the width is given back.
 //
 // v1's own note on why this is `transform` and not `zoom`: the gym displays run
 // webOS 4.x, which is Chrome 56. `transform-origin` and the width compensation
@@ -64,11 +71,11 @@ export function useScaleToFit(deps: readonly unknown[], layouts = 1): {
     const pad = getComputedStyle(container)
     const available = container.clientHeight - (parseFloat(pad.paddingTop) || 0) - (parseFloat(pad.paddingBottom) || 0)
     const natural = content.scrollHeight
-    const ratio = natural > available ? available / natural : 1
     // An arrangement wider than the screen (a panel spanning more of a grid's
     // tracks than it has) would be cut off at the side, which shrinking does
     // not cure: it is never kept.
     const sideways = content.scrollWidth > content.clientWidth + 1
+    const ratio = natural > available && !sideways ? fittedRatio(content, available, natural) : 1
 
     if (searching.current) {
       ratios.current[layout] = sideways ? 0 : ratio
@@ -87,6 +94,7 @@ export function useScaleToFit(deps: readonly unknown[], layouts = 1): {
       }
     }
 
+    content.style.width = ''
     if (ratio < 1) {
       content.style.transform = `scale(${ratio})`
       content.style.transformOrigin = 'top left'
@@ -97,4 +105,25 @@ export function useScaleToFit(deps: readonly unknown[], layouts = 1): {
   }, [...deps, layout, layouts])
 
   return { containerRef, contentRef, layout }
+}
+
+/** How far content taller than `available` has to shrink, with the width the
+    shrink takes given back, as it will be when drawn. The plain ratio at
+    natural width always fits (a wider box is never taller); a wider box can be
+    shorter, so a larger ratio may fit too. Halved down to under a percent:
+    each try is one layout of the board. Leaves the width set; the caller
+    clears or replaces it. */
+function fittedRatio(content: HTMLElement, available: number, natural: number): number {
+  const fits = (r: number) => {
+    content.style.width = `${(100 / r).toFixed(4)}%`
+    return content.scrollHeight * r <= available && content.scrollWidth <= content.clientWidth + 1
+  }
+  let lo = available / natural
+  let hi = 1
+  for (let i = 0; i < 7; i++) {
+    const mid = (lo + hi) / 2
+    if (fits(mid)) lo = mid
+    else hi = mid
+  }
+  return lo
 }

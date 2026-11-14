@@ -1,4 +1,4 @@
-import { Heading, Text } from '@mond-design-system/react'
+import { Button, Heading, Text } from '@mond-design-system/react'
 import { useEffect, useMemo, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useParams } from 'react-router'
@@ -13,11 +13,13 @@ import { TvScheduleView } from '../components/TvScheduleView/TvScheduleView'
 import { leaderboardLayoutCount } from '../leaderboardLayouts'
 import { SCHEDULE_LAYOUTS } from '../scheduleLayouts'
 import { useScaleToFit } from '../useScaleToFit'
+import { TV_ZOOM_MAX, TV_ZOOM_MIN, useTvZoom } from '../useTvZoom'
 import styles from './TvPage.module.css'
 
 // v1: src/app/[slug]/TV/page.tsx. The screen on the gym wall. Nobody presses
-// anything on it, so it turns itself between the two halves of the board and
-// reads on a timer.
+// anything on it once it is up, so it turns itself between the two halves of
+// the board and reads on a timer. The one control is the zoom in its bar, for
+// whoever sets the screen up (useTvZoom.ts).
 
 /** Seconds on each half before turning, until the competition's own setting
     (Setup → TV Display, served with the leaderboard) has been read. */
@@ -44,6 +46,7 @@ export function TvPage() {
   const { slug = '' } = useParams()
   const [view, setView] = useState<View>('schedule')
   const scanTo = qrTarget(slug)
+  const { zoom, zoomIn, zoomOut } = useTvZoom()
 
   const { data: opsData, error: opsError } = useOps<OpsData>(slug)
   const { data: lbData, error: lbError } = useLeaderboard(slug)
@@ -71,18 +74,28 @@ export function TvPage() {
   // Fitted again whenever what is on screen changes: the half that is up, and
   // the reads that half is drawn from — ops and walkout ticks for the
   // schedule, standings for the leaderboard. A read for the other half does
-  // not touch the screen, so it does not start a fit. Each half has
+  // not touch the screen, so it does not start a fit. Nor does a new zoom: the
+  // board is redrawn larger or smaller and has to be fitted again. Each half has
   // arrangements to try before anything is shrunk (scheduleLayouts.ts,
   // leaderboardLayouts.ts).
   const onSchedule = view === 'schedule'
   const { containerRef, contentRef, layout } = useScaleToFit(
-    [view, onSchedule ? opsData : lbData, onSchedule ? checksData : null],
+    [view, onSchedule ? opsData : lbData, onSchedule ? checksData : null, zoom],
     onSchedule ? SCHEDULE_LAYOUTS.length : leaderboardLayoutCount(lbData),
   )
 
+  // CSS `zoom` rather than the type scale alone, so the cards' padding, the
+  // gaps, the QR code and the badges grow with the type and the screen keeps
+  // its proportions. It goes on the bar and the board, not on the stage: the
+  // stage is 100vh tall, and a zoomed 100vh is taller than the screen. Zoom
+  // changes the room each card takes, so the board is fitted again (above) and
+  // may move to fewer, wider heats or panels. The corral call is left alone:
+  // it already fills the screen at its own size.
+  const zoomed = zoom === 1 ? undefined : { zoom }
+
   return (
     <div className={styles.stage}>
-      <header className={styles.bar}>
+      <header className={styles.bar} style={zoomed}>
         {/* The heading changes with nobody acting, which is what a live region
             is for — the one thing on this screen an assistive reader cannot
             work out by looking again. */}
@@ -97,6 +110,11 @@ export function TvPage() {
           </div>
         </div>
         <div className={styles.aside}>
+          <div className={styles.zoom} role="group" aria-label="Screen size">
+            <Button variant="ghost" size="lg" className={styles.zoomButton} aria-label="Smaller" onClick={zoomOut} disabled={zoom <= TV_ZOOM_MIN}>−</Button>
+            <Text as="span" tone="muted" className={styles.zoomLevel} aria-live="polite">{Math.round(zoom * 100)}%</Text>
+            <Button variant="ghost" size="lg" className={styles.zoomButton} aria-label="Larger" onClick={zoomIn} disabled={zoom >= TV_ZOOM_MAX}>+</Button>
+          </div>
           <Text as="span" tone="muted" className={styles.scan}>Scan for Comp Info →</Text>
           {/* Drawn in currentColor rather than v1's pair of hex literals: a
               var() is not reliable in an SVG presentation attribute, and
@@ -118,7 +136,7 @@ export function TvPage() {
         </div>
       </header>
 
-      <main ref={containerRef} className={styles.main}>
+      <main ref={containerRef} className={styles.main} style={zoomed}>
         <div ref={contentRef} data-testid="tv-content">
           {view === 'schedule'
             ? <TvScheduleView data={opsData} error={opsError} checks={athleteChecks} layout={layout} />

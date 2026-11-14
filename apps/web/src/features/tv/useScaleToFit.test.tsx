@@ -145,3 +145,27 @@ it('passes over an arrangement that runs off the side of the screen', () => {
   expect(drawnLayout()).toBe(2)
   expect(content().style.transform).toBe('')
 })
+
+// The leaderboard's grid fits more panels across a wider box, so the width the
+// shrink gives back makes it shorter. The ratio measured at natural width
+// would leave the bottom of the screen empty; the one kept is the largest
+// that fits at the width it is drawn at.
+it('shrinks no further than it must once the width is given back', () => {
+  const { rerender } = render(<Probe tick={0} />)
+  Object.defineProperty(screen.getByTestId('container'), 'clientHeight', { value: 1000, configurable: true })
+  // 2000 tall at natural width, 1200 once the box is at least 125% wide.
+  Object.defineProperty(screen.getByTestId('content'), 'scrollHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      const width = parseFloat(this.style.width) || 100
+      return width >= 125 ? 1200 : 2000
+    },
+  })
+  rerender(<Probe tick={1} />)
+  const scale = Number(content().style.transform.match(/scale\((.*)\)/)![1])
+  // 1000/1200 fits at 120% wide but that is under 125%; 0.8 (125%) is the
+  // largest ratio that fits. The plain 1000/2000 would have been 0.5.
+  expect(scale).toBeGreaterThan(0.79)
+  expect(scale).toBeLessThanOrEqual(0.8)
+  expect(parseFloat(content().style.width)).toBeGreaterThanOrEqual(125)
+})

@@ -329,3 +329,40 @@ it('puts the corral call over both the schedule and the leaderboard', async () =
   expect(screen.getByRole('alert')).toHaveTextContent(call)
   expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
 })
+
+// Sized for the room by whoever sets the screen up, and kept on that screen.
+it('zooms the bar and the board with + and −, and remembers it', async () => {
+  window.localStorage.removeItem('comphq:tvZoom')
+  const { unmount } = mount()
+  await drawn()
+  const board = screen.getByRole('main')
+  const bar = screen.getByRole('banner')
+  expect(screen.getByText('100%')).toBeInTheDocument()
+  expect(board.style.zoom).toBe('')
+
+  act(() => { screen.getByRole('button', { name: 'Larger' }).click() })
+  act(() => { screen.getByRole('button', { name: 'Larger' }).click() })
+  expect(screen.getByText('120%')).toBeInTheDocument()
+  expect(board.style.zoom).toBe('1.2')
+  expect(bar.style.zoom).toBe('1.2')
+
+  act(() => { screen.getByRole('button', { name: 'Smaller' }).click() })
+  expect(screen.getByText('110%')).toBeInTheDocument()
+  expect(window.localStorage.getItem('comphq:tvZoom')).toBe('1.1')
+
+  unmount()
+  mount()
+  await drawn()
+  expect(screen.getByText('110%')).toBeInTheDocument()
+  expect(screen.getByRole('main').style.zoom).toBe('1.1')
+  window.localStorage.removeItem('comphq:tvZoom')
+})
+
+it('stops at 50% and 200%', async () => {
+  window.localStorage.setItem('comphq:tvZoom', '0.5')
+  mount()
+  await drawn()
+  expect(screen.getByRole('button', { name: 'Smaller' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Larger' })).toBeEnabled()
+  window.localStorage.removeItem('comphq:tvZoom')
+})
