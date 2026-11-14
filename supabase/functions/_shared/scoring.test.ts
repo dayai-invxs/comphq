@@ -88,6 +88,26 @@ describe('calcCumulativePoints', () => {
     const totals = calcCumulativePoints(athletes, [10, 11])
     expect(totals.get(1)).toBe(8)
   })
+
+  // A highest-score competition seeds on points: it passes minus what each
+  // place is worth, so the athlete with more points sorts first.
+  it('counts each place through seedValue when given one', () => {
+    const score = (workoutId: number, points: number) => ({
+      id: workoutId, athleteId: 1, workoutId, rawScore: 0, tiebreakRawScore: null, points,
+      partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null,
+    })
+    const athletes = [{
+      id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null, withdrawn: false, externalId: null, gender: null,
+      scores: [score(10, 1), score(11, 3)],
+    }] as AthleteWithScore[]
+    const seen: Array<[number, number]> = []
+    const totals = calcCumulativePoints(athletes, [10, 11], (place, workoutId) => {
+      seen.push([place, workoutId])
+      return -(110 - place * 10)
+    })
+    expect(seen).toEqual([[1, 10], [3, 11]])
+    expect(totals.get(1)).toBe(-(100 + 80))
+  })
 })
 
 describe('assignHeats', () => {

@@ -135,6 +135,8 @@ export const workout = pgTable('Workout', {
   partBScoreType: text('partBScoreType').notNull().default('time'),
   halfWeight: boolean('halfWeight').notNull().default(false),
   doubleWeight: boolean('doubleWeight').notNull().default(false),
+  /** Highest-score competitions: points fewer per place in this workout. Null: the competition's. */
+  pointsStep: integer('pointsStep'),
   /** Kept off the public Workouts screen until the workout is active. */
   secret: boolean('secret').notNull().default(false),
   /** A knockout tournament: rounds of heats, top N per heat advance, last round is the final. */

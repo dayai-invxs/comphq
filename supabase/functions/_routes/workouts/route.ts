@@ -56,6 +56,7 @@ export async function POST(req: Request) {
         partBScoreType: d.partBScoreType ?? 'time',
         halfWeight: d.halfWeight === true,
         doubleWeight: d.doubleWeight === true,
+        pointsStep: d.pointsStep ?? null,
         secret: d.secret === true,
         knockout: d.knockout === true,
         knockoutRounds: d.knockout === true ? (d.knockoutRounds ?? 2) : null,

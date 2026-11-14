@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, score, workout } from '@/db/schema'
 import { calcCumulativePoints, type AthleteWithScore } from '@/lib/scoring'
+import { loadSeedValue } from '@/lib/scoringSettings'
 import {
   advancers, buildRound, currentRound, isConsolation, placings, roundOf,
   type KnockoutLane, type KnockoutWorkout,
@@ -44,7 +45,7 @@ export async function loadLanes(workoutId: number): Promise<KnockoutLane[]> {
 
 /**
  * Round 1: everyone not withdrawn, each division seeded by the overall
- * leaderboard (completed workouts' points, fewest first), registration order
+ * leaderboard (completed workouts' places, best first), registration order
  * where nothing separates them. Replaces any heats the workout had.
  */
 export async function startTournament(wk: KnockoutWorkoutRow): Promise<number> {
@@ -64,6 +65,7 @@ export async function startTournament(wk: KnockoutWorkoutRow): Promise<number> {
   const points = calcCumulativePoints(
     athletes.map((a) => ({ ...a, scores: scoresOf.get(a.id) ?? [] })) as unknown as AthleteWithScore[],
     completedIds,
+    await loadSeedValue(wk.competitionId),
   )
   const ranked = (id: number) => (scoresOf.has(id) ? points.get(id) ?? Infinity : Infinity)
 

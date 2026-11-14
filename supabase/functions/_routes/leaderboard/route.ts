@@ -8,6 +8,8 @@ import { DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/compet
 import { compareResults } from '@/lib/scoring'
 import { skippedPlaces } from '@/lib/skippedPlace'
 import { workoutWeight } from '@/lib/workoutWeight'
+import { compareTotals, higherWins, workoutPoints } from '@/lib/pointsScale'
+import { loadScoring } from '@/lib/scoringSettings'
 
 type AthleteRow = {
   id: number
@@ -79,6 +81,10 @@ export async function GET(req: Request) {
   // A team shows its members under its name; an individual has none.
   const members = await memberNamesByAthlete(athletes.map((a) => a.id))
 
+  // Rank (lowest total wins) or points (highest wins): lib/pointsScale.ts.
+  const scoring = await loadScoring(competition.id)
+  const pointsMode = higherWins(scoring)
+
   const scoreMap = new Map<string, { points: number; rawScore: number; capped: boolean; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null; knockoutLabel: string | null }>()
   for (const s of scores) {
     if (s.points != null) {
@@ -104,10 +110,16 @@ export async function GET(req: Request) {
   const skippedB = skippedPlaces(visibleWorkouts, divisionsOf, (a, w) => scoreMap.get(`${a}-${w}`)?.partBPoints)
 
   type WorkoutScore = {
+    /** The PLACE (Part A). Highest-score boards turn it into `awarded`. */
     points: number; rawScore: number; display: string; tiebreakDisplay: string | null; partBPoints: number | null
     /** No score in a finished workout: placed last, not ranked by a result. */
     skipped?: true
+    /** Highest-score boards only: the points this result is worth, Part B
+        included, before half/double weight. */
+    awarded?: number
   }
+  const awarded = (wo: (typeof visibleWorkouts)[number], place: number, partB: number | null) =>
+    workoutPoints(place, wo.partBEnabled ? partB : null, scoring, wo.pointsStep)
 
   const entries = athletes.map((a) => {
     let totalPoints = 0
@@ -117,19 +129,23 @@ export async function GET(req: Request) {
       const skipped = entry ? null : skippedA(a.id, wo.id)
       if (skipped != null) {
         const partB = wo.partBEnabled ? skippedB(a.id, wo.id) : null
-        const pts = skipped + (partB ?? 0)
+        const pts = awarded(wo, skipped, partB)
         totalPoints += pts * workoutWeight(wo)
-        workoutScores[wo.id] = { points: skipped, rawScore: 0, display: 'No score', tiebreakDisplay: null, partBPoints: partB, skipped: true }
+        workoutScores[wo.id] = {
+          points: skipped, rawScore: 0, display: 'No score', tiebreakDisplay: null, partBPoints: partB, skipped: true,
+          ...(pointsMode ? { awarded: pts } : {}),
+        }
       } else if (entry) {
         // When partBEnabled, both Part A and Part B points count toward total
-        const pts = wo.partBEnabled && entry.partBPoints != null
-          ? entry.points + entry.partBPoints
-          : entry.points
+        const pts = awarded(wo, entry.points, entry.partBPoints)
         totalPoints += pts * workoutWeight(wo)
         const tiebreakDisplay = !wo.partBEnabled && entry.tiebreakEnabled && entry.tiebreakRawScore != null
           ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
           : null
-        workoutScores[wo.id] = { points: entry.points, rawScore: entry.rawScore, display: entry.knockoutLabel ?? formatScore(entry.rawScore, entry.scoreType, entry.capped), tiebreakDisplay, partBPoints: entry.partBPoints }
+        workoutScores[wo.id] = {
+          points: entry.points, rawScore: entry.rawScore, display: entry.knockoutLabel ?? formatScore(entry.rawScore, entry.scoreType, entry.capped), tiebreakDisplay, partBPoints: entry.partBPoints,
+          ...(pointsMode ? { awarded: pts } : {}),
+        }
       } else {
         workoutScores[wo.id] = null
       }
@@ -140,11 +156,13 @@ export async function GET(req: Request) {
   // A finished knockout flagged as deciding the competition: its placings are
   // the standings. Everyone it placed takes their placing as their total and
   // ranks on that alone; anyone it did not place follows, ranked as before.
-  // Placings are per division, and so is every table that reads this.
+  // Placings are per division, and so is every table that reads this. On a
+  // highest-score board the total stays the points earned (a placing of 1
+  // shown as a total would read as last); the order still follows the placing.
   const deciding = [...visibleWorkouts].reverse()
     .find((w) => w.knockout && w.knockoutDecides && w.status === 'completed') ?? null
   const decidingWorkoutId = deciding?.id ?? null
-  if (deciding) {
+  if (deciding && !pointsMode) {
     for (const e of entries) {
       const placed = e.workoutScores[deciding.id]
       if (placed && !placed.skipped) e.totalPoints = placed.points
@@ -169,7 +187,7 @@ export async function GET(req: Request) {
     const bHas = Object.values(b.workoutScores).some((v) => v !== null)
     if (aHas && !bHas) return -1
     if (!aHas && bHas) return 1
-    if (a.totalPoints !== b.totalPoints) return a.totalPoints - b.totalPoints
+    if (a.totalPoints !== b.totalPoints) return compareTotals(a.totalPoints, b.totalPoints, scoring)
     // Tied on total points: compare rank distributions — athlete with more 1st places wins,
     // then more 2nd places, etc.
     const ranksPresent = [...new Set([
@@ -219,6 +237,8 @@ export async function GET(req: Request) {
       /** The TV board's pace; it reads it here, with the other TV settings. */
       tvSecondsPerScreen: tvSecondsPerScreen(tvSecondsPerScreenRaw),
       divisions: divisionsRaw,
+      /** How totals are made and which way they win. */
+      scoring: { system: scoring.system, ...scoring.scale },
     },
     { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } },
   )

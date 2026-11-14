@@ -19,6 +19,11 @@ export interface CompetitionSettings {
   judgeMaxConsecutive?: number
   /** Shown in the comphq.pro home page list. Missing means listed. */
   listed?: boolean
+  /** "Lowest score - point by rank" ('rank', the default) or "Highest score"
+      ('points'): 1st gets pointsFirst, each place pointsStep fewer, down to 0. */
+  scoringSystem?: 'rank' | 'points'
+  pointsFirst?: number
+  pointsStep?: number
 }
 
 export function useSettings(slug: string) {

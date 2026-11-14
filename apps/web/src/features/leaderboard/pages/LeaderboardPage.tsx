@@ -18,7 +18,7 @@ import { queryKeys } from '@/api/queryKeys'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { PageFrame } from '@/components/PageFrame/PageFrame'
 import { ScoreCell } from '@/components/ScoreCell/ScoreCell'
-import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
+import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere, totalsRule } from '@/lib/standings'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useRealtimeInvalidation } from '@/lib/useRealtimeInvalidation'
 import styles from './LeaderboardPage.module.css'
@@ -218,7 +218,7 @@ export function LeaderboardPage() {
         !isPending && decided
           ? decided
           : !isPending && workouts.length > 0
-          ? `${workouts.length} workout${workouts.length !== 1 ? 's' : ''} · Lower points = better`
+          ? `${workouts.length} workout${workouts.length !== 1 ? 's' : ''} · ${totalsRule(data?.scoring)}`
           : undefined
       }
       actions={

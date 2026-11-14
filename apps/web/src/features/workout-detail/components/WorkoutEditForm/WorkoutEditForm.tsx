@@ -21,6 +21,7 @@ import { SCORE_TYPE_OPTIONS } from '@/lib/scoreTypes'
 import { BEST_LANE_HINT, tiebreakPatch } from '@/lib/tiebreakBestLane'
 import type { Workout } from '../../useWorkoutDetail'
 import { KnockoutFields, knockoutPatch, type KnockoutSettings } from '@/components/KnockoutFields/KnockoutFields'
+import { POINTS_MAX, RANK_SCORING, higherWins, placePoints, type Scoring } from '@/lib/pointsScale'
 import styles from './WorkoutEditForm.module.css'
 
 // v1: src/components/workout-detail/WorkoutEditForm.tsx. Every setting a
@@ -96,11 +97,21 @@ interface Props {
   workout: Workout
   loading: boolean
   locations: WorkoutLocation[]
+  /** The competition's scoring. A highest-score one lets a workout set its own gap between places. */
+  scoring?: Scoring
   onSave: (patch: Record<string, unknown>) => Promise<boolean>
   onCancel: () => void
 }
 
-export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel }: Props) {
+/** The box's text as a step: blank is the competition's (null), anything
+    else a whole number in range, or undefined when it is not one. */
+function parseStep(raw: string): number | null | undefined {
+  if (raw.trim() === '') return null
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 0 && n <= POINTS_MAX ? n : undefined
+}
+
+export function WorkoutEditForm({ workout, loading, locations, scoring = RANK_SCORING, onSave, onCancel }: Props) {
   const [name, setName] = useState(workout.name)
   const [description, setDescription] = useState(workout.description ?? '')
   const [number, setNumber] = useState(String(workout.number))
@@ -128,9 +139,16 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
   const [doubleWeight, setDoubleWeight] = useState(workout.doubleWeight ?? false)
   const [secret, setSecret] = useState(workout.secret ?? false)
   const [locationId, setLocationId] = useState(workout.locationId ? String(workout.locationId) : '')
+  const [pointsStep, setPointsStep] = useState(workout.pointsStep != null ? String(workout.pointsStep) : '')
+  const highest = higherWins(scoring)
+  const step = parseStep(pointsStep)
+  const stepPreview = [1, 2, 3, 4]
+    .map((p) => placePoints(p, scoring, step ?? null))
+    .join(', ')
 
   async function submit(e: FormEvent) {
     e.preventDefault()
+    if (highest && step === undefined) return
     const ok = await onSave({
       name: name.trim(),
       description: description.trim() || null,
@@ -151,6 +169,8 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
       doubleWeight,
       secret,
       locationId: locationId ? Number(locationId) : null,
+      // Only a highest-score competition shows the box; elsewhere it is left alone.
+      ...(highest ? { pointsStep: step } : {}),
     })
     if (ok) onCancel()
   }
@@ -271,6 +291,26 @@ export function WorkoutEditForm({ workout, loading, locations, onSave, onCancel 
             title="Double Weight"
             subtitle="This workout counts at 200% on the overall leaderboard"
           />
+
+          {highest && (
+            <Field
+              label="Points Fewer Each Place"
+              hint={step === undefined
+                ? `A whole number from 0 to ${POINTS_MAX}, or blank`
+                : `Blank uses the competition's ${scoring.scale.step}. Here: 1st–4th get ${stepPreview}…`}
+              error={step === undefined ? 'Not a whole number' : undefined}
+              className={styles.wide}
+            >
+              <Input
+                type="number"
+                min={0}
+                max={POINTS_MAX}
+                value={pointsStep}
+                placeholder={String(scoring.scale.step)}
+                onChange={(e) => setPointsStep(e.target.value)}
+              />
+            </Field>
+          )}
 
           <Toggle
             on={secret}

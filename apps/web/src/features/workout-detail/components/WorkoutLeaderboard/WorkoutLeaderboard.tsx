@@ -1,6 +1,7 @@
 import { Card, CardBody, CardHeader, DataTable, Heading, Inline, Stack, Text, cx } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
 import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { RANK_SCORING, higherWins, workoutPoints, type Scoring } from '@/lib/pointsScale'
 import type { Score, Workout } from '../../useWorkoutDetail'
 import styles from './WorkoutLeaderboard.module.css'
 
@@ -17,7 +18,8 @@ const placingTone = (points: number | null) =>
 const totalTone = (total: number) =>
   total <= 2 ? ('warning' as const) : total <= 6 ? ('accent' as const) : ('primary' as const)
 
-const totalPoints = (s: Score, partBEnabled: boolean) =>
+/** The places added: what ranks the table and colours the podium. */
+const placeTotal = (s: Score, partBEnabled: boolean) =>
   (s.points ?? 0) + (partBEnabled ? (s.partBPoints ?? 0) : 0)
 
 /** The standings one division at a time, in running order, the way placings
@@ -37,10 +39,16 @@ function byDivision(scores: Score[]) {
     .sort((a, b) => a.order - b.order || (a.name ?? '').localeCompare(b.name ?? ''))
 }
 
-export function WorkoutLeaderboard({ workout }: { workout: Workout }) {
+export function WorkoutLeaderboard({ workout, scoring = RANK_SCORING }: { workout: Workout; scoring?: Scoring }) {
+  // The Points column: places added on a rank-scored competition, the points
+  // those places are worth on a highest-score one (before half/double weight).
+  const points = (s: Score) =>
+    workoutPoints(s.points ?? 0, workout.partBEnabled ? s.partBPoints : null, scoring, workout.pointsStep)
   const ranked = [...workout.scores]
     .filter((s) => s.points != null)
-    .sort((a, b) => totalPoints(a, workout.partBEnabled) - totalPoints(b, workout.partBEnabled))
+    .sort((a, b) => higherWins(scoring)
+      ? points(b) - points(a) || placeTotal(a, workout.partBEnabled) - placeTotal(b, workout.partBEnabled)
+      : placeTotal(a, workout.partBEnabled) - placeTotal(b, workout.partBEnabled))
   const groups = byDivision(ranked)
 
   const tiebreak = (s: Score) =>
@@ -109,8 +117,7 @@ export function WorkoutLeaderboard({ workout }: { workout: Workout }) {
       key: 'points',
       header: 'Points',
       cell: (s) => {
-        const total = totalPoints(s, workout.partBEnabled)
-        return <Text as="span" variant="label" tone={totalTone(total)}>{total}</Text>
+        return <Text as="span" variant="label" tone={totalTone(placeTotal(s, workout.partBEnabled))}>{points(s)}</Text>
       },
     },
   ]

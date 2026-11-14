@@ -80,6 +80,22 @@ describe('PATCH /api/settings', () => {
     expect((valuesCall!.args[0] as { value: string }).value).toBe('false')
   })
 
+  it('saves the scoring system and its points', async () => {
+    await PATCH(patchReq({ scoringSystem: 'points', pointsFirst: 50, pointsStep: 5 }))
+    const saved = (key: string) => (mock.calls.find(
+      (c) => c.method === 'values' && (c.args[0] as { key?: string }).key === key,
+    )!.args[0] as { value: string }).value
+    expect(saved('scoringSystem')).toBe('points')
+    expect(saved('pointsFirst')).toBe('50')
+    expect(saved('pointsStep')).toBe('5')
+  })
+
+  it('refuses an unknown scoring system and a 1st place worth nothing', async () => {
+    expect((await PATCH(patchReq({ scoringSystem: 'golf' }))).status).toBe(400)
+    expect((await PATCH(patchReq({ pointsFirst: 0 }))).status).toBe(400)
+    expect((await PATCH(patchReq({ pointsStep: -1 }))).status).toBe(400)
+  })
+
   it('saves the TV pace', async () => {
     await PATCH(patchReq({ tvSecondsPerScreen: 20 }))
     const valuesCall = mock.calls.find(

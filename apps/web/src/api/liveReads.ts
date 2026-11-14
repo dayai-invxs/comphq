@@ -34,6 +34,9 @@ export type WorkoutScore = {
   partBPoints?: number | null
   /** No score in a finished workout: placed last in it, shown as "No score". */
   skipped?: true
+  /** Highest-score competitions only: the points this place is worth, Part B
+      included, before half/double weight. `points` stays the place. */
+  awarded?: number
 } | null
 export type LeaderboardEntry = {
   athleteId: number
@@ -58,6 +61,8 @@ export type LeaderboardData = {
   /** How long the TV shows each screen before turning. */
   tvSecondsPerScreen?: number
   divisions?: { name: string; order: number }[]
+  /** How totals are made. Absent from functions older than the setting: rank. */
+  scoring?: { system: 'rank' | 'points'; first: number; step: number }
 }
 
 /** Standings. Slower than the operational screens: a placing only moves when

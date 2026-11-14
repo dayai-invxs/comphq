@@ -6,6 +6,7 @@ import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin } 
 import { DEFAULT_JUDGE_PASSWORD, DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/competitionDefaults'
 import { parseJson } from '@/lib/parseJson'
 import { SettingsPatch } from '@/lib/schemas'
+import { scoringFromSettings } from '@/lib/pointsScale'
 
 async function getSetting(competitionId: number, key: string, defaultValue: string): Promise<string> {
   const rows = await db
@@ -39,6 +40,15 @@ async function readSettings(competitionId: number) {
     getSetting(competitionId, 'listed', 'true'),
     getSetting(competitionId, 'tvSecondsPerScreen', ''),
   ])
+  const scoringRaw = await Promise.all([
+    getSetting(competitionId, 'scoringSystem', ''),
+    getSetting(competitionId, 'pointsFirst', ''),
+    getSetting(competitionId, 'pointsStep', ''),
+  ])
+  const [scoringSystemRaw, pointsFirstRaw, pointsStepRaw] = scoringRaw
+  const scoring = scoringFromSettings((key) => ({
+    scoringSystem: scoringSystemRaw, pointsFirst: pointsFirstRaw, pointsStep: pointsStepRaw,
+  })[key])
   let tvLeaderboardPercentages: Record<string, number> = {}
   try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw) } catch { /* ignore */ }
   let tvLeaderboardOrder: Record<string, number> = {}
@@ -55,6 +65,10 @@ async function readSettings(competitionId: number) {
     /** Shown in the comphq.pro home page list. An unlisted competition still
         opens for anyone with its link. */
     listed: listed !== 'false',
+    /** 'rank' (lowest total wins) unless the competition chose 'points' (highest wins). */
+    scoringSystem: scoring.system,
+    pointsFirst: scoring.scale.first,
+    pointsStep: scoring.scale.step,
   }
 }
 
@@ -111,6 +125,15 @@ export async function PATCH(req: Request) {
     }
     if (d.listed !== undefined) {
       upserts.push(upsertSetting(competition.id, 'listed', String(d.listed)))
+    }
+    if (d.scoringSystem !== undefined) {
+      upserts.push(upsertSetting(competition.id, 'scoringSystem', d.scoringSystem))
+    }
+    if (d.pointsFirst !== undefined) {
+      upserts.push(upsertSetting(competition.id, 'pointsFirst', String(d.pointsFirst)))
+    }
+    if (d.pointsStep !== undefined) {
+      upserts.push(upsertSetting(competition.id, 'pointsStep', String(d.pointsStep)))
     }
     await Promise.all(upserts)
 

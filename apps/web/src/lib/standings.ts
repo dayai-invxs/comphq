@@ -1,4 +1,4 @@
-import type { LeaderboardEntry } from '@/api/liveReads'
+import type { LeaderboardData, LeaderboardEntry } from '@/api/liveReads'
 
 // How a standings table groups and ranks what the API served. v1 had this
 // twice — once in src/app/[slug]/leaderboard/page.tsx and once in
@@ -54,12 +54,14 @@ export function sameEverywhere(
       whatever they did before it. */
   decidingWorkoutId?: number | null,
 ): boolean {
-  if (a.totalPoints !== b.totalPoints) return false
   if (decidingWorkoutId != null) {
+    // Placed by the knockout: the placing alone decides, since a highest-score
+    // board keeps each athlete's points as their total.
     const pa = a.workoutScores[decidingWorkoutId]?.points ?? null
     const pb = b.workoutScores[decidingWorkoutId]?.points ?? null
     if (pa != null || pb != null) return pa === pb
   }
+  if (a.totalPoints !== b.totalPoints) return false
   return workoutIds.every((id) => (a.workoutScores[id]?.points ?? null) === (b.workoutScores[id]?.points ?? null))
 }
 
@@ -81,6 +83,11 @@ export function rankRows<T>(
 export function decidedBy(workouts: { id: number; number: number }[], decidingWorkoutId: number | null | undefined): string | null {
   const w = decidingWorkoutId != null ? workouts.find((x) => x.id === decidingWorkoutId) : undefined
   return w ? `Final standings · decided by the Event ${w.number} knockout` : null
+}
+
+/** The board's rule under its title: which way a total wins. */
+export function totalsRule(scoring: LeaderboardData['scoring']): string {
+  return scoring?.system === 'points' ? 'Higher points = better' : 'Lower points = better'
 }
 
 /** halfWeight halves a workout's points, so a total can carry a .5. */

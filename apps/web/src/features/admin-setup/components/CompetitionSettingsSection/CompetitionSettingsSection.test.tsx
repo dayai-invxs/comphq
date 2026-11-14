@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { CompetitionSettingsSection } from './CompetitionSettingsSection'
+import { CompetitionSettingsSection, scalePreview } from './CompetitionSettingsSection'
 
 // v1: the Competition Settings section of src/app/[slug]/admin/setup/page.tsx.
 // Four settings, each written the moment it is changed — there is no Save.
@@ -156,4 +156,38 @@ it('leaves a switch where the server has it when the write is refused', async ()
   fireEvent.click(bib())
   await waitFor(() => expect(onPatch).toHaveBeenCalled())
   expect(bib()).toBeChecked()
+})
+
+it('starts on the rank system with no points boxes', () => {
+  draw()
+  expect(screen.getByRole('combobox', { name: 'Scoring System' })).toHaveValue('rank')
+  expect(screen.queryByRole('spinbutton', { name: '1st Place Points' })).not.toBeInTheDocument()
+})
+
+it('switches to Highest score as it is picked', () => {
+  draw()
+  fireEvent.change(screen.getByRole('combobox', { name: 'Scoring System' }), { target: { value: 'points' } })
+  expect(onPatch).toHaveBeenCalledWith({ scoringSystem: 'points' })
+})
+
+it('saves a points box on blur, and only a usable number', () => {
+  draw({ scoringSystem: 'points', pointsScale: { first: 100, step: 10 } })
+  const step = screen.getByRole('spinbutton', { name: 'Points Fewer Each Place' })
+  fireEvent.change(step, { target: { value: '5' } })
+  fireEvent.blur(step)
+  expect(onPatch).toHaveBeenCalledWith({ pointsStep: 5 })
+
+  onPatch.mockClear()
+  const first = screen.getByRole('spinbutton', { name: '1st Place Points' })
+  fireEvent.change(first, { target: { value: '0' } })
+  fireEvent.blur(first)
+  expect(onPatch).not.toHaveBeenCalled()
+  expect(first).toHaveValue(100)
+})
+
+it('previews the scale down to the place where it stops falling', () => {
+  expect(scalePreview({ first: 100, step: 10 })).toBe('1st 100 · 2nd 90 · 3rd 80 · … · 10th 10 · 11th+ 0')
+  expect(scalePreview({ first: 100, step: 5 })).toBe('1st 100 · 2nd 95 · 3rd 90 · … · 20th 5 · 21st+ 0')
+  expect(scalePreview({ first: 30, step: 10 })).toBe('1st 30 · 2nd 20 · 3rd 10 · 4th+ 0')
+  expect(scalePreview({ first: 100, step: 0 })).toBe('Every place 100')
 })

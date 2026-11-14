@@ -250,3 +250,26 @@ describe('saving', () => {
     expect(props.onSave).not.toHaveBeenCalled()
   })
 })
+
+describe('points fewer each place', () => {
+  const highest = { system: 'points' as const, scale: { first: 100, step: 10 } }
+  const box = () => screen.queryByRole('spinbutton', { name: /Points Fewer Each Place/ })
+
+  it('is only there on a highest-score competition, and never sent otherwise', async () => {
+    const props = mount()
+    expect(box()).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(props.onSave).toHaveBeenCalled())
+    expect(saved(props)).not.toHaveProperty('pointsStep')
+  })
+
+  it('saves the workout’s own gap, and blank goes back to the competition’s', async () => {
+    const props = mount({ scoring: highest, workout: { ...WORKOUT, pointsStep: 5 } })
+    expect(box()).toHaveValue(5)
+    expect(screen.getByText(/1st–4th get 100, 95, 90, 85/)).toBeInTheDocument()
+    fireEvent.change(box()!, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(props.onSave).toHaveBeenCalled())
+    expect(saved(props)).toMatchObject({ pointsStep: null })
+  })
+})

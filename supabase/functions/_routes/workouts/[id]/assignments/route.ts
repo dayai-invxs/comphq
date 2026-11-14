@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, teamMember, workout } from '@/db/schema'
 import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
+import { loadSeedValue } from '@/lib/scoringSettings'
 import type { AthleteWithScore } from '@/lib/scoring'
 import { score as scoreTable } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
@@ -126,7 +127,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         .select({ id: workout.id })
         .from(workout)
         .where(sql`${workout.competitionId} = ${competition.id} AND ${workout.status} = 'completed'`)
-      cumulativePoints = calcCumulativePoints(athletes, completed.map((w) => w.id))
+      cumulativePoints = calcCumulativePoints(athletes, completed.map((w) => w.id), await loadSeedValue(competition.id))
     }
 
     const newAssignments = assignHeats(athletes, wk.lanes, {

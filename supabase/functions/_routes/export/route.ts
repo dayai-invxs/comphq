@@ -6,6 +6,8 @@ import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competit
 import { formatScore } from '@/lib/scoreFormat'
 import { skippedPlaces } from '@/lib/skippedPlace'
 import { workoutWeight } from '@/lib/workoutWeight'
+import { compareTotals, higherWins, placePoints } from '@/lib/pointsScale'
+import { loadScoring } from '@/lib/scoringSettings'
 
 function esc(val: string | number | null | undefined): string {
   const s = String(val ?? '')
@@ -62,6 +64,13 @@ export async function GET(req: Request) {
   ])
 
   const members = await memberNamesByAthlete(athletes.map((a) => a.id))
+  // Rank (a place is worth its number, lowest total wins) or points (highest
+  // wins): lib/pointsScale.ts. Places are what is stored either way.
+  const scoring = await loadScoring(competition.id)
+  const pointsMode = higherWins(scoring)
+  const worth = (w: (typeof workouts)[number], place: number) => placePoints(place, scoring, w.pointsStep)
+  const placeText = (w: (typeof workouts)[number], place: number) =>
+    pointsMode ? `#${place} ${worth(w, place)} pts` : `#${place}`
   const memberList = (id: number) => members.get(id)?.join('; ') ?? ''
 
   const divMap = new Map(divisions.map((d) => [d.id, d.name]))
@@ -127,12 +136,12 @@ export async function GET(req: Request) {
         if (!s || s.points == null) {
           const place = skipped(a.id, w.id)
           if (place == null) return 'DNS'
-          total += place * workoutWeight(w)
-          return `#${place} (DNS)`
+          total += worth(w, place) * workoutWeight(w)
+          return `${placeText(w, place)} (DNS)`
         }
-        total += s.points * workoutWeight(w)
+        total += worth(w, s.points) * workoutWeight(w)
         const display = formatScore(s.rawScore, w.scoreType, s.capped)
-        return `#${s.points} (${display})`
+        return `${placeText(w, s.points)} (${display})`
       })
       lines.push(row(
         a.name,
@@ -158,10 +167,10 @@ export async function GET(req: Request) {
       const s = scoreMap.get(scoreKey(a.id, w.id))
       const place = s && s.points != null ? null : skipped(a.id, w.id)
       if (s && s.points != null) {
-        total += s.points * workoutWeight(w)
+        total += worth(w, s.points) * workoutWeight(w)
         workoutScores[w.id] = { points: s.points, rawScore: s.rawScore, capped: s.capped }
       } else if (place != null) {
-        total += place * workoutWeight(w)
+        total += worth(w, place) * workoutWeight(w)
         workoutScores[w.id] = { points: place, rawScore: 0, capped: false, skipped: true }
       } else {
         workoutScores[w.id] = null
@@ -173,7 +182,7 @@ export async function GET(req: Request) {
   leaderboardEntries.sort((a, b) => {
     if (a.hasAny && !b.hasAny) return -1
     if (!a.hasAny && b.hasAny) return 1
-    if (a.total !== b.total) return a.total - b.total
+    if (a.total !== b.total) return compareTotals(a.total, b.total, scoring)
     for (const w of [...completedWorkouts].sort((x, y) => y.number - x.number)) {
       const as = a.workoutScores[w.id], bs = b.workoutScores[w.id]
       if (as && bs && as.points !== bs.points) return as.points - bs.points
@@ -189,13 +198,13 @@ export async function GET(req: Request) {
     if (!e.hasAny) { lines.push(row('—', e.athlete.name, e.athlete.divisionId ? (divMap.get(e.athlete.divisionId) ?? '—') : '—', ...completedWorkouts.map(() => 'DNS'), '—')); continue }
     if (i > 0 && leaderboardEntries[i - 1].hasAny) {
       const prev = leaderboardEntries[i - 1]
-      if (e.total > prev.total) rank = i + 1
+      if (e.total !== prev.total) rank = i + 1
     }
     const divName = e.athlete.divisionId ? (divMap.get(e.athlete.divisionId) ?? '—') : '—'
     const wodCols = completedWorkouts.map((w) => {
       const s = e.workoutScores[w.id]
       if (!s) return 'DNS'
-      return s.skipped ? `#${s.points} (DNS)` : `#${s.points} (${formatScore(s.rawScore, w.scoreType, s.capped)})`
+      return s.skipped ? `${placeText(w, s.points)} (DNS)` : `${placeText(w, s.points)} (${formatScore(s.rawScore, w.scoreType, s.capped)})`
     })
     lines.push(row(rank, e.athlete.name, divName, ...wodCols, Number.isInteger(e.total) ? e.total : e.total.toFixed(1)))
   }

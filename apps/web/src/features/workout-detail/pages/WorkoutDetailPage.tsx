@@ -14,6 +14,7 @@ import { useMyCompetitions } from '@/api/competitions'
 import { useLogo } from '@/api/logo'
 import { useSetScorePoints } from '@/api/scores'
 import { useSettings } from '@/api/settings'
+import { scoringOf } from '@/lib/pointsScale'
 import { useWorkoutLocations } from '@/api/workoutLocations'
 import { DataPanel } from '@/components/DataPanel/DataPanel'
 import { Notice } from '@/components/Notice/Notice'
@@ -499,6 +500,7 @@ export function WorkoutDetailPage() {
           workout={workout}
           loading={detail.loading}
           locations={locations.data ?? []}
+          scoring={scoringOf(settings.data)}
           onSave={detail.updateSettings}
           onCancel={() => setEditing(false)}
         />
@@ -675,7 +677,7 @@ export function WorkoutDetailPage() {
       )}
 
       {workout.status === 'completed' && workout.scores.length > 0 && (
-        <WorkoutLeaderboard workout={workout} />
+        <WorkoutLeaderboard workout={workout} scoring={scoringOf(settings.data)} />
       )}
 
       <ConfirmDialog<PromptKey>

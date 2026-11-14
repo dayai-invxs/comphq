@@ -5,15 +5,22 @@ import { score as scoreTable } from '@/db/schema'
 
 export type AthleteWithScore = Athlete & { scores: Score[] }
 
+/**
+ * Each athlete's seeding total over the completed workouts, LOWER = BETTER.
+ * By default a workout adds its place. `seedValue` turns a stored place into
+ * something else that sorts the same way — a highest-score competition passes
+ * minus the points the place is worth, so more points seed first.
+ */
 export function calcCumulativePoints(
   athletes: AthleteWithScore[],
-  completedWorkouts: number[]
+  completedWorkouts: number[],
+  seedValue: (place: number, workoutId: number) => number = (place) => place,
 ): Map<number, number> {
   const totals = new Map<number, number>()
   for (const athlete of athletes) {
     const total = athlete.scores
       .filter((s) => completedWorkouts.includes(s.workoutId) && s.points != null)
-      .reduce((sum, s) => sum + (s.points ?? 0), 0)
+      .reduce((sum, s) => sum + seedValue(s.points as number, s.workoutId), 0)
     totals.set(athlete.id, total)
   }
   return totals

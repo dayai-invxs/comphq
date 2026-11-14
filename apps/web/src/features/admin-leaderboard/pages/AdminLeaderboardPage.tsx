@@ -4,7 +4,7 @@ import { useParams } from 'react-router'
 import { useLeaderboard, type LeaderboardEntry } from '@/api/liveReads'
 import { useSetScorePoints } from '@/api/scores'
 import { ScoreCell } from '@/components/ScoreCell/ScoreCell'
-import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere } from '@/lib/standings'
+import { decidedBy, divisionsOf, formatTotal, hasAnyScore, rankRows, sameEverywhere, totalsRule } from '@/lib/standings'
 import styles from './AdminLeaderboardPage.module.css'
 import standings from '@/components/ScoreCell/StandingsTable.module.css'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
@@ -81,7 +81,8 @@ export function AdminLeaderboardPage() {
   function confirmer(key: CellKey, points: number | undefined) {
     return (
       <Stack gap="hairline">
-        <Text variant="meta" tone="warning">Change points?</Text>
+        {/* The cell holds the workout's place; a highest-score board turns it into points. */}
+        <Text variant="meta" tone="warning">{data?.scoring?.system === 'points' ? 'Change rank?' : 'Change points?'}</Text>
         <div className={styles.editor}>
           <Button size="sm" onClick={() => { setConfirming(null); setEditing({ ...key, value: String(points ?? '') }) }}>Yes</Button>
           <Button size="sm" variant="secondary" onClick={() => setConfirming(null)}>No</Button>
@@ -176,7 +177,7 @@ export function AdminLeaderboardPage() {
           )}
           {workouts.length > 0 && (
             <Text tone="muted">
-              Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · Lower points = better
+              Based on {workouts.length} completed workout{workouts.length !== 1 ? 's' : ''} · {totalsRule(data?.scoring)}
             </Text>
           )}
         </Stack>

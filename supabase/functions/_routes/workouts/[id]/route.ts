@@ -176,6 +176,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (d.number !== undefined) patch.number = d.number
     if (d.halfWeight !== undefined) patch.halfWeight = d.halfWeight
     if (d.doubleWeight !== undefined) patch.doubleWeight = d.doubleWeight
+    if (d.pointsStep !== undefined) patch.pointsStep = d.pointsStep
     // Turning one weight on turns the other off, so a patch naming only one
     // never leaves a workout both half and double.
     if (d.halfWeight === true) patch.doubleWeight = false

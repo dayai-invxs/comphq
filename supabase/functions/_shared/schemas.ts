@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ScoreCardSpec } from '@/lib/scoreCard'
+import { POINTS_MAX } from '@/lib/pointsScale'
 
 /**
  * Shared zod schemas for every API route's request body.
@@ -153,6 +154,8 @@ export const WorkoutCreate = z.object({
   partBScoreType: ScoreType.optional(),
   halfWeight: z.boolean().optional(),
   doubleWeight: z.boolean().optional(),
+  /** Highest-score competitions: points fewer per place here; null uses the competition's. */
+  pointsStep: NumericInt.pipe(z.number().int().min(0).max(POINTS_MAX)).nullable().optional(),
   secret: z.boolean().optional(),
   knockout: z.boolean().optional(),
   knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
@@ -184,6 +187,8 @@ export const WorkoutUpdate = z.object({
   number: NumericInt.pipe(z.number().int().positive()).optional(),
   halfWeight: z.boolean().optional(),
   doubleWeight: z.boolean().optional(),
+  /** Highest-score competitions: points fewer per place here; null uses the competition's. */
+  pointsStep: NumericInt.pipe(z.number().int().min(0).max(POINTS_MAX)).nullable().optional(),
   secret: z.boolean().optional(),
   knockout: z.boolean().optional(),
   knockoutRounds: NumericInt.pipe(z.number().int().min(1).max(10)).nullable().optional(),
@@ -294,6 +299,10 @@ export const SettingsPatch = z.object({
   judgePassword: z.string().min(1).max(100).optional(),
   judgeMaxConsecutive: z.number().int().min(1).max(20).optional(),
   listed: z.boolean().optional(),
+  /** 'rank' = lowest total wins (a place is worth its number); 'points' = highest total wins. */
+  scoringSystem: z.enum(['rank', 'points']).optional(),
+  pointsFirst: z.number().int().min(1).max(POINTS_MAX).optional(),
+  pointsStep: z.number().int().min(0).max(POINTS_MAX).optional(),
 })
 
 export const CsvImport = z.object({

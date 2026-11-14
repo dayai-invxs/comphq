@@ -128,6 +128,61 @@ describe('GET /api/leaderboard', () => {
     expect(body.halfWeightIds).toEqual([12])
   })
 
+  // "Highest score": 1st 100, 10 fewer a place, unless the workout sets its
+  // own gap (B: 5). The biggest total wins; weights multiply the points.
+  it('adds points by place and ranks the highest total first on a highest-score competition', async () => {
+    const wk = (id: number, number: number, extra: { doubleWeight?: boolean; pointsStep?: number | null }) => ({
+      id, number, name: String(number), scoreType: 'time', status: 'completed',
+      tiebreakEnabled: false, tiebreakScoreType: 'time', halfWeight: false, doubleWeight: false, pointsStep: null,
+      competitionId: 1, lanes: 10, heatIntervalSecs: 0, timeBetweenHeatsSecs: 0,
+      callTimeSecs: 0, walkoutTimeSecs: 0, startTime: null, mixedHeats: false,
+      partBEnabled: false, partBScoreType: 'time', heatStartOverrides: '{}', locationId: null,
+      knockout: false, knockoutDecides: false, ...extra,
+    })
+    const athletes = [
+      { id: 1, name: 'Alice', divisionName: 'Rx' },
+      { id: 2, name: 'Bob', divisionName: 'Rx' },
+      { id: 3, name: 'Cy', divisionName: 'Rx' },
+    ]
+    const scores = [
+      { athleteId: 1, workoutId: 10, points: 1, rawScore: 90, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 10, points: 2, rawScore: 95, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 10, points: 3, rawScore: 99, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 11, points: 1, rawScore: 80, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 11, points: 2, rawScore: 85, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 11, points: 3, rawScore: 88, tiebreakRawScore: null },
+      { athleteId: 1, workoutId: 12, points: 1, rawScore: 70, tiebreakRawScore: null },
+      { athleteId: 2, workoutId: 12, points: 2, rawScore: 75, tiebreakRawScore: null },
+      { athleteId: 3, workoutId: 12, points: 3, rawScore: 79, tiebreakRawScore: null },
+    ]
+    const workouts = [wk(10, 1, {}), wk(11, 2, { pointsStep: 5 }), wk(12, 3, { doubleWeight: true })]
+    //                5 settings,     workouts, athletes, divisions, scores, members, scoring
+    mock.queueResults([], [], [], [], [], workouts, athletes, [], scores, [], [{ key: 'scoringSystem', value: 'points' }])
+
+    const body = await (await GET(getReq())).json()
+    const by = (name: string) => body.entries.find((e: { athleteName: string }) => e.athleteName === name)
+    expect(by('Alice').totalPoints).toBe(100 + 90 + 100 * 2)
+    expect(by('Bob').totalPoints).toBe(80 + 100 + 90 * 2)
+    expect(by('Cy').totalPoints).toBe(90 + 95 + 80 * 2)
+    expect(body.entries.map((e: { athleteName: string }) => e.athleteName)).toEqual(['Alice', 'Bob', 'Cy'])
+    // The cell keeps the place and carries what it is worth.
+    expect(by('Cy').workoutScores[11]).toMatchObject({ points: 2, awarded: 95 })
+    expect(body.scoring).toEqual({ system: 'points', first: 100, step: 10 })
+  })
+
+  it('sends no awarded points on a rank-scored competition', async () => {
+    const wk = {
+      id: 10, number: 1, name: '1', scoreType: 'time', status: 'completed', tiebreakEnabled: false, tiebreakScoreType: 'time',
+      halfWeight: false, doubleWeight: false, competitionId: 1, knockout: false, knockoutDecides: false, partBEnabled: false,
+    }
+    const athletes = [{ id: 1, name: 'Alice', divisionName: 'Rx' }]
+    const scores = [{ athleteId: 1, workoutId: 10, points: 1, rawScore: 90, tiebreakRawScore: null }]
+    mock.queueResults([], [], [], [], [], [wk], athletes, [], scores)
+    const body = await (await GET(getReq())).json()
+    expect(body.entries[0].workoutScores[10]).not.toHaveProperty('awarded')
+    expect(body.scoring.system).toBe('rank')
+  })
+
   // Level on points and on countback, so the tiebreaker workout decides. Alice
   // was capped at 3 rounds + 5 reps, stored as 30005; Bob finished in 5:00,
   // stored as 300000 ms. Compared as plain numbers on a timed workout, the

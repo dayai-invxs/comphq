@@ -7,6 +7,7 @@ import {
 } from '@/api/divisions'
 import { useLogo, useRemoveLogo, useUploadLogo } from '@/api/logo'
 import { useSettings, useUpdateSettings, type SettingsPatch } from '@/api/settings'
+import { DEFAULT_POINTS_SCALE } from '@/lib/pointsScale'
 import {
   useAddVolunteerRole, useDeleteVolunteerRole, useImportVolunteerRoles, useSaveVolunteerRole,
   useVolunteerRoles,
@@ -137,6 +138,11 @@ export function SetupPage() {
                 leaderboardVisibility={settings.data.leaderboardVisibility}
                 judgePassword={settings.data.judgePassword ?? ''}
                 judgeMaxConsecutive={settings.data.judgeMaxConsecutive ?? 3}
+                scoringSystem={settings.data.scoringSystem ?? 'rank'}
+                pointsScale={{
+                  first: settings.data.pointsFirst ?? DEFAULT_POINTS_SCALE.first,
+                  step: settings.data.pointsStep ?? DEFAULT_POINTS_SCALE.step,
+                }}
                 onPatch={(next) => patch('Save setting', next)}
               />
             )}

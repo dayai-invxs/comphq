@@ -43,6 +43,8 @@ export type Workout = {
   startTime: string | null; status: string; mixedHeats: boolean; tiebreakEnabled: boolean; tiebreakScoreType: string
   partBEnabled: boolean; partBScoreType: string; halfWeight: boolean; doubleWeight?: boolean; secret?: boolean
   tiebreakBestLane?: boolean
+  /** Highest-score competitions: points fewer per place here. Null: the competition's. */
+  pointsStep?: number | null
   /** The printable score card structure; null prints a plain card. */
   scoreCard?: ScoreCardSpec | null
   knockout?: boolean; knockoutRounds?: number | null; knockoutAdvance?: number | null

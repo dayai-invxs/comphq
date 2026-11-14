@@ -20,6 +20,8 @@ export function ScoreCell({ score, onEditPoints, editLabel }: ScoreCellProps) {
   if (!score) return <Text as="span" tone="muted">DNS</Text>
 
   const placing = `#${score.points}`
+  // A highest-score board: the placing is a rank, and what it is worth sits beside it.
+  const pointsBoard = score.awarded != null
   return (
     <>
       <Text as="span" variant="label" tone={score.points === 1 ? 'warning' : score.points <= 3 ? 'accent' : 'primary'}>
@@ -31,7 +33,7 @@ export function ScoreCell({ score, onEditPoints, editLabel }: ScoreCellProps) {
               variant="plain"
               onClick={onEditPoints}
               aria-label={editLabel && `${placing} — ${editLabel}`}
-              title="Click to edit points"
+              title={pointsBoard ? 'Click to change rank' : 'Click to edit points'}
             >
               {placing}
             </Link>
@@ -41,6 +43,7 @@ export function ScoreCell({ score, onEditPoints, editLabel }: ScoreCellProps) {
       {score.partBPoints != null && (
         <Text as="span" variant="meta" tone="muted"> / B#{score.partBPoints}</Text>
       )}
+      {pointsBoard && <Text as="span" variant="meta" tone="accent"> {score.awarded} pts</Text>}
       <Text as="span" variant="meta" tone="muted"> {score.display}</Text>
       {score.tiebreakDisplay && <Text as="div" variant="meta" tone="accent">TB {score.tiebreakDisplay}</Text>}
     </>
