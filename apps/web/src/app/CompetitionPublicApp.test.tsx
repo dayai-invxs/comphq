@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderRoutes } from '@/test/harness'
 import { CompetitionPublicApp } from './CompetitionPublicApp'
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }))
+const { apiGet, useSession } = vi.hoisted(() => ({ apiGet: vi.fn(), useSession: vi.fn() }))
 vi.mock('@/lib/api', () => ({ apiGet }))
+vi.mock('@/lib/session', () => ({ useSession }))
 
 function mount(at = '/rugged') {
   return renderRoutes(
@@ -21,6 +22,7 @@ const tabBar = () => screen.getByRole('button', { name: 'More' }).closest('nav')
 beforeEach(() => {
   vi.clearAllMocks()
   apiGet.mockResolvedValue({ url: 'https://cdn.example/logo.png' })
+  useSession.mockReturnValue({ user: null, loading: false })
 })
 
 describe('CompetitionPublicApp', () => {
@@ -48,5 +50,16 @@ describe('CompetitionPublicApp', () => {
   it('names the bar with the competition’s own logo', async () => {
     mount()
     expect(await screen.findByRole('img', { name: 'Competition logo' })).toBeInTheDocument()
+  })
+
+  // Signed in or not is the session's answer, read here and handed down.
+  it('folds the staff run for a visitor and opens it for someone signed in', () => {
+    const { unmount } = mount()
+    expect(screen.getAllByRole('button', { name: 'Staff' })[0]).toHaveAttribute('aria-expanded', 'false')
+    unmount()
+    useSession.mockReturnValue({ user: { id: 'u1' }, loading: false })
+    mount()
+    expect(screen.queryByRole('button', { name: 'Staff' })).toBeNull()
+    expect(screen.getAllByRole('link', { name: 'TV Display' }).length).toBeGreaterThan(0)
   })
 })

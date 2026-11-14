@@ -4,9 +4,9 @@ import { Route } from 'react-router'
 import { currentPath, renderRoutes } from '@/test/harness'
 import { PublicShell } from './PublicShell'
 
-function mount(at = '/rugged') {
+function mount(at = '/rugged', signedIn = true) {
   return renderRoutes(
-    <Route path="/:slug" element={<PublicShell slug="rugged" brand="Rugged Rumble" />}>
+    <Route path="/:slug" element={<PublicShell slug="rugged" brand="Rugged Rumble" signedIn={signedIn} />}>
       <Route index element={<h1>Schedule</h1>} />
       <Route path="leaderboard" element={<h1>Leaderboard</h1>} />
       <Route path="workouts/:workoutId" element={<h1>Fran</h1>} />
@@ -45,15 +45,57 @@ describe('PublicShell', () => {
     mount()
     const staff = within(rail()).getByRole('group', { name: 'Staff' })
     expect(within(staff).getAllByRole('link').map((l) => l.textContent)).toEqual([
-      'Judges', 'Equipment', 'Control', 'Admin',
+      'Judges', 'Equipment', 'Control', 'Admin', 'TV Display',
     ])
+  })
+
+  // The wall board is a staff screen like the rest: last, after Admin.
+  it('links the TV display from the staff run', () => {
+    mount()
+    const staff = within(rail()).getByRole('group', { name: 'Staff' })
+    expect(within(staff).getByRole('link', { name: 'TV Display' })).toHaveAttribute('href', '/rugged/TV')
+  })
+
+  // A spectator sees one Staff row, not five screens that are not for them.
+  it('folds the staff run shut for someone not signed in', () => {
+    mount('/rugged', false)
+    const staff = within(rail()).getByRole('group', { name: 'Staff' })
+    const toggle = within(staff).getByRole('button', { name: 'Staff' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(within(staff).queryByRole('link')).toBeNull()
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(within(staff).getAllByRole('link').map((l) => l.textContent)).toEqual([
+      'Judges', 'Equipment', 'Control', 'Admin', 'TV Display',
+    ])
+
+    fireEvent.click(toggle)
+    expect(within(staff).queryByRole('link')).toBeNull()
+  })
+
+  it('folds the staff screens behind Staff in the phone sheet too', async () => {
+    mount('/rugged', false)
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
+    const sheet = await screen.findByRole('dialog', { name: 'More' })
+    expect(within(sheet).queryByRole('button', { name: 'Judges' })).toBeNull()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Staff' }))
+    fireEvent.click(within(sheet).getByRole('button', { name: 'TV Display' }))
+    expect(currentPath()).toBe('/rugged/TV')
+  })
+
+  // Signed in, there is nothing to open: the run is a plain heading.
+  it('lists the staff run open, with no toggle, when signed in', () => {
+    mount()
+    const staff = within(rail()).getByRole('group', { name: 'Staff' })
+    expect(within(staff).queryByRole('button', { name: 'Staff' })).toBeNull()
   })
 
   it('reaches the staff screens from the phone bar through More', async () => {
     mount()
     fireEvent.click(screen.getByRole('button', { name: 'More' }))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
-    for (const label of ['Judges', 'Equipment', 'Control', 'Admin']) {
+    for (const label of ['Judges', 'Equipment', 'Control', 'Admin', 'TV Display']) {
       expect(within(sheet).getByRole('button', { name: label })).toBeTruthy()
     }
   })

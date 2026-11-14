@@ -30,6 +30,10 @@ import styles from './PublicShell.module.css'
 // Split by audience instead: four thumb-reachable destinations plus More, and
 // the staff screens live behind More where they belong. Above --mds-bp-lg the
 // same rows become a rail; it is the same page, not a second one.
+//
+// To someone not signed in, the staff run is folded shut under its heading:
+// a spectator sees one "Staff" row rather than five screens that are not for
+// them, and the crew opens it with one tap. Signed in, it is simply open.
 
 export function publicDestinations(slug: string): Destination[] {
   return [
@@ -46,6 +50,9 @@ export function staffDestinations(slug: string): Destination[] {
     { to: `/${slug}/equipment`, label: 'Equipment', icon: 'equipment' },
     { to: `/${slug}/control`, label: 'Control', icon: 'control' },
     { to: `/${slug}/admin`, label: 'Admin', icon: 'setup' },
+    // The wall board. It owns the whole screen and has no menu of its own, so
+    // whoever opens it here sets that browser up as the TV.
+    { to: `/${slug}/TV`, label: 'TV Display', icon: 'tv' },
   ]
 }
 
@@ -55,9 +62,12 @@ export interface PublicShellProps {
   brand: ReactNode
   /** Freshness of the live read, at the far end of the bar. */
   status?: ReactNode
+  /** Someone is signed in: the staff screens are listed open, not folded
+      under a Staff toggle. */
+  signedIn?: boolean
 }
 
-export function PublicShell({ slug, brand, status }: PublicShellProps) {
+export function PublicShell({ slug, brand, status, signedIn = false }: PublicShellProps) {
   const { pathname } = useLocation()
   const contentRef = useScrollTopOnNavigate<HTMLElement>()
   // A destination is lit on its own page and on the pages under it — one
@@ -68,6 +78,23 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
 
   const main = publicDestinations(slug)
   const staff = staffDestinations(slug)
+  const [staffOpened, setStaffOpened] = useState(false)
+  // Open when signed in, when opened, and on a staff page itself: the row that
+  // is lit must not be folded away.
+  const staffOpen = signedIn || staffOpened || staff.some((d) => isAt(d.to))
+  const staffLabel = signedIn ? 'Staff' : (
+    <button
+      type="button"
+      className={styles.staffToggle}
+      aria-expanded={staffOpen}
+      onClick={() => setStaffOpened((o) => !o)}
+    >
+      Staff
+      <span className={styles.chevron} data-open={staffOpen || undefined}>
+        <Glyph name="chevron" />
+      </span>
+    </button>
+  )
 
   function go(to: string) {
     setMoreOpen(false)
@@ -94,8 +121,8 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
                 />
               ))}
             </SideNavGroup>
-            <SideNavGroup label="Staff">
-              {staff.map((d) => (
+            <SideNavGroup label={staffLabel}>
+              {staffOpen && staff.map((d) => (
                 <SideNavItem
                   key={d.to}
                   as={RouterAnchor}
@@ -141,8 +168,8 @@ export function PublicShell({ slug, brand, status }: PublicShellProps) {
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} label="More">
         <SheetBody>
           <SideNav label="Staff screens">
-            <SideNavGroup>
-              {staff.map((d) => (
+            <SideNavGroup label={staffLabel}>
+              {staffOpen && staff.map((d) => (
                 <SideNavItem
                   key={d.to}
                   icon={<Glyph name={d.icon} />}

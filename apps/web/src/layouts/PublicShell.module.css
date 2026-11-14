@@ -20,3 +20,34 @@
     display: none;
   }
 }
+
+/* The Staff heading, as a button when the run is folded: it keeps the
+   heading's own type and colour and adds only the chevron. */
+.staffToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mds-gap-tight);
+  width: 100%;
+  /* A thumb's worth of target, though the heading's type is small. */
+  min-height: var(--mds-tap-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chevron {
+  display: inline-flex;
+  width: var(--mds-icon-sm);
+  height: var(--mds-icon-sm);
+  transition: transform var(--mds-dur-fast) var(--mds-ease-standard);
+}
+
+.chevron[data-open] {
+  transform: rotate(90deg);
+}

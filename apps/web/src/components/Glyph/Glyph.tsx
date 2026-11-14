@@ -22,6 +22,8 @@ const PATHS = {
   back: 'M15 5l-7 7 7 7',
   up: 'M12 19V5M5 12l7-7 7 7',
   activity: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2',
+  tv: 'M3 5h18v12H3V5ZM8 21h8M12 17v4',
+  chevron: 'M9 6l6 6-6 6',
 } as const
 
 export type GlyphName = keyof typeof PATHS
