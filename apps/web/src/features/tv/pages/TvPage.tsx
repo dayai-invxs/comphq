@@ -85,17 +85,20 @@ export function TvPage() {
   )
 
   // CSS `zoom` rather than the type scale alone, so the cards' padding, the
-  // gaps, the QR code and the badges grow with the type and the screen keeps
-  // its proportions. It goes on the bar and the board, not on the stage: the
-  // stage is 100vh tall, and a zoomed 100vh is taller than the screen. Zoom
-  // changes the room each card takes, so the board is fitted again (above) and
-  // may move to fewer, wider heats or panels. The corral call is left alone:
-  // it already fills the screen at its own size.
+  // gaps and the badges grow with the type and the board keeps its
+  // proportions. It goes on the board only. Not on the stage: the stage is
+  // 100vh tall, and a zoomed 100vh is taller than the screen. Not on the bar:
+  // its logo, heading, controls, scan line and QR code sit in one row across
+  // the screen, and grown they ran off its right edge and took height from the
+  // board; the bar stays its own size and the board below it gets the rest.
+  // Zoom changes the room each card takes, so the board is fitted again
+  // (above) and may move to fewer, wider heats or panels. The corral call is
+  // left alone: it already fills the screen at its own size.
   const zoomed = zoom === 1 ? undefined : { zoom }
 
   return (
     <div className={styles.stage}>
-      <header className={styles.bar} style={zoomed}>
+      <header className={styles.bar}>
         {/* The heading changes with nobody acting, which is what a live region
             is for — the one thing on this screen an assistive reader cannot
             work out by looking again. */}

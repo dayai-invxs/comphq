@@ -331,7 +331,7 @@ it('puts the corral call over both the schedule and the leaderboard', async () =
 })
 
 // Sized for the room by whoever sets the screen up, and kept on that screen.
-it('zooms the bar and the board with + and −, and remembers it', async () => {
+it('zooms the board with + and −, leaves the bar its own size, and remembers it', async () => {
   window.localStorage.removeItem('comphq:tvZoom')
   const { unmount } = mount()
   await drawn()
@@ -344,7 +344,7 @@ it('zooms the bar and the board with + and −, and remembers it', async () => {
   act(() => { screen.getByRole('button', { name: 'Larger' }).click() })
   expect(screen.getByText('120%')).toBeInTheDocument()
   expect(board.style.zoom).toBe('1.2')
-  expect(bar.style.zoom).toBe('1.2')
+  expect(bar.style.zoom).toBe('')
 
   act(() => { screen.getByRole('button', { name: 'Smaller' }).click() })
   expect(screen.getByText('110%')).toBeInTheDocument()
