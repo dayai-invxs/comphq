@@ -19,8 +19,9 @@ import styles from './TvPage.module.css'
 
 // v1: src/app/[slug]/TV/page.tsx. The screen on the gym wall. Nobody presses
 // anything on it once it is up, so it turns itself between the two halves of
-// the board and reads on a timer. The one control is the zoom in its bar, for
-// whoever sets the screen up (useTvZoom.ts).
+// the board and reads on a timer. The controls in its bar are for whoever sets
+// the screen up: the zoom (useTvZoom.ts) and Freeze, which holds the board on
+// the half that is up until Unfreeze.
 
 /** Seconds on each half before turning, until the competition's own setting
     (Setup → TV Display, served with the leaderboard) has been read. */
@@ -46,6 +47,9 @@ type View = keyof typeof VIEWS
 export function TvPage() {
   const { slug = '' } = useParams()
   const [view, setView] = useState<View>('schedule')
+  // Held on whichever half is up. Not remembered: a board reloaded later
+  // should be turning, not stuck where someone left it.
+  const [frozen, setFrozen] = useState(false)
   const scanTo = qrTarget(slug)
   const { zoom, zoomIn, zoomOut } = useTvZoom()
   // No screensaver over the board (useKeepAwake.ts).
@@ -64,15 +68,17 @@ export function TvPage() {
   useRealtimeInvalidation(slug, realtimeKeys)
 
   // Each half gets its full time from the moment it is up. A new pace saved
-  // on Setup restarts the clock of the half on screen at that pace.
+  // on Setup restarts the clock of the half on screen at that pace, and so
+  // does Unfreeze.
   const seconds = lbData?.tvSecondsPerScreen ?? DEFAULT_SECONDS_PER_SCREEN
   useEffect(() => {
+    if (frozen) return
     const id = setTimeout(
       () => setView((v) => (v === 'schedule' ? 'leaderboard' : 'schedule')),
       seconds * 1000,
     )
     return () => clearTimeout(id)
-  }, [view, seconds])
+  }, [view, seconds, frozen])
 
   // Fitted again whenever what is on screen changes: the half that is up, and
   // the reads that half is drawn from — ops and walkout ticks for the
@@ -121,6 +127,15 @@ export function TvPage() {
             <Text as="span" tone="muted" className={styles.zoomLevel} aria-live="polite">{Math.round(zoom * 100)}%</Text>
             <Button variant="ghost" size="lg" className={styles.zoomButton} aria-label="Larger" onClick={zoomIn} disabled={zoom >= TV_ZOOM_MAX}>+</Button>
           </div>
+          <Button
+            variant={frozen ? 'primary' : 'ghost'}
+            size="lg"
+            className={styles.freeze}
+            aria-pressed={frozen}
+            onClick={() => setFrozen((f) => !f)}
+          >
+            {frozen ? 'Unfreeze' : 'Freeze'}
+          </Button>
           <Text as="span" tone="muted" className={styles.scan}>Scan for Comp Info →</Text>
           {/* Drawn in currentColor rather than v1's pair of hex literals: a
               var() is not reliable in an SVG presentation attribute, and

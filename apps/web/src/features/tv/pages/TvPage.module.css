@@ -144,3 +144,11 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* Holds the board on the half that is up. Sized with the zoom buttons; filled
+   while frozen so whoever set it can see from the floor that it is held. */
+.freeze {
+  font-size: var(--tv-text-meta);
+  font-weight: var(--mds-weight-bold);
+  white-space: nowrap;
+}

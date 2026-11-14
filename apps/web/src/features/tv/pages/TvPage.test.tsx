@@ -264,6 +264,28 @@ it('splits a long division into two columns before it shrinks the leaderboard', 
   expect(stage.style.transform).toBe('')
 })
 
+// Whoever set the screen up can hold it on one half, and let it go again.
+it('freezes on the half that is up, and turns again after Unfreeze', async () => {
+  mount()
+  await drawn()
+  turn()
+  expect(showing()).toHaveTextContent('Leaderboard')
+
+  act(() => { screen.getByRole('button', { name: 'Freeze' }).click() })
+  expect(screen.getByRole('button', { name: 'Unfreeze' })).toHaveAttribute('aria-pressed', 'true')
+  turn()
+  turn()
+  turn()
+  expect(showing()).toHaveTextContent('Leaderboard')
+
+  act(() => { screen.getByRole('button', { name: 'Unfreeze' }).click() })
+  expect(screen.getByRole('button', { name: 'Freeze' })).toHaveAttribute('aria-pressed', 'false')
+  act(() => { vi.advanceTimersByTime(9_000) })
+  expect(showing()).toHaveTextContent('Leaderboard')
+  act(() => { vi.advanceTimersByTime(1_000) })
+  expect(showing()).toHaveTextContent('Schedule')
+})
+
 // ─── Pace ───────────────────────────────────────────────────────────────────
 
 it('turns at the pace the competition set', async () => {
