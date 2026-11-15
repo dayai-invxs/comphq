@@ -1,6 +1,6 @@
-import { and, eq, isNull, ne, or } from 'drizzle-orm'
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { competition, competitionAdmin, setting } from '@/db/schema'
+import { competition, competitionAdmin, setting, workout } from '@/db/schema'
 import { authErrorResponse, requireSiteAdmin } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { CompetitionCreate } from '@/lib/schemas'
@@ -15,11 +15,25 @@ import { DEFAULT_JUDGE_PASSWORD } from '@/lib/competitionDefaults'
  * A competition whose `listed` setting is 'false' is left out. It still opens
  * at its own slug: the public pages resolve a slug through /api/settings, not
  * through this list.
+ *
+ * `lastStartMs` is the latest start time of any of its workouts (ms since the
+ * epoch), or null when none has one. The home page hides a competition whose
+ * last workout started before today, unless "Show past competitions" is on.
  */
 export async function GET() {
   try {
     const rows = await db
-      .select({ id: competition.id, name: competition.name, slug: competition.slug })
+      .select({
+        id: competition.id,
+        name: competition.name,
+        slug: competition.slug,
+        // A number, not a timestamp: the driver hands a raw timestamp back as
+        // whatever type it likes, a float8 always as a number.
+        lastStartMs: sql<number | null>`(
+          SELECT (extract(epoch FROM max(${workout.startTime})) * 1000)::float8
+          FROM ${workout} WHERE ${workout.competitionId} = ${competition.id}
+        )`,
+      })
       .from(competition)
       .leftJoin(setting, and(eq(setting.competitionId, competition.id), eq(setting.key, 'listed')))
       .where(or(isNull(setting.value), ne(setting.value, 'false')))

@@ -9,6 +9,9 @@ export interface CompetitionSummary {
   id: number
   name: string
   slug: string
+  /** The public list only: latest workout start time, ms since the epoch;
+      null when no workout has a start time. */
+  lastStartMs?: number | null
 }
 
 /** A competition the signed-in user has a CompetitionAdmin row for. Super
