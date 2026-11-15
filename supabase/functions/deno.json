@@ -11,6 +11,7 @@
     "@/lib/competitionCorner/store": "./_shared/competitionCorner/store.ts",
     "@/lib/competitionCorner/writes": "./_shared/competitionCorner/writes.ts",
     "@/lib/competitionDefaults": "./_shared/competitionDefaults.ts",
+    "@/lib/competitionExport": "./_shared/competitionExport.ts",
     "@/lib/csv": "./_shared/csv.ts",
     "@/lib/datetime": "./_shared/datetime.ts",
     "@/lib/db": "./_shared/db.ts",

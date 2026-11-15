@@ -186,7 +186,7 @@ export function CompetitionDashboardPage() {
           {/* v1 put the ZIP's contents in a title attribute; a hint that only
               appears on hover is no hint on a phone, so it reads as text. */}
           <Text variant="meta" tone="muted">
-            CSV: one file of results. ZIP: per-table CSVs plus a JSON manifest.
+            CSV: standings, scores, heats and people in one file to read. ZIP: a complete copy of the competition, every table plus the logo.
           </Text>
         </Stack>
       </DataPanel>

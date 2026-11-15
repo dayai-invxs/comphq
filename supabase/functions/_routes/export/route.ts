@@ -1,28 +1,23 @@
-import { asc, eq, inArray } from 'drizzle-orm'
-import { db } from '@/lib/db'
-import { memberNamesByAthlete } from '@/lib/teamMembers'
-import { athlete as athleteTable, division as divisionTable, heatAssignment, score, workout } from '@/db/schema'
 import { authErrorResponse, requireCompetitionAccess } from '@/lib/auth-competition'
-import { formatScore } from '@/lib/scoreFormat'
-import { skippedPlaces } from '@/lib/skippedPlace'
+import { csvRow, loadCompetitionData, standingsByDivision } from '@/lib/competitionExport'
+import { displayScoreType, formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { workoutWeight } from '@/lib/workoutWeight'
-import { compareTotals, higherWins, placePoints } from '@/lib/pointsScale'
-import { loadScoring } from '@/lib/scoringSettings'
+import type { Workout } from '@/db/schema'
 
-function esc(val: string | number | null | undefined): string {
-  const s = String(val ?? '')
-  return s.includes(',') || s.includes('"') || s.includes('\n')
-    ? `"${s.replace(/"/g, '""')}"`
-    : s
-}
+// One CSV of results for a person to open in a spreadsheet: the standings as
+// the leaderboard shows them, then every workout's scores and heats, the
+// roster, volunteers and equipment. The ZIP export is the complete copy of
+// the data; this one is for reading.
 
-function row(...cells: (string | number | null | undefined)[]): string {
-  return cells.map(esc).join(',')
-}
+const section = (title: string) => `\n${title}`
 
-function section(title: string): string {
-  return `\n${title}\n`
-}
+const eventLabel = (w: Pick<Workout, 'number' | 'name'>) => `Event ${w.number} - ${w.name}`
+
+const weightMark = (w: Workout) => (workoutWeight(w) === 2 ? ' (2×)' : workoutWeight(w) === 0.5 ? ' (½)' : '')
+
+const yes = (b: boolean | null | undefined) => (b ? 'Yes' : '')
+
+const formatTotal = (n: number) => (Number.isInteger(n) ? n : n.toFixed(1))
 
 export async function GET(req: Request) {
   const slug = new URL(req.url).searchParams.get('slug') ?? ''
@@ -33,183 +28,176 @@ export async function GET(req: Request) {
     return authErrorResponse(e)
   }
 
-  const workouts = await db
-    .select()
-    .from(workout)
-    .where(eq(workout.competitionId, competition.id))
-    .orderBy(asc(workout.number))
-  const workoutIds = workouts.map((w) => w.id)
+  const data = await loadCompetitionData(competition.id)
+  const { workouts, athletes, divisions, scoring } = data
+  const pointsMode = scoring.system === 'points'
 
-  const [athletes, divisions, assignmentRows, scores] = await Promise.all([
-    db.select().from(athleteTable).where(eq(athleteTable.competitionId, competition.id)).orderBy(asc(athleteTable.name)),
-    db.select().from(divisionTable).where(eq(divisionTable.competitionId, competition.id)).orderBy(asc(divisionTable.order)),
-    workoutIds.length > 0
-      ? db
-          .select({
-            workoutId: heatAssignment.workoutId,
-            heatNumber: heatAssignment.heatNumber,
-            lane: heatAssignment.lane,
-            athleteId: athleteTable.id,
-            athleteName: athleteTable.name,
-            bibNumber: athleteTable.bibNumber,
-            divisionId: athleteTable.divisionId,
-          })
-          .from(heatAssignment)
-          .innerJoin(athleteTable, eq(athleteTable.id, heatAssignment.athleteId))
-          .where(inArray(heatAssignment.workoutId, workoutIds))
-      : Promise.resolve([]),
-    workoutIds.length > 0
-      ? db.select().from(score).where(inArray(score.workoutId, workoutIds))
-      : Promise.resolve([]),
-  ])
-
-  const members = await memberNamesByAthlete(athletes.map((a) => a.id))
-  // Rank (a place is worth its number, lowest total wins) or points (highest
-  // wins): lib/pointsScale.ts. Places are what is stored either way.
-  const scoring = await loadScoring(competition.id)
-  const pointsMode = higherWins(scoring)
-  const worth = (w: (typeof workouts)[number], place: number) => placePoints(place, scoring, w.pointsStep)
-  const placeText = (w: (typeof workouts)[number], place: number) =>
-    pointsMode ? `#${place} ${worth(w, place)} pts` : `#${place}`
-  const memberList = (id: number) => members.get(id)?.join('; ') ?? ''
-
-  const divMap = new Map(divisions.map((d) => [d.id, d.name]))
-  const scoreKey = (athleteId: number, workoutId: number) => `${athleteId}-${workoutId}`
-  const scoreMap = new Map(scores.map((s) => [scoreKey(s.athleteId, s.workoutId), s]))
-  // A finished workout with no score is last place, as on the leaderboard
-  // (lib/skippedPlace.ts): shown as DNS with the place it gives.
-  const skipped = skippedPlaces(
-    workouts,
-    athletes.map((a) => ({ id: a.id, division: a.divisionId })),
-    (a, w) => scoreMap.get(scoreKey(a, w))?.points,
-  )
+  const divName = new Map(divisions.map((d) => [d.id, d.name]))
+  const athleteById = new Map(athletes.map((a) => [a.id, a]))
+  const memberById = new Map(data.teamMembers.map((m) => [m.id, m]))
+  const membersOf = new Map<number, typeof data.teamMembers>()
+  for (const m of data.teamMembers) membersOf.set(m.athleteId, [...(membersOf.get(m.athleteId) ?? []), m])
+  const memberNames = (athleteId: number) => (membersOf.get(athleteId) ?? []).map((m) => m.name).join('; ')
+  const divisionOf = (athleteId: number) => {
+    const d = athleteById.get(athleteId)?.divisionId
+    return d ? (divName.get(d) ?? '') : ''
+  }
+  const volunteerById = new Map(data.volunteers.map((v) => [v.id, v]))
+  const roleName = new Map(data.roles.map((r) => [r.id, r.name]))
+  const locationName = new Map(data.locations.map((l) => [l.id, l.name]))
 
   const lines: string[] = []
-  const now = new Date().toLocaleString()
+  const push = (...cells: unknown[]) => lines.push(csvRow(cells))
 
-  lines.push(row('Competition', competition.name))
-  lines.push(row('Exported', now))
+  // ── HEADER ───────────────────────────────────────────────────────────────
+  const tiebreakId = Number(data.settingMap.get('tiebreakWorkoutId') ?? NaN)
+  const tiebreakWorkout = workouts.find((w) => w.id === tiebreakId)
+  push('Competition', competition.name)
+  push('Exported', new Date().toISOString())
+  push('Scoring', pointsMode
+    ? `Highest points wins (1st = ${scoring.scale.first}, ${scoring.scale.step} fewer per place)`
+    : 'Lowest total wins (a place is worth its number)')
+  push('Tiebreaker workout', tiebreakWorkout ? eventLabel(tiebreakWorkout) : 'None')
+  push('Leaderboard shows', data.settingMap.get('leaderboardVisibility') === 'per_workout'
+    ? 'Finished workouts only'
+    : 'Live, as heats finish')
+
+  // ── STANDINGS ────────────────────────────────────────────────────────────
+  // The leaderboard's own ranking (lib/standings.ts), one table per division.
+  const standings = standingsByDivision(data)
+  const decider = workouts.find((w) => w.id === standings.decidingWorkoutId)
+  for (const d of standings.divisions) {
+    lines.push(section(`STANDINGS — ${d.name ?? 'No Division'}`))
+    if (decider) push(`Final standings decided by the ${eventLabel(decider)} knockout`)
+    push('Rank', 'Name', 'Bib #', 'Team Members',
+      ...standings.visibleWorkouts.map((w) => `Event ${w.number}${weightMark(w)}`), 'Total')
+    for (const { entry, rank } of d.rows) {
+      const cells = standings.visibleWorkouts.map((w) => {
+        const ws = entry.workoutScores[w.id]
+        if (!ws) return ''
+        let text = `#${ws.points}`
+        if (w.partBEnabled && ws.partBPoints != null) text += ` / B #${ws.partBPoints}`
+        if (pointsMode && ws.awarded != null) text += ` · ${ws.awarded} pts`
+        text += ` (${ws.display}${ws.tiebreakDisplay ? `, TB ${ws.tiebreakDisplay}` : ''})`
+        return text
+      })
+      push(rank ?? '—', entry.athleteName, athleteById.get(entry.athleteId)?.bibNumber ?? '',
+        memberNames(entry.athleteId), ...cells, rank == null ? '—' : formatTotal(entry.totalPoints))
+    }
+  }
 
   // ── WORKOUTS ─────────────────────────────────────────────────────────────
   lines.push(section('WORKOUTS'))
-  lines.push(row('WOD #', 'Name', 'Score Type', 'Status', 'Lanes', 'Half Weight', 'Double Weight'))
+  push('Event #', 'Name', 'Score Type', 'Status', 'Start Time', 'Location', 'Lanes', 'Weight',
+    'Tiebreak', 'Part B', 'Knockout', 'Secret', 'Description')
   for (const w of workouts) {
-    lines.push(row(w.number, w.name, w.scoreType, w.status, w.lanes, w.halfWeight ? 'Yes' : 'No', w.doubleWeight ? 'Yes' : 'No'))
+    push(
+      w.number, w.name, w.scoreType, w.status, w.startTime ?? '',
+      w.locationId ? (locationName.get(w.locationId) ?? '') : '',
+      w.lanes,
+      w.doubleWeight ? 'Double' : w.halfWeight ? 'Half' : 'Normal',
+      w.tiebreakEnabled ? w.tiebreakScoreType : '',
+      w.partBEnabled ? w.partBScoreType : '',
+      w.knockout
+        ? [
+            `${w.knockoutRounds ?? '?'} rounds, top ${w.knockoutAdvance ?? '?'} advance`,
+            w.knockoutConsolation ? 'consolation heats' : '',
+            w.knockoutDecides ? 'decides the competition' : '',
+          ].filter(Boolean).join('; ')
+        : '',
+      yes(w.secret),
+      w.description ?? '',
+    )
   }
 
-  // ── HEAT ASSIGNMENTS ─────────────────────────────────────────────────────
+  // ── SCORES, per workout ──────────────────────────────────────────────────
   for (const w of workouts) {
-    lines.push(section(`HEAT ASSIGNMENTS — WOD ${w.number}: ${w.name}`))
-    lines.push(row('Heat', 'Lane', 'Athlete', 'Division', 'Bib #'))
-    const wAssignments = assignmentRows
-      .filter((h) => h.workoutId === w.id)
-      .sort((a, b) => a.heatNumber - b.heatNumber || a.lane - b.lane)
-    for (const h of wAssignments) {
-      lines.push(row(
-        h.heatNumber,
-        h.lane,
-        h.athleteName,
-        h.divisionId ? (divMap.get(h.divisionId) ?? '—') : '—',
-        h.bibNumber ?? '—',
-      ))
+    const ws = data.scores.filter((s) => s.workoutId === w.id)
+    if (ws.length === 0) continue
+    // Rounds + reps with no rounds anywhere reads as reps, as on the board.
+    const shown = displayScoreType(w.scoreType, ws.filter((s) => s.points != null).map((s) => s.rawScore))
+    const shownB = displayScoreType(w.partBScoreType, ws.map((s) => s.partBRawScore))
+    lines.push(section(`SCORES — ${eventLabel(w)}`))
+    push('Division', 'Place', 'Athlete/Team', 'Score', 'Capped',
+      ...(w.tiebreakEnabled ? ['Tiebreak'] : []),
+      ...(w.partBEnabled ? ['Part B Place', 'Part B Score', 'Part B Capped'] : []),
+      ...(w.knockout ? ['Knockout Result'] : []))
+    const sorted = [...ws].sort((a, b) =>
+      divisionOf(a.athleteId).localeCompare(divisionOf(b.athleteId))
+      || (a.points ?? Infinity) - (b.points ?? Infinity)
+      || (athleteById.get(a.athleteId)?.name ?? '').localeCompare(athleteById.get(b.athleteId)?.name ?? ''))
+    for (const s of sorted) {
+      push(
+        divisionOf(s.athleteId), s.points ?? '', athleteById.get(s.athleteId)?.name ?? '',
+        formatScore(s.rawScore, shown, s.capped), yes(s.capped),
+        ...(w.tiebreakEnabled
+          ? [s.tiebreakRawScore == null ? '' : w.tiebreakScoreType === 'time' ? formatTiebreak(s.tiebreakRawScore) : formatScore(s.tiebreakRawScore, w.tiebreakScoreType)]
+          : []),
+        ...(w.partBEnabled
+          ? [s.partBPoints ?? '', s.partBRawScore == null ? '' : formatScore(s.partBRawScore, shownB, s.partBCapped), yes(s.partBCapped)]
+          : []),
+        ...(w.knockout ? [s.knockoutLabel ?? ''] : []),
+      )
     }
   }
 
-  // ── ATHLETES & SCORES ────────────────────────────────────────────────────
-  lines.push(section('ATHLETES & SCORES'))
-  const scoreHeaders = workouts.map((w) => `WOD ${w.number}${w.doubleWeight ? ' (2×)' : w.halfWeight ? ' (½)' : ''}`)
-  lines.push(row('Name', 'Division', 'Bib #', 'Gender', 'Team Members', ...scoreHeaders, 'Total Points'))
+  // ── HEATS, per workout ───────────────────────────────────────────────────
+  for (const w of workouts) {
+    const lanes = data.assignments.filter((h) => h.workoutId === w.id)
+    if (lanes.length === 0) continue
+    const done = new Set(data.completions.filter((c) => c.workoutId === w.id).map((c) => c.heatNumber))
+    const judge = new Map(data.judges.filter((j) => j.workoutId === w.id).map((j) => [`${j.heatNumber}-${j.lane}`, j.volunteerId]))
+    const laneScores = lanes.some((h) => h.rawScore != null)
+    lines.push(section(`HEATS — ${eventLabel(w)}`))
+    push(...(w.knockout ? ['Round'] : []), 'Heat', 'Lane', 'Athlete/Team', 'Running', 'Division', 'Bib #',
+      ...(laneScores ? ['Lane Score'] : []),
+      ...(w.knockout ? ['Consolation', 'Advanced'] : []),
+      'Judge', 'Heat Finished')
+    const sorted = [...lanes].sort((a, b) => (a.round ?? 1) - (b.round ?? 1) || a.heatNumber - b.heatNumber || a.lane - b.lane)
+    for (const h of sorted) {
+      const a = athleteById.get(h.athleteId)
+      const judgeId = judge.get(`${h.heatNumber}-${h.lane}`)
+      push(
+        ...(w.knockout ? [h.round ?? 1] : []),
+        h.heatNumber, h.lane, a?.name ?? '',
+        h.teamMemberId ? (memberById.get(h.teamMemberId)?.name ?? '') : '',
+        divisionOf(h.athleteId), a?.bibNumber ?? '',
+        ...(laneScores ? [h.rawScore == null ? '' : formatScore(h.rawScore, w.scoreType, h.capped)] : []),
+        ...(w.knockout ? [yes(h.consolation), h.advanced == null ? '' : h.advanced ? 'Yes' : 'No'] : []),
+        judgeId ? (volunteerById.get(judgeId)?.name ?? '') : '',
+        yes(done.has(h.heatNumber)),
+      )
+    }
+  }
 
-  const byDivision = new Map<string, typeof athletes>()
+  // ── ATHLETES/TEAMS ───────────────────────────────────────────────────────
+  lines.push(section('ATHLETES/TEAMS'))
+  push('Name', 'Division', 'Bib #', 'Gender', 'Withdrawn', 'Team Members')
   for (const a of athletes) {
-    const divName = a.divisionId ? (divMap.get(a.divisionId) ?? 'No Division') : 'No Division'
-    if (!byDivision.has(divName)) byDivision.set(divName, [])
-    byDivision.get(divName)!.push(a)
+    const members = (membersOf.get(a.id) ?? []).map((m) => (m.gender ? `${m.name} (${m.gender})` : m.name)).join('; ')
+    push(a.name, divisionOf(a.id), a.bibNumber ?? '', a.gender ?? '', yes(a.withdrawn), members)
   }
 
-  for (const [divName, divAthletes] of byDivision) {
-    lines.push(row(`— ${divName} —`))
-    for (const a of divAthletes) {
-      let total = 0
-      const workoutCols = workouts.map((w) => {
-        const s = scoreMap.get(scoreKey(a.id, w.id))
-        if (!s || s.points == null) {
-          const place = skipped(a.id, w.id)
-          if (place == null) return 'DNS'
-          total += worth(w, place) * workoutWeight(w)
-          return `${placeText(w, place)} (DNS)`
-        }
-        total += worth(w, s.points) * workoutWeight(w)
-        const display = formatScore(s.rawScore, w.scoreType, s.capped)
-        return `${placeText(w, s.points)} (${display})`
-      })
-      lines.push(row(
-        a.name,
-        a.divisionId ? (divMap.get(a.divisionId) ?? '—') : '—',
-        a.bibNumber ?? '—',
-        a.gender ?? '',
-        memberList(a.id),
-        ...workoutCols,
-        total > 0 ? total : '—',
-      ))
+  // ── VOLUNTEERS ───────────────────────────────────────────────────────────
+  if (data.volunteers.length > 0) {
+    lines.push(section('VOLUNTEERS'))
+    push('Name', 'Role')
+    for (const v of data.volunteers) push(v.name, v.roleId ? (roleName.get(v.roleId) ?? '') : '')
+  }
+
+  // ── EQUIPMENT ────────────────────────────────────────────────────────────
+  if (data.equipment.length > 0) {
+    const eventOf = new Map(workouts.map((w) => [w.id, w]))
+    lines.push(section('EQUIPMENT'))
+    push('Event', 'Item', 'Division')
+    for (const e of data.equipment) {
+      const w = eventOf.get(e.workoutId)
+      push(w ? eventLabel(w) : '', e.item, e.divisionId ? (divName.get(e.divisionId) ?? '') : 'All')
     }
   }
 
-  // ── OVERALL LEADERBOARD ──────────────────────────────────────────────────
-  lines.push(section('OVERALL LEADERBOARD'))
-  lines.push(row('Rank', 'Name', 'Division', ...scoreHeaders, 'Total Points'))
-
-  const completedWorkouts = workouts.filter((w) => w.status === 'completed')
-  const leaderboardEntries = athletes.map((a) => {
-    let total = 0
-    const workoutScores: Record<number, { points: number; rawScore: number; capped: boolean; skipped?: true } | null> = {}
-    for (const w of completedWorkouts) {
-      const s = scoreMap.get(scoreKey(a.id, w.id))
-      const place = s && s.points != null ? null : skipped(a.id, w.id)
-      if (s && s.points != null) {
-        total += worth(w, s.points) * workoutWeight(w)
-        workoutScores[w.id] = { points: s.points, rawScore: s.rawScore, capped: s.capped }
-      } else if (place != null) {
-        total += worth(w, place) * workoutWeight(w)
-        workoutScores[w.id] = { points: place, rawScore: 0, capped: false, skipped: true }
-      } else {
-        workoutScores[w.id] = null
-      }
-    }
-    return { athlete: a, total, workoutScores, hasAny: Object.values(workoutScores).some((v) => v !== null) }
-  })
-
-  leaderboardEntries.sort((a, b) => {
-    if (a.hasAny && !b.hasAny) return -1
-    if (!a.hasAny && b.hasAny) return 1
-    if (a.total !== b.total) return compareTotals(a.total, b.total, scoring)
-    for (const w of [...completedWorkouts].sort((x, y) => y.number - x.number)) {
-      const as = a.workoutScores[w.id], bs = b.workoutScores[w.id]
-      if (as && bs && as.points !== bs.points) return as.points - bs.points
-      if (as && !bs) return -1
-      if (!as && bs) return 1
-    }
-    return a.athlete.name.localeCompare(b.athlete.name)
-  })
-
-  let rank = 1
-  for (let i = 0; i < leaderboardEntries.length; i++) {
-    const e = leaderboardEntries[i]
-    if (!e.hasAny) { lines.push(row('—', e.athlete.name, e.athlete.divisionId ? (divMap.get(e.athlete.divisionId) ?? '—') : '—', ...completedWorkouts.map(() => 'DNS'), '—')); continue }
-    if (i > 0 && leaderboardEntries[i - 1].hasAny) {
-      const prev = leaderboardEntries[i - 1]
-      if (e.total !== prev.total) rank = i + 1
-    }
-    const divName = e.athlete.divisionId ? (divMap.get(e.athlete.divisionId) ?? '—') : '—'
-    const wodCols = completedWorkouts.map((w) => {
-      const s = e.workoutScores[w.id]
-      if (!s) return 'DNS'
-      return s.skipped ? `${placeText(w, s.points)} (DNS)` : `${placeText(w, s.points)} (${formatScore(s.rawScore, w.scoreType, s.capped)})`
-    })
-    lines.push(row(rank, e.athlete.name, divName, ...wodCols, Number.isInteger(e.total) ? e.total : e.total.toFixed(1)))
-  }
-
-  const csv = lines.join('\n')
+  // The byte-order mark tells Excel the file is UTF-8 (names with accents, ½, ×).
+  const csv = '\uFEFF' + lines.join('\n') + '\n'
   const filename = `${competition.slug}-export-${new Date().toISOString().slice(0, 10)}.csv`
 
   return new Response(csv, {

@@ -139,7 +139,7 @@ describe('the exports', () => {
   it('says what each export contains before it is pressed', () => {
     mount()
     expect(
-      screen.getByText('CSV: one file of results. ZIP: per-table CSVs plus a JSON manifest.'),
+      screen.getByText('CSV: standings, scores, heats and people in one file to read. ZIP: a complete copy of the competition, every table plus the logo.'),
     ).toBeInTheDocument()
   })
 
