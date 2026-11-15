@@ -1,5 +1,5 @@
 import { Route } from 'react-router'
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HttpError } from '@/lib/http'
 import { CompetitionRoleProvider } from '@/lib/competitionRole'
@@ -27,8 +27,9 @@ type StubProps = {
   isSaving: boolean
   judges?: { id: number; name: string }[]
   judgesByLane?: Map<number, { judgeName: string }>
-  onSaveHeat: (n: number) => void
   onCompleteHeat: (n: number) => void
+  onRowBlur?: (a: Assignment) => void
+  saveStatus?: { state: string; count?: number; retry?: () => void } | null
   onJudgeChange?: (heatNumber: number, lane: number, volunteerId: number | null) => void
   onPointsOverride?: (athleteId: number, points: number) => Promise<void>
   entries: Assignment[]
@@ -42,8 +43,10 @@ vi.mock('../components/HeatCard/HeatCard', () => ({
       {p.isSaving && <span>saving</span>}
       <span>offers {p.judges?.map((j) => j.name).join(',') || 'nobody'}</span>
       <span>lane 1 {p.judgesByLane?.get(1)?.judgeName ?? 'unjudged'}</span>
-      <button onClick={() => p.onSaveHeat(p.heatNumber)}>save heat {p.heatNumber}</button>
+      <span>heat {p.heatNumber} save {p.saveStatus?.state ?? 'none'}{p.saveStatus?.count ? ` ${p.saveStatus.count}` : ''}</span>
+      <button onClick={() => p.saveStatus?.retry?.()}>retry heat {p.heatNumber}</button>
       <button onClick={() => p.onCompleteHeat(p.heatNumber)}>complete heat {p.heatNumber}</button>
+      <button onClick={() => p.onRowBlur?.(p.entries[0])}>leave first row of heat {p.heatNumber}</button>
       <button onClick={() => p.onJudgeChange?.(p.heatNumber, 1, 9)}>judge heat {p.heatNumber}</button>
       <button onClick={() => void p.onPointsOverride?.(1, 5)}>override heat {p.heatNumber}</button>
       {/* Types a time for every lane of the heat, as a scorekeeper would. */}
@@ -322,7 +325,7 @@ describe('the index beside the heats', () => {
     await open()
     fireEvent.click(index().getByRole('link', { name: /^Heat 2/ }))
     expect(document.getElementById('heat-2')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'save heat 1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'complete heat 1' })).toBeInTheDocument()
   })
 })
 
@@ -335,17 +338,79 @@ describe('the heats themselves', () => {
     expect(within(cards[1]).getByText('open')).toBeInTheDocument()
   })
 
-  it('saves only the athletes in the heat that asked', async () => {
+  // Clicking out of a row saves it, quietly: just that athlete, no banner.
+  it('saves a row the cursor leaves, and only that row', async () => {
     await open()
-    fireEvent.click(screen.getByRole('button', { name: 'save heat 2' }))
-    // Only Ann has a score to send, and Ann swims in heat 1.
-    await waitFor(() => expect(screen.getByText('Heat 2 scores saved.')).toBeInTheDocument())
-    expect(apiPost).not.toHaveBeenCalledWith(expect.stringContaining('/scores'), expect.anything())
-
-    fireEvent.click(screen.getByRole('button', { name: 'save heat 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'leave first row of heat 2' }))
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
       '/api/workouts/42/scores?slug=rugged-rumble',
-      { athleteId: 1, rawScore: 192000, tiebreakRawScore: null, partBRawScore: null, capped: false, partBCapped: false },
+      { athleteId: 3, rawScore: 241000, tiebreakRawScore: null, partBRawScore: null, capped: false, partBCapped: false },
+    ))
+    expect(apiPost).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/scores saved\./)).not.toBeInTheDocument()
+    expect(await screen.findByText('heat 2 save saved')).toBeInTheDocument()
+    expect(screen.getByText('heat 1 save none')).toBeInTheDocument()
+  })
+
+  // No Save Heat or Save All Scores: rows save themselves.
+  it('has no save buttons, and says scores save themselves', async () => {
+    await open()
+    expect(screen.queryByRole('button', { name: /Save All Scores|Save Heat/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Scores save as you leave each row.')).toBeInTheDocument()
+  })
+
+  // Bad gym Wi-Fi: the row says it did not save, and Retry sends it again.
+  it('says a row did not save, and sends it again on Retry', async () => {
+    await open()
+    apiPost.mockRejectedValueOnce(new HttpError(500, 'Database is away'))
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'leave first row of heat 2' }))
+    expect(await screen.findByText('heat 2 save failed 1')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Error: Database is away')
+    const status = screen.getAllByRole('status').find((el) => el.textContent?.includes('not saved'))!
+    expect(status).toHaveTextContent('1 score not saved')
+
+    fireEvent.click(screen.getByRole('button', { name: 'retry heat 2' }))
+    expect(await screen.findByText('heat 2 save saved')).toBeInTheDocument()
+    expect(apiPost).toHaveBeenCalledTimes(2)
+  })
+
+  // Reloading or closing the tab with a score not on the server yet asks first.
+  it('asks before the page is left with a score not saved', async () => {
+    await open()
+    const leave = () => {
+      const e = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    expect(leave()).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    expect(leave()).toBe(true)
+  })
+
+  it('sends nothing for a row with nothing new in it', async () => {
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'leave first row of heat 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'leave first row of heat 2' }))
+    await act(async () => { await Promise.resolve() })
+    expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  // Saving a score clears its points. Clicking Complete Heat blurs the last
+  // row first, so that row's save must land before the heat is ranked.
+  it('completes a heat only after a row save in flight has landed', async () => {
+    await open()
+    let land!: () => void
+    apiPost.mockImplementationOnce(() => new Promise((r) => { land = () => r([]) }))
+    fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'leave first row of heat 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'complete heat 2' }))
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    expect(apiPost).not.toHaveBeenCalledWith('/api/workouts/42/heats/2/complete?slug=rugged-rumble', {})
+    await act(async () => { land() })
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
+      '/api/workouts/42/heats/2/complete?slug=rugged-rumble', {},
     ))
   })
 
@@ -355,12 +420,6 @@ describe('the heats themselves', () => {
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith(
       '/api/workouts/42/heats/1/complete?slug=rugged-rumble', {},
     ))
-  })
-
-  it('saves every athlete at once', async () => {
-    await open()
-    fireEvent.click(screen.getByRole('button', { name: 'Save All Scores' }))
-    await waitFor(() => expect(screen.getByText('All scores saved.')).toBeInTheDocument())
   })
 
   it('will not clear scores it does not have', async () => {
@@ -408,24 +467,6 @@ describe('the heats themselves', () => {
     ))
   })
 
-  it('reports a failed write rather than a heat that saved', async () => {
-    await open()
-    apiPost.mockRejectedValue(new HttpError(500, 'Database is away'))
-    fireEvent.click(screen.getByRole('button', { name: 'Save All Scores' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Error: Database is away')
-  })
-
-  // One outcome at a time: a failure that arrives after a success replaces it,
-  // rather than sitting under a line still saying the save worked.
-  it('does not say a save worked beside the failure that followed it', async () => {
-    await open()
-    fireEvent.click(screen.getByRole('button', { name: 'Save All Scores' }))
-    await screen.findByText('All scores saved.')
-    apiPost.mockRejectedValue(new HttpError(500, 'Database is away'))
-    fireEvent.click(screen.getByRole('button', { name: 'Save All Scores' }))
-    await screen.findByRole('alert')
-    expect(screen.queryByText('All scores saved.')).not.toBeInTheDocument()
-  })
 })
 
 describe('the judges', () => {
@@ -516,7 +557,7 @@ describe('for a competition user', () => {
   it('keeps the running controls and leaves out the setup ones', async () => {
     await open({ status: 'active' }, JUDGE_ASSIGNMENTS, VOLUNTEERS, false)
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save All Scores' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Calculate Rankings/ })).toBeInTheDocument()
     for (const name of ['Edit Settings', 'Delete', 'Reset', 'Clear All Scores', 'Auto-Assign Judges',
       'Generate (Random / Division Order)', 'Generate (By Cumulative Points)', 'Unlock to Regenerate']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
@@ -573,9 +614,9 @@ describe('scores typed but not saved', () => {
     await open({ completedHeats: [], scores: [] })
     fireEvent.click(screen.getByRole('button', { name: 'type heat 1' }))
     fireEvent.click(screen.getByRole('button', { name: 'type heat 2' }))
-    // Heat 1 saved; the reload brings back heat 1's scores and nothing for heat 2.
-    serve({ completedHeats: [], scores: [{ ...SCORE, athleteId: 1, rawScore: 241000 }, { ...SCORE, id: 2, athleteId: 2, rawScore: 242000 }] })
-    fireEvent.click(screen.getByRole('button', { name: 'save heat 1' }))
+    // Ann's row saved; the reload brings back her score and nothing else.
+    serve({ completedHeats: [], scores: [{ ...SCORE, athleteId: 1, rawScore: 241000 }] })
+    fireEvent.click(screen.getByRole('button', { name: 'leave first row of heat 1' }))
     expect(await screen.findByText('heat 1 boxes 4:01 4:02')).toBeInTheDocument()
     await waitFor(() => expect(apiGet.mock.calls.filter((c) => String(c[0]).startsWith('/api/workouts/42?')).length).toBeGreaterThan(1))
     expect(screen.getByText('heat 2 boxes 4:01')).toBeInTheDocument()

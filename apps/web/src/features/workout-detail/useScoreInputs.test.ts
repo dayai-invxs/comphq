@@ -152,6 +152,16 @@ describe('reloading with scores typed but not saved', () => {
     expect(result.current.timeInputs[1]).toBe('2:50')
   })
 
+  // Rows save themselves as the cursor leaves them, and each save reloads,
+  // so a reload lands while the next box is half typed. "1:" is no score yet,
+  // and used to be wiped.
+  it('keeps a box half typed', () => {
+    const result = typed()
+    act(() => result.current.setTimeInputs((p) => ({ ...p, 4: '1:' })))
+    act(() => result.current.hydrate(withScores([1, 180000], [2, 245000])))
+    expect(result.current.timeInputs[4]).toBe('1:')
+  })
+
   it('keeps nothing after the boxes are cleared', () => {
     const result = typed()
     act(() => result.current.clear())

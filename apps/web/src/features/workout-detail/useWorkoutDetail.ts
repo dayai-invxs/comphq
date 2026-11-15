@@ -155,11 +155,31 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     onError: (e) => setError(errorMessage(e)),
   })
 
-  const saveManyMutation = useMutation({
-    mutationFn: ({ payloads }: { payloads: AnyScorePayload[]; successMsg: string }) =>
-      api.saveAll(payloads),
-    onMutate: () => setError(''),
-    onSuccess: async (_data, { successMsg }) => { await load(); onSuccess(successMsg) },
+  // Row saves still on their way (autoSaveMutation below).
+  const inFlight = useRef(new Set<Promise<unknown>>())
+  const rowSavesSettled = useCallback(() => Promise.allSettled([...inFlight.current]), [])
+  // Steps that send scores and rank them (Complete Heat, Calculate, the
+  // knockout steps) under way. A row save asked for meanwhile
+  // is dropped: the step already sends what was typed, and a row save landing
+  // after it ranked would clear that athlete's points again.
+  const writing = useRef(0)
+  const whileWriting = useCallback(<T,>(run: () => Promise<T>): Promise<T> => {
+    writing.current += 1
+    return run().finally(() => { writing.current -= 1 })
+  }, [])
+
+  // A row saving itself as the cursor leaves it. Quiet: no banner on success,
+  // and not part of `loading`, so the buttons and boxes stay live while it
+  // runs. A failure still shows in the banner; the row stays unsaved, so the
+  // page's Retry, Complete Heat or Calculate sends it again.
+  //
+  // Saving a score clears its points, so a row save landing after a heat or
+  // the workout is ranked would undo the ranking for that athlete. Clicking
+  // Complete Heat blurs the last row first, so its save is always racing the
+  // click: every step that saves or ranks waits for row saves in flight.
+  const autoSaveMutation = useMutation({
+    mutationFn: (payloads: AnyScorePayload[]) => api.saveAll(payloads),
+    onSuccess: () => load(),
     onError: (e) => setError(errorMessage(e)),
   })
 
@@ -167,6 +187,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     // The saves and the completion are one act: if any save fails, the heat
     // must not close over a half-written set of scores.
     mutationFn: async ({ heatNumber, payloads }: { heatNumber: number; payloads: AnyScorePayload[] }) => {
+      await rowSavesSettled()
       await api.saveAll(payloads)
       await api.completeHeat(heatNumber)
     },
@@ -193,6 +214,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     // whole point of the refactor — a partial save used to leave the
     // workout half-ranked with silent errors in the console.
     mutationFn: async (payloads: AnyScorePayload[]) => {
+      await rowSavesSettled()
       await api.saveAll(payloads)
       await api.calculate()
     },
@@ -350,6 +372,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   // what is on screen; then the workout reloads.
   const knockoutMutation = useMutation({
     mutationFn: async ({ action, payloads }: { action: 'start' | 'advance' | 'finish' | 'undo' | 'discard'; payloads: AnyScorePayload[] }) => {
+      await rowSavesSettled()
       if (action === 'undo') return api.undoKnockoutRound()
       if (action === 'discard') return api.undoKnockoutRound(true)
       if (payloads.length) await api.saveAll(payloads)
@@ -371,20 +394,28 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   const { mutateAsync: knockoutAsync } = knockoutMutation
   const runKnockout = useCallback(
     (action: 'start' | 'advance' | 'finish' | 'undo', payloads: AnyScorePayload[] = []) =>
-      knockoutAsync({ action, payloads }).then(() => undefined, () => undefined), [knockoutAsync])
+      whileWriting(() => knockoutAsync({ action, payloads })).then(() => undefined, () => undefined), [knockoutAsync, whileWriting])
   // Behind a ConfirmDialog, so it rejects on a refusal rather than resolving.
   const discardLatestRound = useCallback(
     () => knockoutAsync({ action: 'discard', payloads: [] }).then(() => undefined), [knockoutAsync])
 
-  const { mutateAsync: saveManyAsync } = saveManyMutation
-  const saveMany = useCallback(
-    (payloads: AnyScorePayload[], successMsg: string) =>
-      saveManyAsync({ payloads, successMsg }).then(() => undefined, () => undefined), [saveManyAsync])
+  const { mutateAsync: autoSaveAsync } = autoSaveMutation
+  // Counted as in flight from the moment it is asked for, not once the
+  // mutation gets round to running it, so a click right behind the blur waits.
+  // Answers true once saved, false when the save failed, null when nothing
+  // was sent (nothing to send, or a step above is already sending it).
+  const autoSave = useCallback((payloads: AnyScorePayload[]): Promise<boolean | null> => {
+    if (!payloads.length || writing.current > 0) return Promise.resolve(null)
+    const p = autoSaveAsync(payloads).then(() => true, () => false)
+    inFlight.current.add(p)
+    void p.then(() => { inFlight.current.delete(p) })
+    return p
+  }, [autoSaveAsync])
 
   const { mutateAsync: completeHeatAsync } = completeHeatMutation
   const completeHeat = useCallback(
     (heatNumber: number, payloads: AnyScorePayload[]) =>
-      completeHeatAsync({ heatNumber, payloads }).then(() => undefined, () => undefined), [completeHeatAsync])
+      whileWriting(() => completeHeatAsync({ heatNumber, payloads })).then(() => undefined, () => undefined), [completeHeatAsync, whileWriting])
 
   const { mutateAsync: undoHeatAsync } = undoHeatMutation
   const undoHeat = useCallback(
@@ -392,7 +423,8 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
 
   const { mutateAsync: calculateAsync } = calculateMutation
   const calculateRankings = useCallback(
-    (payloads: AnyScorePayload[]) => calculateAsync(payloads).then(() => undefined, () => undefined), [calculateAsync])
+    (payloads: AnyScorePayload[]) =>
+      whileWriting(() => calculateAsync(payloads)).then(() => undefined, () => undefined), [calculateAsync, whileWriting])
 
   const { mutateAsync: clearScoresAsync } = clearScoresMutation
   const clearScores = useCallback(
@@ -424,7 +456,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
   // navigation, not a redraw.
   const loading =
     statusMutation.isPending || generateAssignmentsMutation.isPending ||
-    saveHeatTimeMutation.isPending || saveManyMutation.isPending ||
+    saveHeatTimeMutation.isPending ||
     completeHeatMutation.isPending || undoHeatMutation.isPending ||
     calculateMutation.isPending || clearScoresMutation.isPending ||
     resetWorkoutMutation.isPending || updateSettingsMutation.isPending ||
@@ -447,7 +479,7 @@ export function useWorkoutDetail(workoutId: string, opts: Options) {
     setLaneAdvanced,
     runKnockout,
     discardLatestRound,
-    saveMany,
+    autoSave,
     completeHeat,
     undoHeat,
     clearScores,

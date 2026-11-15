@@ -122,6 +122,12 @@ function unsaved(local: InputState, baseline: InputState, workout: Workout, key:
   return mine !== null && !samePayload(mine, payloadFrom(baseline, workout, key))
 }
 
+/** Whether any of this key's boxes holds something other than what was loaded. */
+function touched(local: InputState, baseline: InputState, key: number): boolean {
+  return FIELDS.some((f) => JSON.stringify((local[f] as Record<number, unknown>)[key])
+    !== JSON.stringify((baseline[f] as Record<number, unknown>)[key]))
+}
+
 /**
  * The input key for one lane of a team placed in more than one heat. Inputs
  * are keyed by athlete id; a split team's lanes each need their own boxes, so
@@ -220,17 +226,19 @@ export function useScoreInputs(workout: Workout | null) {
       partBTimeInputs: bTI, partBWeightInputs: bWI, partBRrInputs: bRI,
       cappedInputs: cI, partBCappedInputs: bCI,
     }
-    // A reload — after saving or completing one heat, or the screen coming
-    // back into focus — must not wipe scores typed into other rows and not
-    // yet saved.
-    // A row keeps what was typed while it differs both from what was loaded
-    // before and from what the server now has; once the server has it, the
-    // server's version (and formatting) takes over.
+    // A reload — after a row saves itself, a heat is saved or completed,
+    // another device scores, or the screen comes back into focus — must not
+    // wipe what is being typed in other rows.
+    // A row keeps what was typed while its boxes differ from what was loaded
+    // before, unless the server now has that very score: then the server's
+    // version (and formatting) takes over. A box half typed ("1:") counts as
+    // typed: it is no score yet, and auto-save reloads land mid-typing.
     const local = stateRef.current
     const next: InputState = Object.fromEntries(FIELDS.map((f) => [f, { ...server[f] }])) as InputState
     for (const key of keysOf(local)) {
-      if (!unsaved(local, baselineRef.current, w, key)) continue
-      if (samePayload(payloadFrom(local, w, key), payloadFrom(server, w, key))) continue
+      if (!touched(local, baselineRef.current, key)) continue
+      const mine = payloadFrom(local, w, key)
+      if (mine !== null && samePayload(mine, payloadFrom(server, w, key))) continue
       for (const f of FIELDS) {
         const rec = next[f] as Record<number, unknown>
         if (key in local[f]) rec[key] = (local[f] as Record<number, unknown>)[key]

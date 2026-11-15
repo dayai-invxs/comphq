@@ -45,8 +45,9 @@ test('create comp → score → complete → leaderboard', async ({ page }) => {
     await times.nth(1).fill('4:15')
     await times.nth(2).fill('5:00')
 
-    await page.getByRole('button', { name: 'Save All Scores' }).click()
-    await expect(page.getByText('All scores saved.')).toBeVisible({ timeout: 10_000 })
+    // Each row saves itself as the cursor leaves it.
+    await times.nth(2).press('Tab')
+    await expect(page.getByText('All scores saved').first()).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /Calculate Rankings & Complete/ }).click()
     await expect(page.getByText('Rankings calculated. Workout marked as completed.'))

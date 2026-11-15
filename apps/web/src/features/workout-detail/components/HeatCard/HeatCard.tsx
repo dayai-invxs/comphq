@@ -25,6 +25,7 @@ import { laneKey, type useScoreInputs } from '../../useScoreInputs'
 import type { Assignment, Workout } from '../../useWorkoutDetail'
 import { useHeatDnd } from '../heat-dnd-context'
 import { PartAInputCell, PartBInputCell } from '../ScoreInputCells/ScoreInputCells'
+import { SaveStatus, type SaveStatusValue } from '../SaveStatus/SaveStatus'
 import styles from './HeatCard.module.css'
 import { MemberNames } from '@/components/MemberNames/MemberNames'
 import { Glyph } from '@/components/Glyph/Glyph'
@@ -69,7 +70,12 @@ interface Props {
   isComplete: boolean
   loading: boolean
   scoreInputs: ScoreInputs
-  onSaveHeat: (heatNumber: number) => void
+  /** The cursor has left this row's boxes: the page saves what was typed.
+      Not called in a completed heat, where saving a score clears its points
+      until the heat is ranked again. */
+  onRowBlur?: (a: Assignment) => void
+  /** How this heat's row saves went, shown under the last lane. */
+  saveStatus?: SaveStatusValue | null
   onCompleteHeat: (heatNumber: number) => void
   onUndoHeat: (heatNumber: number) => void
   /** Asks to delete the heat; the page decides whether that is allowed. */
@@ -109,7 +115,7 @@ function DragHandle({ ref }: { ref: (el: HTMLElement | null) => void }) {
 
 export function HeatCard({
   workout, heatNumber, entries, isComplete, loading, scoreInputs,
-  onSaveHeat, onCompleteHeat, onUndoHeat, onDeleteHeat, deleteLocked, onReorder, onSaveHeatTime, isSaving,
+  onRowBlur, saveStatus, onCompleteHeat, onUndoHeat, onDeleteHeat, deleteLocked, onReorder, onSaveHeatTime, isSaving,
   judges, judgesByLane, onJudgeChange, onPointsOverride, repeats, laneMember, onLaneMemberChange, knockout,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
@@ -120,6 +126,9 @@ export function HeatCard({
   const [editPoints, setEditPoints] = useState<{ athleteId: number; value: string } | null>(null)
   const [savingPoints, setSavingPoints] = useState(false)
   const pointsInputRef = useRef<HTMLInputElement>(null)
+  // The page's latest handler, which reads the boxes as they are now.
+  const rowBlurRef = useRef(onRowBlur)
+  rowBlurRef.current = onRowBlur
 
   useEffect(() => {
     if (editPoints) pointsInputRef.current?.focus()
@@ -267,9 +276,6 @@ export function HeatCard({
           </Button>
         ) : (
           <>
-            <Button variant="secondary" size="sm" disabled={loading} onClick={() => onSaveHeat(heatNumber)}>
-              Save Heat
-            </Button>
             <Button variant="primary" size="sm" disabled={loading} onClick={() => onCompleteHeat(heatNumber)}>
               Complete Heat
             </Button>
@@ -382,6 +388,15 @@ export function HeatCard({
                     else rowRefs.current.delete(a.id)
                   }}
                   data-assignment-id={a.id}
+                  // Moving between this row's own boxes (rounds → reps, score →
+                  // tiebreak) is not leaving it.
+                  onBlur={isComplete || !onRowBlur ? undefined : (e) => {
+                    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
+                    // Once the box has tidied what was typed (312 → 3:12, on
+                    // its own blur) and the page has drawn it: asked now, the
+                    // page would still see 312, which is no time yet.
+                    setTimeout(() => rowBlurRef.current?.(a), 0)
+                  }}
                   className={[isComplete || !onReorder ? undefined : styles.row, repeatHeats && styles.repeat].filter(Boolean).join(' ') || undefined}
                 >
                   {handles && (
@@ -566,10 +581,10 @@ export function HeatCard({
         </table>
       </CardBody>
 
-      {/* The same two buttons again under the last lane, so a long heat is
-          saved where its scores were typed, not after a scroll back up. The
-          arrow and the heat's name say which heat they act on — the card
-          below starts right after. */}
+      {/* Complete Heat again under the last lane, so a long heat is finished
+          where its scores were typed, not after a scroll back up, beside how
+          its rows' saves went. The arrow and the heat's name say which heat
+          it acts on — the card below starts right after. */}
       {!isComplete && (
         <CardFooter>
           <Inline gap="base" align="center" wrap>
@@ -580,15 +595,6 @@ export function HeatCard({
               </Text>
             </Inline>
             <Button
-              variant="secondary"
-              size="sm"
-              disabled={loading}
-              onClick={() => onSaveHeat(heatNumber)}
-              aria-label={`Save Heat ${heatNumber}`}
-            >
-              Save Heat
-            </Button>
-            <Button
               variant="primary"
               size="sm"
               disabled={loading}
@@ -597,6 +603,7 @@ export function HeatCard({
             >
               Complete Heat
             </Button>
+            <SaveStatus status={saveStatus ?? null} />
           </Inline>
         </CardFooter>
       )}

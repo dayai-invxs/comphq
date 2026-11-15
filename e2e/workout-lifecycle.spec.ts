@@ -106,8 +106,9 @@ test.describe('workout lifecycle', () => {
     await times.nth(1).fill('2:30')
     await times.nth(2).fill('2:50')
 
-    await heat.getByRole('button', { name: 'Save Heat' }).click()
-    await expect(page.getByText('Heat 1 scores saved.')).toBeVisible({ timeout: 10_000 })
+    // Each row saves itself as the cursor leaves it.
+    await times.nth(2).press('Tab')
+    await expect(heat.getByText('All scores saved')).toBeVisible({ timeout: 10_000 })
 
     await heat.getByRole('button', { name: 'Complete Heat' }).click()
     await expect(page.getByText('Heat 1 completed. Rankings updated.')).toBeVisible({ timeout: 10_000 })

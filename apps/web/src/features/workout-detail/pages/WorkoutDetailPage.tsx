@@ -8,7 +8,7 @@ import {
   Stack,
   Text,
 } from '@mond-design-system/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useMyCompetitions } from '@/api/competitions'
 import { useLogo } from '@/api/logo'
@@ -26,6 +26,7 @@ import { statusBadge } from '@/lib/workoutStatus'
 import { HeatCard } from '../components/HeatCard/HeatCard'
 import { HeatRail, type HeatSummary } from '../components/HeatRail/HeatRail'
 import { HeatDndProvider } from '../components/heat-dnd-context'
+import { SaveStatus, type SaveStatusValue } from '../components/SaveStatus/SaveStatus'
 import { WorkoutDescription } from '../components/WorkoutDescription/WorkoutDescription'
 import { WorkoutEditForm } from '../components/WorkoutEditForm/WorkoutEditForm'
 import { WorkoutEquipmentPopover } from '../components/WorkoutEquipmentPopover/WorkoutEquipmentPopover'
@@ -107,6 +108,24 @@ export function WorkoutDetailPage() {
   // Member picks for split teams' lanes, shown at once and saved in the
   // background. A reload carries the saved picks, so these start over.
   const [memberPicks, setMemberPicks] = useState<Record<number, number | null>>({})
+
+  // How each row's own save went, by input key. Kept across reloads: a failed
+  // row stays failed until it is saved.
+  const [rowSave, setRowSave] = useState<Record<number, 'saving' | 'saved' | 'failed'>>({})
+
+  // The browser's own "leave this page?" while a score typed here is not on
+  // the server yet (being typed, saving, or failed). Read from a ref so the
+  // listener is added once.
+  const leaveRisk = useRef(false)
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (!leaveRisk.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [])
 
   // Re-hydrate input fields every time the workout reloads.
   useEffect(() => {
@@ -288,19 +307,51 @@ export function WorkoutDetailPage() {
     })
   }
 
-  async function saveAllScores() {
-    await detail.saveMany(payloadsFor(workout.assignments), 'All scores saved.')
-  }
-
-  async function saveHeat(heatNum: number) {
-    await detail.saveMany(payloadsFor(byHeat[heatNum] ?? []), `Heat ${heatNum} scores saved.`)
-  }
-
   // The score boxes one lane fills: its own for a split team or a knockout,
   // else the athlete's.
   const keyOf = (a: Assignment) => (repeats.has(a.athlete.id) || knockout.enabled ? laneKey(a.id) : a.athlete.id)
   // Typed counts as well as saved: Calculate saves before it ranks.
   const someEntered = someScored || workout.assignments.some((a) => inputs.buildPayload(keyOf(a)) !== null)
+
+  leaveRisk.current = workout.assignments.some((a) => inputs.isUnsaved(keyOf(a)))
+
+  // Sends these rows quietly and records how it went, row by row. A save
+  // skipped because Complete Heat or Calculate is under way (they send what
+  // was typed themselves) leaves no mark.
+  async function saveRows(rows: Assignment[]) {
+    const keys = rows.map(keyOf)
+    const mark = (state: 'saving' | 'saved' | 'failed' | null) => setRowSave((prev) => {
+      const next = { ...prev }
+      for (const k of keys) {
+        if (state) next[k] = state
+        else delete next[k]
+      }
+      return next
+    })
+    mark('saving')
+    const ok = await detail.autoSave(payloadsFor(rows))
+    mark(ok === null ? null : ok ? 'saved' : 'failed')
+  }
+
+  // A row saves itself when the cursor leaves it, if what is typed there is
+  // a score the server does not have yet. Only that row (that lane, for a
+  // split team or a knockout) is sent.
+  function autoSaveRow(a: Assignment) {
+    if (!inputs.isUnsaved(keyOf(a))) return
+    void saveRows([a])
+  }
+
+  // What the status line says for these rows (a heat, or every open heat). A
+  // failed row stops counting once it is saved some other way (Complete
+  // Heat, a later edit), because then it is no longer unsaved.
+  function saveStatusOf(rows: Assignment[]): SaveStatusValue | null {
+    const failed = rows.filter((a) => rowSave[keyOf(a)] === 'failed' && inputs.isUnsaved(keyOf(a)))
+    if (failed.length) return { state: 'failed', count: failed.length, retry: () => void saveRows(failed) }
+    if (rows.some((a) => rowSave[keyOf(a)] === 'saving')) return { state: 'saving' }
+    if (rows.some((a) => rowSave[keyOf(a)] === 'saved')) return { state: 'saved' }
+    return null
+  }
+  const openRows = workout.assignments.filter((a) => !completedHeatNums.includes(a.heatNumber))
 
   // Completing a heat saves its scores and, with them, any score typed into
   // another heat and not saved yet — completing one heat must never cost the
@@ -549,6 +600,8 @@ export function WorkoutDetailPage() {
                     <Text variant="meta" tone="muted">{scoredCount}/{totalAthletes} scored</Text>
                   )}
                 </Inline>
+                <Text variant="meta" tone="muted">Scores save as you leave each row.</Text>
+                <SaveStatus status={saveStatusOf(openRows)} />
                 <div className={styles.controls}>
                   {!knockout.enabled && <Button
                     size="sm"
@@ -560,9 +613,6 @@ export function WorkoutDetailPage() {
                   >
                     Calculate Rankings &amp; Complete
                   </Button>}
-                  <Button size="sm" variant="secondary" onClick={saveAllScores} disabled={detail.loading}>
-                    Save All Scores
-                  </Button>
                   {isAdmin && <Button
                     size="sm"
                     variant="danger"
@@ -650,7 +700,8 @@ export function WorkoutDetailPage() {
                       isComplete={completedHeatNums.includes(heatNum)}
                       loading={detail.loading}
                       scoreInputs={inputs}
-                      onSaveHeat={saveHeat}
+                      onRowBlur={autoSaveRow}
+                      saveStatus={saveStatusOf(byHeat[heatNum] ?? [])}
                       onCompleteHeat={completeHeat}
                       onUndoHeat={detail.undoHeat}
                       onDeleteHeat={isAdmin ? (n) => askToDeleteHeats('deleteHeat', n) : undefined}

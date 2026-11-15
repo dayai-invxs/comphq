@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeatDndProvider } from '../heat-dnd-context'
 import type { Assignment, Score, Workout } from '../../useWorkoutDetail'
+import { useScoreInputs } from '../../useScoreInputs'
 import { HeatCard, repeatLabel } from './HeatCard'
 
 // v1: src/components/workout-detail/HeatCard.tsx. One heat — its clock, its
@@ -103,7 +104,6 @@ function mount(over: Partial<Props> = {}) {
     isComplete: false,
     loading: false,
     scoreInputs: scoreInputs(),
-    onSaveHeat: vi.fn(),
     onCompleteHeat: vi.fn(),
     onUndoHeat: vi.fn(),
     onReorder: vi.fn(),
@@ -284,43 +284,50 @@ describe('the lanes', () => {
 })
 
 describe('ending the heat', () => {
-  it('offers save and complete while the heat is open', () => {
+  // Rows save themselves; there is no Save Heat.
+  it('offers complete while the heat is open, and no save button', () => {
     const { props } = mount()
-    fireEvent.click(screen.getByRole('button', { name: 'Save Heat' }))
     fireEvent.click(screen.getByRole('button', { name: 'Complete Heat' }))
-    expect(props.onSaveHeat).toHaveBeenCalledWith(1)
+    expect(props.onCompleteHeat).toHaveBeenCalledWith(1)
+    expect(screen.queryByRole('button', { name: /Save Heat/ })).not.toBeInTheDocument()
+  })
+
+  // A long heat is typed top to bottom; the button waits at the bottom too.
+  it('offers complete again under the last lane, naming the heat', () => {
+    const { props } = mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Heat 1' }))
     expect(props.onCompleteHeat).toHaveBeenCalledWith(1)
   })
 
-  // A long heat is typed top to bottom; the buttons wait at the bottom too.
-  it('offers save and complete again under the last lane, naming the heat', () => {
-    const { props } = mount()
-    fireEvent.click(screen.getByRole('button', { name: 'Save Heat 1' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Complete Heat 1' }))
-    expect(props.onSaveHeat).toHaveBeenCalledWith(1)
-    expect(props.onCompleteHeat).toHaveBeenCalledWith(1)
+  it('says under the last lane how its rows\' saves went', () => {
+    const retry = vi.fn()
+    const { rerender, props } = mount({ saveStatus: { state: 'saving' } })
+    const status = () => within(screen.getByRole('button', { name: 'Complete Heat 1' }).parentElement!).getByRole('status')
+    expect(status()).toHaveTextContent('Saving…')
+    rerender(<HeatDndProvider><HeatCard {...props} saveStatus={{ state: 'saved' }} /></HeatDndProvider>)
+    expect(status()).toHaveTextContent('All scores saved')
+    rerender(<HeatDndProvider><HeatCard {...props} saveStatus={{ state: 'failed', count: 2, retry }} /></HeatDndProvider>)
+    expect(status()).toHaveTextContent('2 scores not saved')
+    fireEvent.click(within(status()).getByRole('button', { name: 'Retry' }))
+    expect(retry).toHaveBeenCalled()
   })
 
   it('drops the bottom buttons once the heat is complete', () => {
     mount({ isComplete: true })
-    expect(screen.queryByRole('button', { name: 'Save Heat 1' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Complete Heat 1' })).not.toBeInTheDocument()
   })
 
   // v1 made the Completed badge itself the way back — there is no other undo.
   it('offers only the way back once it is complete', () => {
     const { props } = mount({ isComplete: true })
-    expect(screen.queryByRole('button', { name: 'Save Heat' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Complete Heat' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Completed' }))
     expect(props.onUndoHeat).toHaveBeenCalledWith(1)
   })
 
-  it('stops all three buttons while a request is in flight', () => {
+  it('stops the buttons while a request is in flight', () => {
     mount({ loading: true })
-    expect(screen.getByRole('button', { name: 'Save Heat' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Complete Heat' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Save Heat 1' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Complete Heat 1' })).toBeDisabled()
     mount({ loading: true, isComplete: true })
     expect(screen.getByRole('button', { name: 'Completed' })).toBeDisabled()
@@ -599,7 +606,67 @@ describe('repeatLabel', () => {
       mount({ onSaveHeatTime: undefined, onDeleteHeat: undefined, onReorder: undefined })
       expect(screen.queryByRole('button', { name: 'Edit time' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Delete Heat/i })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Save Heat' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Complete Heat' })).toBeInTheDocument()
     })
+  })
+})
+
+// A row saves itself when the cursor leaves it. Moving between its own boxes
+// is not leaving it; a completed heat is not saved this way at all (saving a
+// score clears its points until the heat is ranked again).
+describe('saving a row as the cursor leaves it', () => {
+  const rr = { ...WORKOUT, scoreType: 'rounds_reps' } as Workout
+  const rowOf = (name: string) => screen.getByText(name).closest('tr')!
+
+  it('asks for a save when the cursor leaves the row', async () => {
+    const onRowBlur = vi.fn()
+    mount({ workout: rr, onRowBlur })
+    const ann = within(rowOf('Ann Adams'))
+    const bob = within(rowOf('Bob Brown'))
+    fireEvent.blur(ann.getByLabelText('Score reps'), { relatedTarget: bob.getByLabelText('Score rounds') })
+    await waitFor(() => expect(onRowBlur).toHaveBeenCalledTimes(1))
+    expect(onRowBlur.mock.calls[0][0].athlete.name).toBe('Ann Adams')
+  })
+
+  it('does not ask while moving between the row\'s own boxes', async () => {
+    const onRowBlur = vi.fn()
+    mount({ workout: rr, onRowBlur })
+    const ann = within(rowOf('Ann Adams'))
+    fireEvent.blur(ann.getByLabelText('Score rounds'), { relatedTarget: ann.getByLabelText('Score reps') })
+    await new Promise((r) => setTimeout(r, 10))
+    expect(onRowBlur).not.toHaveBeenCalled()
+  })
+
+  // A judge types 312 and the box makes it 3:12 as the cursor leaves. The
+  // page is asked after that, so it reads a time, not 312 (no score at all).
+  it('asks once the box has tidied what was typed', async () => {
+    const saved = vi.fn()
+    function Page() {
+      const inputs = useScoreInputs(WORKOUT)
+      return (
+        <HeatDndProvider>
+          <HeatCard
+            workout={WORKOUT} heatNumber={1} entries={ENTRIES} isComplete={false} loading={false}
+            scoreInputs={inputs} isSaving={false}
+            onCompleteHeat={vi.fn()} onUndoHeat={vi.fn()}
+            onRowBlur={(a) => saved(inputs.buildPayload(a.athlete.id))}
+          />
+        </HeatDndProvider>
+      )
+    }
+    render(<Page />)
+    const box = within(rowOf('Ann Adams')).getByLabelText('Score time')
+    fireEvent.change(box, { target: { value: '312' } })
+    fireEvent.blur(box)
+    await waitFor(() => expect(saved).toHaveBeenCalled())
+    expect(saved).toHaveBeenCalledWith(expect.objectContaining({ athleteId: 1, rawScore: 192_000 }))
+  })
+
+  it('does not ask in a completed heat', async () => {
+    const onRowBlur = vi.fn()
+    mount({ workout: rr, onRowBlur, isComplete: true })
+    fireEvent.blur(within(rowOf('Ann Adams')).getByLabelText('Score reps'))
+    await new Promise((r) => setTimeout(r, 10))
+    expect(onRowBlur).not.toHaveBeenCalled()
   })
 })
