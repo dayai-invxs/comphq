@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, division, score, setting, workout, type Workout } from '@/db/schema'
-import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { displayScoreType, formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { DEFAULT_LEADERBOARD_VISIBILITY } from '@/lib/competitionDefaults'
 import { compareResults } from '@/lib/scoring'
 import { skippedPlaces } from '@/lib/skippedPlace'
@@ -64,6 +64,11 @@ export function rankStandings(input: {
   // Rank (lowest total wins) or points (highest wins): lib/pointsScale.ts.
   const pointsMode = higherWins(scoring)
 
+  // Rounds + reps scored with no rounds anywhere show as reps alone.
+  const shownType = new Map(visibleWorkouts.map((w) => [
+    w.id,
+    displayScoreType(w.scoreType, scores.filter((s) => s.workoutId === w.id && s.points != null).map((s) => s.rawScore)),
+  ]))
   const scoreMap = new Map<string, { points: number; rawScore: number; capped: boolean; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null; knockoutLabel: string | null }>()
   for (const s of scores) {
     if (s.points != null) {
@@ -72,7 +77,7 @@ export function rankStandings(input: {
         points: s.points,
         rawScore: s.rawScore,
         capped: s.capped,
-        scoreType: wo?.scoreType ?? '',
+        scoreType: shownType.get(s.workoutId) ?? wo?.scoreType ?? '',
         tiebreakRawScore: s.tiebreakRawScore ?? null,
         tiebreakEnabled: wo?.tiebreakEnabled ?? false,
         tiebreakScoreType: wo?.tiebreakScoreType ?? 'time',

@@ -1,6 +1,6 @@
 import { Card, CardBody, CardHeader, DataTable, Heading, Inline, Stack, Text, cx } from '@mond-design-system/react'
 import type { DataColumn } from '@mond-design-system/react'
-import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { displayScoreType, formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { RANK_SCORING, higherWins, workoutPoints, type Scoring } from '@/lib/pointsScale'
 import type { Score, Workout } from '../../useWorkoutDetail'
 import styles from './WorkoutLeaderboard.module.css'
@@ -50,6 +50,9 @@ export function WorkoutLeaderboard({ workout, scoring = RANK_SCORING }: { workou
       ? points(b) - points(a) || placeTotal(a, workout.partBEnabled) - placeTotal(b, workout.partBEnabled)
       : placeTotal(a, workout.partBEnabled) - placeTotal(b, workout.partBEnabled))
   const groups = byDivision(ranked)
+  // Rounds + reps scored with no rounds anywhere show as reps alone.
+  const partAType = displayScoreType(workout.scoreType, workout.scores.map((s) => s.rawScore))
+  const partBType = displayScoreType(workout.partBScoreType, workout.scores.map((s) => s.partBRawScore))
 
   const tiebreak = (s: Score) =>
     s.tiebreakRawScore != null && (
@@ -73,7 +76,7 @@ export function WorkoutLeaderboard({ workout, scoring = RANK_SCORING }: { workou
       header: 'Score',
       cell: (s) => (
         <Inline gap="hairline" align="baseline" wrap>
-          <Text as="span" variant="meta" tone="muted">{formatScore(s.rawScore, workout.scoreType, s.capped)}</Text>
+          <Text as="span" variant="meta" tone="muted">{formatScore(s.rawScore, partAType, s.capped)}</Text>
           {tiebreak(s)}
         </Inline>
       ),
@@ -87,7 +90,7 @@ export function WorkoutLeaderboard({ workout, scoring = RANK_SCORING }: { workou
       cell: (s) => (
         <Inline gap="hairline" align="baseline" wrap>
           <Text as="span" variant="label" tone={placingTone(s.points)}>#{s.points}</Text>
-          <Text as="span" variant="meta" tone="muted">{formatScore(s.rawScore, workout.scoreType, s.capped)}</Text>
+          <Text as="span" variant="meta" tone="muted">{formatScore(s.rawScore, partAType, s.capped)}</Text>
         </Inline>
       ),
     },
@@ -102,7 +105,7 @@ export function WorkoutLeaderboard({ workout, scoring = RANK_SCORING }: { workou
             <Text as="span" variant="label" tone={placingTone(s.partBPoints)}>#{s.partBPoints}</Text>
             {s.partBRawScore != null && (
               <Text as="span" variant="meta" tone="muted">
-                {formatScore(s.partBRawScore, workout.partBScoreType, s.partBCapped)}
+                {formatScore(s.partBRawScore, partBType, s.partBCapped)}
               </Text>
             )}
           </Inline>

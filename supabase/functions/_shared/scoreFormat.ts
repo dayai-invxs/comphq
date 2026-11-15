@@ -19,6 +19,19 @@ export function scoreToRoundsReps(score: number): { rounds: number; reps: number
   return { rounds: Math.floor(score / REPS_MULTIPLIER), reps: Math.round(score % REPS_MULTIPLIER) }
 }
 
+/**
+ * The type a workout's scores are shown as. A rounds + reps workout where no
+ * score has a single round was scored in reps alone, so its scores show as
+ * the rep count (143, not 0r + 143). One round entered anywhere and every
+ * score shows rounds again. Display only: ranking reads the raw score, which
+ * is the same either way.
+ */
+export function displayScoreType(scoreType: string, rawScores: Iterable<number | null | undefined>): string {
+  if (scoreType !== 'rounds_reps') return scoreType
+  for (const r of rawScores) if (r != null && r >= REPS_MULTIPLIER) return scoreType
+  return 'higher_is_better'
+}
+
 /** A capped score holds rounds and reps whatever the workout's score type. */
 export function formatScore(rawScore: number, scoreType: string, capped = false): string {
   if (capped) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  timeToMs, msToTimeParts, roundsRepsToScore, scoreToRoundsReps, formatScore, formatTiebreak,
+  timeToMs, msToTimeParts, roundsRepsToScore, scoreToRoundsReps, formatScore, formatTiebreak, displayScoreType,
 } from './scoreFormat'
 
 describe('timeToMs / msToTimeParts round-trip', () => {
@@ -47,5 +47,24 @@ describe('a capped score', () => {
 
   it('leaves an uncapped time as a time', () => {
     expect(formatScore(330000, 'time', false)).toBe('5:30.00')
+  })
+})
+
+// A rounds + reps workout scored with no rounds anywhere is a reps workout:
+// its scores show as the rep count. One round anywhere brings rounds back.
+describe('displayScoreType', () => {
+  it('shows reps alone when no score has a round', () => {
+    const type = displayScoreType('rounds_reps', [143, 98, null])
+    expect(type).toBe('higher_is_better')
+    expect(formatScore(143, type)).toBe('143')
+  })
+
+  it('keeps rounds once any score has one', () => {
+    expect(displayScoreType('rounds_reps', [143, roundsRepsToScore(1, 2)])).toBe('rounds_reps')
+  })
+
+  it('leaves every other score type alone', () => {
+    expect(displayScoreType('time', [143])).toBe('time')
+    expect(displayScoreType('weight', [143])).toBe('weight')
   })
 })

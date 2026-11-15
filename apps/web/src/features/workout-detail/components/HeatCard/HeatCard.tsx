@@ -19,7 +19,7 @@ import { Draggable, gsap } from '@/lib/gsap-client'
 import { resolveDestIndex } from '@/lib/heat-reorder'
 import { calcHeatStartMs, fmtHeatTime } from '@/lib/heatTime'
 import { getCorralMs, getWalkoutMs } from '@/lib/opsHeats'
-import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { displayScoreType, formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { laneKey, type useScoreInputs } from '../../useScoreInputs'
 import type { Assignment, Workout } from '../../useWorkoutDetail'
@@ -119,6 +119,8 @@ export function HeatCard({
   judges, judgesByLane, onJudgeChange, onPointsOverride, repeats, laneMember, onLaneMemberChange, knockout,
 }: Props) {
   const showJudges = judges != null && judges.length > 0
+  // Rounds + reps scored with no rounds anywhere show as reps alone.
+  const shownScoreType = displayScoreType(workout.scoreType, workout.scores.map((s) => s.rawScore))
   const [editingHeatTime, setEditingHeatTime] = useState(false)
   const [heatTimeInput, setHeatTimeInput] = useState('')
   const [savingHeatTime, setSavingHeatTime] = useState(false)
@@ -562,7 +564,7 @@ export function HeatCard({
                           )}
                         </Text>
                         {(score.rawScore > 0 || score.capped) && (
-                          <Text as="div" variant="meta" tone="muted">{formatScore(score.rawScore, workout.scoreType, score.capped)}</Text>
+                          <Text as="div" variant="meta" tone="muted">{formatScore(score.rawScore, shownScoreType, score.capped)}</Text>
                         )}
                         {score.tiebreakRawScore != null && (
                           <Text as="div" variant="meta" tone="accent">

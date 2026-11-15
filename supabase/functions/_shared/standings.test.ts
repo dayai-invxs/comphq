@@ -72,3 +72,23 @@ describe('hasResults', () => {
     expect(hasResults({ athleteId: 1, athleteName: 'A', divisionName: null, totalPoints: 0, workoutScores: { 1: null } })).toBe(false)
   })
 })
+
+// The board shows a rounds + reps workout nobody got a round in as reps.
+describe('rankStandings display of a reps-only workout', () => {
+  const athletes = [{ id: 1, name: 'Ada', divisionName: 'RX' }, { id: 2, name: 'Bea', divisionName: 'RX' }]
+  const rr = wo(20, { scoreType: 'rounds_reps' } as Partial<StandingsWorkout>)
+
+  it('shows the rep count when no score has a round', () => {
+    const { entries } = rankStandings({
+      visibleWorkouts: [rr], athletes, scores: [sc(1, 20, 1, 143), sc(2, 20, 2, 98)], scoring: rank, tiebreakWorkoutId: null,
+    })
+    expect(entries.map((e) => e.workoutScores[20]?.display)).toEqual(['143', '98'])
+  })
+
+  it('shows rounds and reps once anyone has a round', () => {
+    const { entries } = rankStandings({
+      visibleWorkouts: [rr], athletes, scores: [sc(1, 20, 1, 10_012), sc(2, 20, 2, 98)], scoring: rank, tiebreakWorkoutId: null,
+    })
+    expect(entries.map((e) => e.workoutScores[20]?.display)).toEqual(['1r + 12', '0r + 98'])
+  })
+})

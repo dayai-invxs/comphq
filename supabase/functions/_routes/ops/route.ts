@@ -5,7 +5,7 @@ import { athlete, division, heatAssignment, score, setting, teamMember, workout,
 import { resolveCompetition } from '@/lib/competition'
 import { calcHeatStartMs } from '@/lib/heatTime'
 import { getCompletedHeatsByWorkout } from '@/lib/heatCompletion'
-import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
+import { displayScoreType, formatScore, formatTiebreak } from '@/lib/scoreFormat'
 import { isUnannounced, TBA } from '@/lib/unannounced'
 
 export async function GET(req: Request) {
@@ -93,12 +93,20 @@ export async function GET(req: Request) {
   // A team shows its members under its name; an individual has none.
   const members = await memberNamesByAthlete([...new Set(assignmentRows.map((a) => a.athleteId))])
 
+  // Rounds + reps scored with no rounds anywhere show as reps alone.
+  const shownType = new Map(workouts.map((w) => [
+    w.id,
+    displayScoreType(w.scoreType, w.knockout
+      ? assignmentRows.filter((a) => a.workoutId === w.id).map((a) => a.laneRawScore)
+      : scoreRows.filter((s) => s.workoutId === w.id).map((s) => s.rawScore)),
+  ]))
+
   const scoreMap = new Map<string, string>()
   const tiebreakMap = new Map<string, string>()
   for (const s of scoreRows) {
     const w = workouts.find((x) => x.id === s.workoutId)
     if (w) {
-      scoreMap.set(`${s.athleteId}-${s.workoutId}`, formatScore(s.rawScore, w.scoreType, s.capped))
+      scoreMap.set(`${s.athleteId}-${s.workoutId}`, formatScore(s.rawScore, shownType.get(w.id) ?? w.scoreType, s.capped))
       if (w.tiebreakEnabled && s.tiebreakRawScore != null) {
         const tbDisplay = w.tiebreakScoreType === 'time'
           ? formatTiebreak(s.tiebreakRawScore)
@@ -141,7 +149,7 @@ export async function GET(req: Request) {
           ...(wk.knockout && a.consolation ? { consolation: true } : {}),
           // A knockout heat shows that round's result, not the final placing.
           scoreDisplay: wk.knockout
-            ? (a.laneRawScore != null ? formatScore(a.laneRawScore, wk.scoreType, a.laneCapped) : null)
+            ? (a.laneRawScore != null ? formatScore(a.laneRawScore, shownType.get(wk.id) ?? wk.scoreType, a.laneCapped) : null)
             : scoreMap.get(`${a.athleteId}-${wk.id}`) ?? null,
           tiebreakDisplay: tiebreakMap.get(`${a.athleteId}-${wk.id}`) ?? null,
         }))

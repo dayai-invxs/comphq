@@ -18,7 +18,7 @@
 // divisions do: each keeps its own block of lanes and is judged only against
 // its own.
 
-import { formatScore } from '@/lib/scoreFormat'
+import { displayScoreType, formatScore } from '@/lib/scoreFormat'
 
 export type KnockoutWorkout = {
   scoreType: string
@@ -287,25 +287,27 @@ export function placings(allLanes: KnockoutLane[], wk: KnockoutWorkout): Placing
     || byConsolation(a, b)
     || compareLanes(a, b, wk)
 
+  // Rounds + reps scored with no rounds anywhere show as reps alone.
+  const shownType = displayScoreType(wk.scoreType, allLanes.map((l) => l.rawScore))
   const out: Placing[] = []
   for (const [divisionId, lanes] of byDivision) {
     const sorted = [...lanes].sort(order)
     sorted.forEach((lane, i) => {
       const tied = i > 0 && order(sorted[i - 1], lane) === 0
       const points = tied ? out[out.length - 1].points : i + 1
-      out.push({ athleteId: lane.athleteId, divisionId, points, lane, label: placingLabel(lane, finalRound, wk, consolation(lane)) })
+      out.push({ athleteId: lane.athleteId, divisionId, points, lane, label: placingLabel(lane, finalRound, shownType, consolation(lane)) })
     })
   }
   return out
 }
 
-function placingLabel(lane: KnockoutLane, finalRound: number, wk: KnockoutWorkout, consolation?: KnockoutLane): string {
+function placingLabel(lane: KnockoutLane, finalRound: number, scoreType: string, consolation?: KnockoutLane): string {
   const stage = roundOf(lane) >= finalRound ? 'Final' : `Out in Round ${roundOf(lane)}`
   // After a consolation race, its result is the one that placed them.
   if (consolation?.rawScore != null) {
-    return `${stage} · Consolation ${formatScore(consolation.rawScore, wk.scoreType, consolation.capped)}`
+    return `${stage} · Consolation ${formatScore(consolation.rawScore, scoreType, consolation.capped)}`
   }
-  return lane.rawScore == null ? stage : `${stage} · ${formatScore(lane.rawScore, wk.scoreType, lane.capped)}`
+  return lane.rawScore == null ? stage : `${stage} · ${formatScore(lane.rawScore, scoreType, lane.capped)}`
 }
 
 /**
