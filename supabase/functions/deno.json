@@ -37,6 +37,7 @@
     "@/lib/scoring": "./_shared/scoring.ts",
     "@/lib/scoringSettings": "./_shared/scoringSettings.ts",
     "@/lib/skippedPlace": "./_shared/skippedPlace.ts",
+    "@/lib/standings": "./_shared/standings.ts",
     "@/lib/supabase-server": "./_shared/supabase-server.ts",
     "@/lib/supabase": "./_shared/supabase.ts",
     "@/lib/teamMembers": "./_shared/teamMembers.ts",

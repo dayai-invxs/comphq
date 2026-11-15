@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { drizzleMock as mock } from '@/test/setup'
-import { calculateRankings, calcCumulativePoints, assignHeats, lowerIsBetter, rankAndPersist, type AthleteWithScore } from './scoring'
+import { calculateRankings, assignHeats, lowerIsBetter, rankAndPersist, type AthleteWithScore } from './scoring'
 
 describe('lowerIsBetter', () => {
   it('is true for time and lower_is_better', () => {
@@ -70,43 +70,6 @@ describe('calculateRankings', () => {
     )
     expect(ranked[0].athleteId).toBe(2)
     expect(ranked[1].athleteId).toBe(1)
-  })
-})
-
-describe('calcCumulativePoints', () => {
-  it('sums points only for completed workouts', () => {
-    const athletes: AthleteWithScore[] = [
-      {
-        id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null, withdrawn: false, externalId: null, gender: null,
-        scores: [
-          { id: 1, athleteId: 1, workoutId: 10, rawScore: 0, tiebreakRawScore: null, points: 3, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null },
-          { id: 2, athleteId: 1, workoutId: 11, rawScore: 0, tiebreakRawScore: null, points: 5, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null },
-          { id: 3, athleteId: 1, workoutId: 99, rawScore: 0, tiebreakRawScore: null, points: 100, partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null },
-        ],
-      },
-    ]
-    const totals = calcCumulativePoints(athletes, [10, 11])
-    expect(totals.get(1)).toBe(8)
-  })
-
-  // A highest-score competition seeds on points: it passes minus what each
-  // place is worth, so the athlete with more points sorts first.
-  it('counts each place through seedValue when given one', () => {
-    const score = (workoutId: number, points: number) => ({
-      id: workoutId, athleteId: 1, workoutId, rawScore: 0, tiebreakRawScore: null, points,
-      partBRawScore: null, partBPoints: null, capped: false, partBCapped: false, knockoutLabel: null,
-    })
-    const athletes = [{
-      id: 1, competitionId: 1, name: 'A', bibNumber: null, divisionId: null, userId: null, withdrawn: false, externalId: null, gender: null,
-      scores: [score(10, 1), score(11, 3)],
-    }] as AthleteWithScore[]
-    const seen: Array<[number, number]> = []
-    const totals = calcCumulativePoints(athletes, [10, 11], (place, workoutId) => {
-      seen.push([place, workoutId])
-      return -(110 - place * 10)
-    })
-    expect(seen).toEqual([[1, 10], [3, 11]])
-    expect(totals.get(1)).toBe(-(100 + 80))
   })
 })
 

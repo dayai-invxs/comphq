@@ -3,13 +3,10 @@ import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, score, setting, workout } from '@/db/schema'
 import { resolveCompetition } from '@/lib/competition'
-import { formatScore, formatTiebreak } from '@/lib/scoreFormat'
-import { DEFAULT_LEADERBOARD_VISIBILITY, tvSecondsPerScreen } from '@/lib/competitionDefaults'
-import { compareResults } from '@/lib/scoring'
-import { skippedPlaces } from '@/lib/skippedPlace'
+import { tvSecondsPerScreen } from '@/lib/competitionDefaults'
 import { workoutWeight } from '@/lib/workoutWeight'
-import { compareTotals, higherWins, workoutPoints } from '@/lib/pointsScale'
 import { loadScoring } from '@/lib/scoringSettings'
+import { rankStandings, visibleWorkoutsOf } from '@/lib/standings'
 
 type AthleteRow = {
   id: number
@@ -53,11 +50,7 @@ export async function GET(req: Request) {
 
   const athletes: AthleteRow[] = athletesRaw
   // per_heat (live) shows scores as heats complete; per_workout hides them until the whole workout is done
-  const liveLeaderboard = (leaderboardVisibilityValue ?? DEFAULT_LEADERBOARD_VISIBILITY) !== 'per_workout'
-  const visibleWorkouts = workouts.filter((w) => liveLeaderboard
-    ? w.status === 'active' || w.status === 'completed'
-    : w.status === 'completed'
-  )
+  const visibleWorkouts = visibleWorkoutsOf(workouts, leaderboardVisibilityValue)
 
   const tiebreakWorkoutId = tiebreakSettingValue ? Number(tiebreakSettingValue) : null
 
@@ -81,141 +74,18 @@ export async function GET(req: Request) {
   // A team shows its members under its name; an individual has none.
   const members = await memberNamesByAthlete(athletes.map((a) => a.id))
 
-  // Rank (lowest total wins) or points (highest wins): lib/pointsScale.ts.
+  // Totals and tie-breaking live in lib/standings.ts, which seeding reads too.
   const scoring = await loadScoring(competition.id)
-  const pointsMode = higherWins(scoring)
-
-  const scoreMap = new Map<string, { points: number; rawScore: number; capped: boolean; scoreType: string; tiebreakRawScore: number | null; tiebreakEnabled: boolean; tiebreakScoreType: string; partBPoints: number | null; knockoutLabel: string | null }>()
-  for (const s of scores) {
-    if (s.points != null) {
-      const wo = visibleWorkouts.find((w) => w.id === s.workoutId)
-      scoreMap.set(`${s.athleteId}-${s.workoutId}`, {
-        points: s.points,
-        rawScore: s.rawScore,
-        capped: s.capped,
-        scoreType: wo?.scoreType ?? '',
-        tiebreakRawScore: s.tiebreakRawScore ?? null,
-        tiebreakEnabled: wo?.tiebreakEnabled ?? false,
-        tiebreakScoreType: wo?.tiebreakScoreType ?? 'time',
-        partBPoints: s.partBPoints ?? null,
-        knockoutLabel: s.knockoutLabel ?? null,
-      })
-    }
-  }
-
-  // A finished workout an athlete has no score in ranks them last in it
-  // (lib/skippedPlace.ts), Part B the same.
-  const divisionsOf = athletes.map((a) => ({ id: a.id, division: a.divisionName }))
-  const skippedA = skippedPlaces(visibleWorkouts, divisionsOf, (a, w) => scoreMap.get(`${a}-${w}`)?.points)
-  const skippedB = skippedPlaces(visibleWorkouts, divisionsOf, (a, w) => scoreMap.get(`${a}-${w}`)?.partBPoints)
-
-  type WorkoutScore = {
-    /** The PLACE (Part A). Highest-score boards turn it into `awarded`. */
-    points: number; rawScore: number; display: string; tiebreakDisplay: string | null; partBPoints: number | null
-    /** No score in a finished workout: placed last, not ranked by a result. */
-    skipped?: true
-    /** Highest-score boards only: the points this result is worth, Part B
-        included, before half/double weight. */
-    awarded?: number
-  }
-  const awarded = (wo: (typeof visibleWorkouts)[number], place: number, partB: number | null) =>
-    workoutPoints(place, wo.partBEnabled ? partB : null, scoring, wo.pointsStep)
-
-  const entries = athletes.map((a) => {
-    let totalPoints = 0
-    const workoutScores: Record<number, WorkoutScore | null> = {}
-    for (const wo of visibleWorkouts) {
-      const entry = scoreMap.get(`${a.id}-${wo.id}`)
-      const skipped = entry ? null : skippedA(a.id, wo.id)
-      if (skipped != null) {
-        const partB = wo.partBEnabled ? skippedB(a.id, wo.id) : null
-        const pts = awarded(wo, skipped, partB)
-        totalPoints += pts * workoutWeight(wo)
-        workoutScores[wo.id] = {
-          points: skipped, rawScore: 0, display: 'No score', tiebreakDisplay: null, partBPoints: partB, skipped: true,
-          ...(pointsMode ? { awarded: pts } : {}),
-        }
-      } else if (entry) {
-        // When partBEnabled, both Part A and Part B points count toward total
-        const pts = awarded(wo, entry.points, entry.partBPoints)
-        totalPoints += pts * workoutWeight(wo)
-        const tiebreakDisplay = !wo.partBEnabled && entry.tiebreakEnabled && entry.tiebreakRawScore != null
-          ? (entry.tiebreakScoreType === 'time' ? formatTiebreak(entry.tiebreakRawScore) : formatScore(entry.tiebreakRawScore, entry.tiebreakScoreType))
-          : null
-        workoutScores[wo.id] = {
-          points: entry.points, rawScore: entry.rawScore, display: entry.knockoutLabel ?? formatScore(entry.rawScore, entry.scoreType, entry.capped), tiebreakDisplay, partBPoints: entry.partBPoints,
-          ...(pointsMode ? { awarded: pts } : {}),
-        }
-      } else {
-        workoutScores[wo.id] = null
-      }
-    }
-    return { athleteId: a.id, athleteName: a.name, members: members.get(a.id) ?? [], divisionName: a.divisionName ?? null, totalPoints, workoutScores }
-  })
-
-  // A finished knockout flagged as deciding the competition: its placings are
-  // the standings. Everyone it placed takes their placing as their total and
-  // ranks on that alone; anyone it did not place follows, ranked as before.
-  // Placings are per division, and so is every table that reads this. On a
-  // highest-score board the total stays the points earned (a placing of 1
-  // shown as a total would read as last); the order still follows the placing.
-  const deciding = [...visibleWorkouts].reverse()
-    .find((w) => w.knockout && w.knockoutDecides && w.status === 'completed') ?? null
-  const decidingWorkoutId = deciding?.id ?? null
-  if (deciding && !pointsMode) {
-    for (const e of entries) {
-      const placed = e.workoutScores[deciding.id]
-      if (placed && !placed.skipped) e.totalPoints = placed.points
-    }
-  }
-
-  const tiebreakWorkout = tiebreakWorkoutId
-    ? visibleWorkouts.find((w) => w.id === tiebreakWorkoutId)
-    : undefined
-
-  entries.sort((a, b) => {
-    if (decidingWorkoutId != null) {
-      // Someone the knockout did not place follows, skipped or not.
-      const placing = (ws: WorkoutScore | null | undefined) => (ws && !ws.skipped ? ws.points : null)
-      const aPlace = placing(a.workoutScores[decidingWorkoutId])
-      const bPlace = placing(b.workoutScores[decidingWorkoutId])
-      if (aPlace != null && bPlace == null) return -1
-      if (aPlace == null && bPlace != null) return 1
-      if (aPlace != null && bPlace != null) return aPlace - bPlace || a.athleteName.localeCompare(b.athleteName)
-    }
-    const aHas = Object.values(a.workoutScores).some((v) => v !== null)
-    const bHas = Object.values(b.workoutScores).some((v) => v !== null)
-    if (aHas && !bHas) return -1
-    if (!aHas && bHas) return 1
-    if (a.totalPoints !== b.totalPoints) return compareTotals(a.totalPoints, b.totalPoints, scoring)
-    // Tied on total points: compare rank distributions — athlete with more 1st places wins,
-    // then more 2nd places, etc.
-    const ranksPresent = [...new Set([
-      ...Object.values(a.workoutScores).filter(Boolean).map((s) => s!.points),
-      ...Object.values(b.workoutScores).filter(Boolean).map((s) => s!.points),
-    ])].sort((x, y) => x - y)
-    for (const rank of ranksPresent) {
-      const aCount = Object.values(a.workoutScores).filter((s) => s?.points === rank).length
-      const bCount = Object.values(b.workoutScores).filter((s) => s?.points === rank).length
-      if (aCount !== bCount) return bCount - aCount // more of a better rank wins
-    }
-    // Still tied: the better result in the designated tiebreaker workout. Read
-    // from the scores themselves, not the cells: a capped score holds rounds
-    // and reps rather than a time, so it has to lose to any finish rather than
-    // be compared by value, and a "No score" cell carries a stand-in 0 that
-    // would otherwise beat every real time.
-    if (tiebreakWorkout) {
-      const aScore = scoreMap.get(`${a.athleteId}-${tiebreakWorkout.id}`)
-      const bScore = scoreMap.get(`${b.athleteId}-${tiebreakWorkout.id}`)
-      if (aScore && !bScore) return -1
-      if (!aScore && bScore) return 1
-      if (aScore && bScore) {
-        const better = compareResults(aScore.rawScore, aScore.capped, bScore.rawScore, bScore.capped, tiebreakWorkout.scoreType)
-        if (better !== 0) return better
-      }
-    }
-    return a.athleteName.localeCompare(b.athleteName)
-  })
+  const ranked = rankStandings({ visibleWorkouts, athletes, scores, scoring, tiebreakWorkoutId })
+  const { decidingWorkoutId } = ranked
+  const entries = ranked.entries.map((e) => ({
+    athleteId: e.athleteId,
+    athleteName: e.athleteName,
+    members: members.get(e.athleteId) ?? [],
+    divisionName: e.divisionName,
+    totalPoints: e.totalPoints,
+    workoutScores: e.workoutScores,
+  }))
 
   let tvLeaderboardPercentages: Record<string, number> = {}
   try { tvLeaderboardPercentages = JSON.parse(tvLeaderboardPercentagesRaw ?? '{}') } catch { /* ignore */ }

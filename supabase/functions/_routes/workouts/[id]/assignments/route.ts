@@ -2,10 +2,8 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberNamesByAthlete } from '@/lib/teamMembers'
 import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, teamMember, workout } from '@/db/schema'
-import { assignHeats, calcCumulativePoints } from '@/lib/scoring'
-import { loadSeedValue } from '@/lib/scoringSettings'
-import type { AthleteWithScore } from '@/lib/scoring'
-import { score as scoreTable } from '@/db/schema'
+import { assignHeats } from '@/lib/scoring'
+import { bySeed, loadSeedOrder } from '@/lib/standings'
 import { authErrorResponse, requireCompetitionAccess, requireCompetitionAdmin, requireWorkoutInCompetition } from '@/lib/auth-competition'
 import { parseJson } from '@/lib/parseJson'
 import { AssignmentRegen, LaneMemberSet } from '@/lib/schemas'
@@ -87,33 +85,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!parsed.ok) return parsed.response
     const useCumulative = parsed.data.useCumulative === true
 
-    // The athletes to place, each with every score they have in this
-    // competition (seeding can read earlier workouts). A withdrawn athlete is
-    // left out: regenerating heats after a withdrawal used to give them a lane
-    // again.
-    const athleteRows = (await db
+    // The athletes to place. A withdrawn athlete is left out: regenerating
+    // heats after a withdrawal used to give them a lane again.
+    const athletes = (await db
       .select()
       .from(athlete)
       .where(eq(athlete.competitionId, competition.id)))
       .filter((a) => !a.withdrawn)
-    // Only these athletes' scores. This used to read the whole Score table,
-    // every competition's, on every generation.
-    const athleteScores = athleteRows.length > 0
-      ? await db
-          .select()
-          .from(scoreTable)
-          .where(inArray(scoreTable.athleteId, athleteRows.map((a) => a.id)))
-      : []
-    const scoresByAthlete = new Map<number, typeof athleteScores>()
-    for (const s of athleteScores) {
-      const arr = scoresByAthlete.get(s.athleteId) ?? []
-      arr.push(s)
-      scoresByAthlete.set(s.athleteId, arr)
-    }
-    const athletes: AthleteWithScore[] = athleteRows.map((a) => ({
-      ...a,
-      scores: (scoresByAthlete.get(a.id) ?? []).map((s) => ({ ...s })),
-    })) as unknown as AthleteWithScore[]
 
     const divisions = await db
       .select({ id: division.id, order: division.order })
@@ -121,13 +99,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .where(eq(division.competitionId, competition.id))
     const divisionOrder = new Map(divisions.map((d) => [d.id, d.order]))
 
+    // Seeded by the leaderboard as it stands, ties broken the way the board
+    // breaks them (lib/standings.ts); anyone not on it yet in registration
+    // order. Every athlete gets a distinct position.
     let cumulativePoints: Map<number, number> | undefined
     if (useCumulative) {
-      const completed = await db
-        .select({ id: workout.id })
-        .from(workout)
-        .where(sql`${workout.competitionId} = ${competition.id} AND ${workout.status} = 'completed'`)
-      cumulativePoints = calcCumulativePoints(athletes, completed.map((w) => w.id), await loadSeedValue(competition.id))
+      const seeded = [...athletes].sort(bySeed(await loadSeedOrder(competition.id)))
+      cumulativePoints = new Map(seeded.map((a, i) => [a.id, i]))
     }
 
     const newAssignments = assignHeats(athletes, wk.lanes, {

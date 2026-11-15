@@ -1,8 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { athlete, division, heatAssignment, heatCompletion, judgeAssignment, score, workout } from '@/db/schema'
-import { calcCumulativePoints, type AthleteWithScore } from '@/lib/scoring'
-import { loadSeedValue } from '@/lib/scoringSettings'
+import { bySeed, loadSeedOrder } from '@/lib/standings'
 import {
   advancers, buildRound, currentRound, isConsolation, placings, roundOf,
   type KnockoutLane, type KnockoutWorkout,
@@ -44,9 +43,10 @@ export async function loadLanes(workoutId: number): Promise<KnockoutLane[]> {
 }
 
 /**
- * Round 1: everyone not withdrawn, each division seeded by the overall
- * leaderboard (completed workouts' places, best first), registration order
- * where nothing separates them. Replaces any heats the workout had.
+ * Round 1: everyone not withdrawn, each division seeded in its leaderboard
+ * order, ties broken exactly as the board breaks them (lib/standings.ts).
+ * Anyone with nothing on the board yet follows in registration order.
+ * Replaces any heats the workout had.
  */
 export async function startTournament(wk: KnockoutWorkoutRow): Promise<number> {
   const athletes = await db.select().from(athlete)
@@ -54,27 +54,13 @@ export async function startTournament(wk: KnockoutWorkoutRow): Promise<number> {
     .orderBy(asc(athlete.id))
   if (athletes.length === 0) throw new KnockoutRefusal('There are no athletes/teams to place.')
 
-  const completed = await db.select({ id: workout.id }).from(workout)
-    .where(and(eq(workout.competitionId, wk.competitionId), eq(workout.status, 'completed')))
-  const completedIds = completed.map((w) => w.id)
-  const scores = completedIds.length
-    ? await db.select().from(score).where(inArray(score.workoutId, completedIds))
-    : []
-  const scoresOf = new Map<number, typeof scores>()
-  for (const s of scores) scoresOf.set(s.athleteId, [...(scoresOf.get(s.athleteId) ?? []), s])
-  const points = calcCumulativePoints(
-    athletes.map((a) => ({ ...a, scores: scoresOf.get(a.id) ?? [] })) as unknown as AthleteWithScore[],
-    completedIds,
-    await loadSeedValue(wk.competitionId),
-  )
-  const ranked = (id: number) => (scoresOf.has(id) ? points.get(id) ?? Infinity : Infinity)
-
+  const seedOrder = bySeed(await loadSeedOrder(wk.competitionId))
   const order = await divisionOrder(wk.competitionId)
   const byDivision = new Map<number | null, typeof athletes>()
   for (const a of athletes) byDivision.set(a.divisionId, [...(byDivision.get(a.divisionId) ?? []), a])
   const divisions = [...byDivision]
     .sort(([a], [b]) => order(a) - order(b))
-    .map(([, list]) => ({ seeded: [...list].sort((a, b) => ranked(a.id) - ranked(b.id) || a.id - b.id).map((a) => a.id) }))
+    .map(([, list]) => ({ seeded: [...list].sort(seedOrder).map((a) => a.id) }))
 
   const placed = buildRound(divisions, wk.lanes, 1, 1)
   await db.transaction(async (tx) => {

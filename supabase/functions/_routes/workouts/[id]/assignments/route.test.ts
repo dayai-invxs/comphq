@@ -50,17 +50,15 @@ describe('POST /api/workouts/[id]/assignments', () => {
     // Query order:
     //   1. requireWorkoutInCompetition
     //   2. athletes
-    //   3. those athletes' scores (grouped by athlete)
-    //   4. divisions
-    //   5. (if useCumulative) completed workouts — skipped with useCumulative=false
-    //   6. RPC via db.execute
-    //   7. fetchAssignmentsWithEmbeds (final select)
+    //   3. divisions
+    //   4. (if useCumulative) the leaderboard's order — skipped with useCumulative=false
+    //   5. RPC via db.execute
+    //   6. fetchAssignmentsWithEmbeds (final select)
     mock.queueResult([{ id: 1, lanes: 2, mixedHeats: true }])
     mock.queueResult([
       { id: 10, competitionId: 1, divisionId: null, name: 'Alice', bibNumber: null, userId: null, withdrawn: false },
       { id: 11, competitionId: 1, divisionId: null, name: 'Bob', bibNumber: null, userId: null, withdrawn: false },
     ])
-    mock.queueResult([]) // those athletes' scores
     mock.queueResult([]) // divisions
     mock.queueResult(undefined) // RPC execute
     mock.queueResult([
@@ -86,7 +84,6 @@ describe('POST /api/workouts/[id]/assignments', () => {
       { id: 10, competitionId: 1, divisionId: null, name: 'Alice', bibNumber: null, userId: null, withdrawn: false },
       { id: 11, competitionId: 1, divisionId: null, name: 'Bob', bibNumber: null, userId: null, withdrawn: true },
     ])
-    mock.queueResult([]) // scores
     mock.queueResult([]) // divisions
     mock.queueResult(undefined) // RPC execute
     mock.queueResult([])
